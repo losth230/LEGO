@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.4 — cadrage figé (v1.0, 2026-11-05) ; phase 0.5 terminée (qualification des sources + [référentiel JSON initial](data/referentiel.json) v1.0) ; monnaie du jeu arbitrée : **le LEGO (L)**. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
+> **Statut :** v1.5 — cadrage figé (v1.0, 2026-11-05) ; phase 0.5 terminée ; **phase 1 (MVP) poussée (2026-11-05)** : moteur économique en circuit court, éditeur du monde, journal, référentiels — site : https://losth230.github.io/LEGO/ (déploiement GitHub Pages en cours) ; monnaie du jeu : **le LEGO (L)**. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
@@ -157,7 +157,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 |---|---|---|---|
 | **0 — Cadrage** | Ce document + arbitrage des questions ouvertes | Toutes les questions §9 tranchées, v1.0 figée | ✅ Fait (2026-11-05) |
 | **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles (Marseille) | Référentiel JSON initial avec chaque valeur + sa source | ✅ Fait (2026-11-05) — référentiel v1.0 poussé : [data/referentiel.json](data/referentiel.json) |
-| **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible | |
+| **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible | ✅ Fait (2026-11-05) — MVP poussé (commit `f07cd7ab`) : ville par défaut « Bricke-en-Provence » (45 PNJ / 10 bâtiments), 10 tests moteur PASS, conservation de la monnaie vérifiée sur 30 jours ; site : https://losth230.github.io/LEGO/ |
 | **2 — Services** | Police, pompiers, incidents probabilistes (K = 1 000), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | |
 | **3 — Budget approfondi** | Investissement, dette, sinistres majeurs, arbitrages de taux d'imposition, objectifs optionnels | Un déficit force une décision visible : augmenter l'impôt, couper un service, ou emprunter | |
 | **4 — Modules** | Tour des héros/menaces, export & partage, multijoueur | Selon arbitrage | |
@@ -182,6 +182,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | 2026-11-05 | **Principe directeur : le réalisme est le point de départ, l'amusement arbitre** — en cas de doute, trancher en faveur du fun |
 | 2026-11-05 | **Référentiel v1.0 poussé** : valeurs réelles extraites avec sources ; impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP — dépenses de fonctionnement Marseille 1 455 €/hab./an, à affiner), consommation ≈ 52,5 €/PNJ/jour (INSEE), K = 1 000 confirmé |
 | 2026-11-05 | **Monnaie du jeu : le LEGO (L)** — tous les montants s'affichent en L (1 L = 1 €) ; le référentiel reste en euros réels issus des sources |
+| 2026-11-05 | **MVP phase 1 poussé** (commit `f07cd7ab`) : React + TypeScript + Vite, moteur économique en circuit court (impôt quotidien, salaires publics, fonctionnement, achats chez les commerçants), éditeur du monde, journal, référentiels, sauvegarde localStorage + export/import — 10 tests moteur PASS (conservation exacte de la monnaie en centimes entiers sur 30 jours) |
 
 ### Questions ouvertes
 
