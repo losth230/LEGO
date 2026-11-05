@@ -1,0 +1,390 @@
+/* Ville LEGO — thème briques sombre, jaune LEGO en accent. */
+
+:root {
+  --fond: #17181c;
+  --fond-carte: #212228;
+  --fond-clair: #2b2c34;
+  --bord: #3a3b44;
+  --texte: #e8e6df;
+  --mute: #9a9a92;
+  --jaune: #ffd400;
+  --rouge: #e03131;
+  --bleu: #4dabf7;
+  --vert: #51cf6e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+}
+
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0;
+}
+h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--jaune);
+  display: inline-block;
+}
+h3 {
+  font-size: 15px;
+  margin: 18px 0 8px;
+}
+
+.mute {
+  color: var(--mute);
+  font-size: 13px;
+}
+.note {
+  font-size: 12px;
+}
+.positif {
+  color: var(--vert);
+}
+.negatif {
+  color: var(--rouge);
+}
+
+/* ---------- barre de ville ---------- */
+
+.barre-ville {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  background: var(--fond-carte);
+  border: 1px solid var(--bord);
+  border-top: 4px solid var(--jaune);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+.barre-titre {
+  flex: 1 1 200px;
+}
+.barre-budget .grand-nombre,
+.grand-nombre {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 2px 0;
+}
+.bouton-jour {
+  background: var(--jaune) !important;
+  color: #1b1b1b !important;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 12px 22px !important;
+}
+.bouton-jour:hover {
+  filter: brightness(1.08);
+}
+.barre-outils {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.bouton-import {
+  position: relative;
+  overflow: hidden;
+}
+.bouton-import input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---------- onglets ---------- */
+
+.onglets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.onglet {
+  background: var(--fond-carte);
+  color: var(--texte);
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.onglet.actif {
+  background: var(--fond-clair);
+  border-color: var(--jaune);
+}
+
+/* ---------- cartes & tableaux ---------- */
+
+.carte {
+  background: var(--fond-carte);
+  border: 1px solid var(--bord);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.grille-cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.carte-large {
+  grid-column: 1 / -1;
+}
+.grille-editeur {
+  display: grid;
+  gap: 14px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+}
+th,
+td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--bord);
+  vertical-align: top;
+}
+th {
+  color: var(--mute);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+tr:hover td {
+  background: #ffffff08;
+}
+.col-nombre {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rangée-active td {
+  background: #ffd40012;
+}
+
+/* ---------- badges ---------- */
+
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--bord);
+  background: var(--fond-clair);
+  white-space: nowrap;
+}
+.badge-agent {
+  border-color: var(--bleu);
+  color: var(--bleu);
+}
+.badge-commerce {
+  border-color: var(--jaune);
+  color: var(--jaune);
+}
+.badge-prive {
+  color: var(--mute);
+}
+.badge-habitation {
+  border-color: var(--vert);
+  color: var(--vert);
+}
+.badge-impots {
+  border-color: var(--jaune);
+  color: var(--jaune);
+}
+.badge-salaires {
+  border-color: var(--bleu);
+  color: var(--bleu);
+}
+.badge-fonctionnement {
+  color: var(--rouge);
+  border-color: var(--rouge);
+}
+.badge-achats {
+  border-color: var(--vert);
+  color: var(--vert);
+}
+.badge-solde {
+  color: var(--texte);
+}
+.badge-systeme {
+  color: var(--mute);
+}
+.badge-proxy {
+  background: var(--rouge);
+  border-color: var(--rouge);
+  color: #fff;
+  margin-left: 6px;
+}
+
+/* ---------- journal ---------- */
+
+.journal-jour h3 {
+  color: var(--jaune);
+  margin-bottom: 4px;
+}
+.journal-ligne {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 0;
+  list-style: none;
+}
+.journal-texte {
+  flex: 1;
+}
+.journal-montant {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.journal-ligne ul {
+  padding: 0;
+  margin: 0;
+}
+
+/* ---------- fiche PNJ ---------- */
+
+.fiche-pnj td {
+  background: #ffffff06;
+}
+.fiche-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 4px 0;
+}
+.comptes strong {
+  color: var(--jaune);
+}
+
+/* ---------- formulaires ---------- */
+
+.input {
+  background: var(--fond);
+  color: var(--texte);
+  border: 1px solid var(--bord);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 14px;
+  width: 100%;
+}
+.input:focus {
+  outline: 2px solid var(--jaune);
+  outline-offset: -1px;
+}
+select.input {
+  cursor: pointer;
+}
+.recherche {
+  max-width: 320px;
+  margin-bottom: 10px;
+}
+.formulaire {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--mute);
+  min-width: 130px;
+}
+.bouton {
+  background: var(--fond-clair);
+  color: var(--texte);
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.bouton:hover {
+  border-color: var(--jaune);
+}
+.bouton-mini {
+  background: transparent;
+  color: var(--texte);
+  border: 1px solid var(--bord);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-block;
+}
+.bouton-mini:hover {
+  border-color: var(--jaune);
+}
+.bouton-supprimer:hover {
+  border-color: var(--rouge);
+  color: var(--rouge);
+}
+
+/* ---------- éditeur ---------- */
+
+.ligne-edit {
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+.ligne-edit-tete {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ligne-edit .formulaire {
+  margin-top: 10px;
+}
+
+/* ---------- erreur ---------- */
+
+.err-boundary pre {
+  background: var(--fond);
+  padding: 10px;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+footer {
+  text-align: center;
+  padding: 18px 0 6px;
+}
+
+@media (max-width: 640px) {
+  .barre-ville {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bouton-jour {
+    width: 100%;
+  }
+}

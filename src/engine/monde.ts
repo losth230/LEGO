@@ -1,0 +1,200 @@
+// Monde par défaut et mutateurs d'édition (phase 1 — MVP).
+// Monnaie en centimes ; budget d'achat par défaut = consommation de référence
+// (INSEE) pour un revenu médian ; comptes initiaux réalistes et modifiables.
+
+import type { Batiment, Etat, Pnj } from "./types.ts";
+import {
+  ACHAT_REFERENCE_L,
+  TAUX_IMPOT_DEFAUT_BP,
+} from "./referentiel.ts";
+
+const REF_ACHAT = Math.round(ACHAT_REFERENCE_L * 100); // 5250 centimes = 52,50 L
+
+let compteur = 0;
+function nouvelId(prefixe: string): string {
+  compteur += 1;
+  return prefixe + "-" + String(compteur).padStart(3, "0");
+}
+
+export function nouveauPnj(p: Partial<Pnj> & { prenom: string; nom: string }): Pnj {
+  const revenu = p.revenuIndicatif ?? REF_ACHAT;
+  return {
+    id: p.id ?? nouvelId("pnj"),
+    prenom: p.prenom,
+    nom: p.nom,
+    age: p.age ?? 40,
+    genre: p.genre ?? "F",
+    metier: p.metier ?? "sans profession",
+    statut: p.statut ?? "prive",
+    grade: p.grade,
+    batimentId: p.batimentId ?? null,
+    revenuIndicatif: revenu,
+    budgetAchat: p.budgetAchat ?? revenu,
+    compte: p.compte ?? 400000,
+    epargne: p.epargne ?? 0,
+  };
+}
+
+export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Batiment["type"] }): Batiment {
+  return {
+    id: p.id ?? nouvelId("bat"),
+    nom: p.nom,
+    type: p.type,
+    quartier: p.quartier ?? "Centre",
+    valeur: p.valeur ?? 500000,
+    etat: p.etat ?? "bon",
+    coutFonctionnement: p.coutFonctionnement ?? 0,
+    capacite: p.capacite ?? 0,
+  };
+}
+
+const PRENOMS_F = "Adèle:Camille:Delphine:Émilie:Fantine:Gabrielle:Hélène:Inès:Juliette:Louise:Manon:Nora:Océane:Paloma:Rosa:Sylvie:Tiphaine:Véra:Yasmine:Zoé:Brigitte:Élodie:Léa:Karima:Fatou".split(":");
+const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:Ibrahim:Jules:Kévin:Léo:Marco:Nicolas:Oscar:Pierre:Quentin:Raphaël:Sacha:Tanguy:Ulysse:Victor:Xavier:Yann:Zaïd:Jean:Karim:Mario".split(":");
+const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
+
+interface Habitant {
+  prenom: string;
+  nom: string;
+  age: number;
+  genre: "F" | "M";
+  metier: string;
+  revenu: number; // en L
+}
+
+/** Le monde par défaut : ~10 bâtiments, 45 figurines (cahier des charges phase 1). */
+export function createMondeDefaut(): Etat {
+  compteur = 0;
+
+  const batiments: Batiment[] = [
+    nouveauBatiment({ nom: "Mairie de Bricke-en-Provence", type: "service_public", quartier: "Centre", valeur: 1200000, etat: "neuf", coutFonctionnement: 2000, capacite: 6 }),
+    nouveauBatiment({ nom: "Poste de police", type: "service_public", quartier: "Centre", valeur: 800000, coutFonctionnement: 1500, capacite: 4 }),
+    nouveauBatiment({ nom: "Caserne de pompiers", type: "service_public", quartier: "Nord", valeur: 900000, coutFonctionnement: 1500, capacite: 6 }),
+    nouveauBatiment({ nom: "Le Fournil Doré (boulangerie)", type: "commerce", quartier: "Centre", valeur: 400000, capacite: 2 }),
+    nouveauBatiment({ nom: "Chez Mario (friterie)", type: "commerce", quartier: "Port", valeur: 250000, capacite: 2 }),
+    nouveauBatiment({ nom: "Quincaillerie du Port", type: "commerce", quartier: "Port", valeur: 300000, capacite: 2 }),
+    nouveauBatiment({ nom: "Les Terrasses (immeuble)", type: "habitation", quartier: "Centre", valeur: 1500000, capacite: 16 }),
+    nouveauBatiment({ nom: "Maison des Dupont", type: "habitation", quartier: "Nord", valeur: 350000, capacite: 4 }),
+    nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capacite: 20 }),
+    nouveauBatiment({ nom: "Maison de la Colline", type: "habitation", quartier: "Nord", valeur: 300000, capacite: 6 }),
+  ];
+
+  const idMairie = batiments[0].id;
+  const idPolice = batiments[1].id;
+  const idCaserne = batiments[2].id;
+  const idBoulangerie = batiments[3].id;
+  const idFriterie = batiments[4].id;
+  const idQuincaillerie = batiments[5].id;
+  const immeubles = [batiments[6].id, batiments[7].id, batiments[8].id, batiments[9].id];
+
+  const pnjs: Pnj[] = [];
+
+  // Agents publics (3) — salaires réels grilles FPT 2025 (voir référentiel).
+  pnjs.push(nouveauPnj({ prenom: "Brigitte", nom: "Roussel", age: 52, genre: "F", metier: "secrétaire de mairie", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4500 }));
+  pnjs.push(nouveauPnj({ prenom: "Karim", nom: "Benali", age: 34, genre: "M", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", batimentId: idPolice, revenuIndicatif: 5300 }));
+  pnjs.push(nouveauPnj({ prenom: "Élodie", nom: "Garnier", age: 29, genre: "F", metier: "sapeur-pompier", statut: "agent_public", grade: "sapeur_pompier_debutant", batimentId: idCaserne, revenuIndicatif: 5800 }));
+
+  // Commerçants (3).
+  pnjs.push(nouveauPnj({ prenom: "Jean", nom: "Castella", age: 47, genre: "M", metier: "boulanger", statut: "commercant", batimentId: idBoulangerie, revenuIndicatif: 6000, compte: 600000 }));
+  pnjs.push(nouveauPnj({ prenom: "Mario", nom: "Rossi", age: 41, genre: "M", metier: "vendeur de frites", statut: "commercant", batimentId: idFriterie, revenuIndicatif: 5000, compte: 500000 }));
+  pnjs.push(nouveauPnj({ prenom: "Léa", nom: "Kaczmarek", age: 38, genre: "F", metier: "quincaillière", statut: "commercant", batimentId: idQuincaillerie, revenuIndicatif: 5500, compte: 550000 }));
+
+  // 39 habitants privés : métiers narratifs, revenus variés autour du médian.
+  const metiers: Array<[string, number]> = [
+    ["professeure des écoles", 5800], ["pêcheur", 3800], ["ingénieure", 7200], ["médecin", 9000],
+    ["retraité", 3000], ["libraire", 4200], ["chauffeur de bus", 4600], ["cuisinière", 4800],
+    ["jardinier", 4000], ["photographe", 4400], ["banquière", 8500], ["étudiant", 2000],
+    ["facteur", 4200], ["coiffeuse", 4300], ["électricien", 5000], ["artiste peintre", 3300],
+    ["infirmière", 5400], ["architecte", 7500], ["fromager", 5200], ["serveur", 3600],
+    ["garagiste", 4900], ["vétérinaire", 8200], ["conseillère municipale", 5100], ["prof de sport", 4500],
+    ["horlogère", 4700], ["boucher", 5300], ["apicultrice", 3900], ["pilote de ferry", 6800],
+    ["restauratrice", 6200], ["sapeuse-pompière volontaire", 4000], ["bouquiniste", 3500], ["agents immobilier", 5600],
+    ["musicien", 3100], ["guide touristique", 3900], ["horticultrice", 4100], ["grutier", 5700],
+    ["pâtissière", 4900], ["ébéniste", 4600], ["contrôleuse SNCF", 5800],
+  ];
+  for (let i = 0; i < metiers.length; i++) {
+    const [metier, revenu] = metiers[i];
+    const genre: "F" | "M" = i % 2 === 0 ? "F" : "M";
+    const prenom = genre === "F" ? PRENOMS_F[i % PRENOMS_F.length] : PRENOMS_M[i % PRENOMS_M.length];
+    const nom = NOMS[i % NOMS.length];
+    pnjs.push(
+      nouveauPnj({
+        prenom,
+        nom,
+        age: 20 + ((i * 7) % 55),
+        genre,
+        metier,
+        revenuIndicatif: revenu,
+        batimentId: immeubles[i % immeubles.length],
+      }),
+    );
+  }
+
+  return {
+    schemaVersion: 1,
+    jour: 0,
+    nomVille: "Bricke-en-Provence",
+    budgetVille: 500000,
+    sortiesCumulees: 0,
+    params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP },
+    pnjs,
+    batiments,
+    journal: [
+      {
+        jour: 0,
+        type: "systeme",
+        texte:
+          "Jour 0 : " + pnjs.length + " figurines et " + batiments.length +
+          " bâtiments attendent que la ville s'anime. Appuie sur « Passer un jour ».",
+      },
+    ],
+  };
+}
+
+// ---------- Mutateurs purs pour l'éditeur ----------
+
+export function ajouterPnj(etat: Etat, pnj: Pnj): Etat {
+  const e = structuredClone(etat);
+  e.pnjs.push(pnj);
+  return e;
+}
+
+export function modifierPnj(etat: Etat, id: string, patch: Partial<Pnj>): Etat {
+  const e = structuredClone(etat);
+  const i = e.pnjs.findIndex((p) => p.id === id);
+  if (i >= 0) e.pnjs[i] = { ...e.pnjs[i], ...patch, id };
+  return e;
+}
+
+export function supprimerPnj(etat: Etat, id: string): Etat {
+  const e = structuredClone(etat);
+  e.pnjs = e.pnjs.filter((p) => p.id !== id);
+  return e;
+}
+
+export function ajouterBatiment(etat: Etat, bat: Batiment): Etat {
+  const e = structuredClone(etat);
+  e.batiments.push(bat);
+  return e;
+}
+
+export function modifierBatiment(etat: Etat, id: string, patch: Partial<Batiment>): Etat {
+  const e = structuredClone(etat);
+  const i = e.batiments.findIndex((b) => b.id === id);
+  if (i >= 0) e.batiments[i] = { ...e.batiments[i], ...patch, id };
+  return e;
+}
+
+export function supprimerBatiment(etat: Etat, id: string): Etat {
+  const e = structuredClone(etat);
+  e.batiments = e.batiments.filter((b) => b.id !== id);
+  e.pnjs = e.pnjs.map((p) => (p.batimentId === id ? { ...p, batimentId: null } : p));
+  return e;
+}
+
+export function modifierVille(etat: Etat, patch: { nomVille?: string; budgetVille?: number; tauxImpotBp?: number }): Etat {
+  const e = structuredClone(etat);
+  if (patch.nomVille !== undefined) e.nomVille = patch.nomVille;
+  if (patch.budgetVille !== undefined) e.budgetVille = Math.max(0, Math.round(patch.budgetVille));
+  if (patch.tauxImpotBp !== undefined) e.params.tauxImpotBp = Math.max(0, Math.round(patch.tauxImpotBp));
+  return e;
+}
