@@ -56,6 +56,7 @@ function CarteVille() {
   const [nom, setNom] = useState(etat.nomVille);
   const [budget, setBudget] = useState(versL(etat.budgetVille));
   const [taux, setTaux] = useState((etat.params.tauxImpotBp / 100).toString());
+  const [k, setK] = useState(String(etat.params.coeffIntensite));
   return (
     <div className="carte">
       <h2>🏙 Paramètres de la ville</h2>
@@ -69,15 +70,20 @@ function CarteVille() {
         <Champ label="Taux d'imposition quotidien (%)">
           <input className="input" value={taux} onChange={(e) => setTaux(e.target.value)} />
         </Champ>
+        <Champ label="Coefficient d'intensité K (curseur d'animation)">
+          <input className="input" value={k} onChange={(e) => setK(e.target.value)} />
+        </Champ>
         <button
           className="bouton"
           onClick={() => {
             const t = Number(taux.replace(",", ".")) * 100;
+            const kNum = Number(k.replace(",", "."));
             majEtat(
               modifierVille(etat, {
                 nomVille: nom,
                 budgetVille: nombreL(budget),
                 tauxImpotBp: Number.isFinite(t) ? Math.round(t) : etat.params.tauxImpotBp,
+                coeffIntensite: Number.isFinite(kNum) && kNum >= 1 ? Math.round(kNum) : etat.params.coeffIntensite,
               }),
             );
           }}
@@ -88,6 +94,11 @@ function CarteVille() {
       <p className="mute">
         Impôt payé par une figurine au revenu médian (52,50 L) :{" "}
         {montantL(Math.round((5250 * etat.params.tauxImpotBp) / 10000))} / jour.
+      </p>
+      <p className="mute">
+        K règle le rythme des incidents (proba = taux réel × figurines × K ÷ 10 000 ÷ 365) :{" "}
+        100 = paisible, 1 000 = animé (défaut), 10 000 = frénétique. Ville petite ? Monte K
+        pour garder la même vie qu'une grande.
       </p>
     </div>
   );

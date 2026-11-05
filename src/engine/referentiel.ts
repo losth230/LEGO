@@ -47,6 +47,9 @@ export function salaireJourL(grade: string): number {
  */
 export const TAUX_IMPOT_DEFAUT_BP = Math.round((IMPOT_REFERENCE_L / ACHAT_REFERENCE_L) * 10000);
 
+/** Coefficient d'intensité K par défaut : 1 000 (« animé », cahier §5). */
+export const COEFF_INTENSITE_DEFAUT = Math.max(1, Math.round(refNombre("meta.coeff_intensite.valeur", 1000)));
+
 /** Formate des centimes en LEGOs affichables : 123456 -> "1 234,56 L". */
 export function montantL(centimes: number): string {
   const euros = (centimes / 100).toLocaleString("fr-FR", {

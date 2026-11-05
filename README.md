@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.5 — cadrage figé (v1.0, 2026-11-05) ; phase 0.5 terminée ; **phase 1 (MVP) poussée (2026-11-05)** : moteur économique en circuit court, éditeur du monde, journal, référentiels — site : https://losth230.github.io/LEGO/ ; monnaie du jeu : **le LEGO (L)**. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
+> **Statut :** v1.6 — cadrage figé (v1.0, 2026-11-05) ; phase 1 (MVP) poussée ; **phase 2 poussée (2026-11-05)** : incidents (incendies, cambriolages, accidents), garde des pompiers et de la police, dégâts/vols tracés, **K éditable et adapté à la taille de la ville**, éditeur qui journalise — site : https://losth230.github.io/LEGO/ ; monnaie du jeu : **le LEGO (L)**. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
@@ -119,7 +119,7 @@ Incendie déclaré (probabilité calée sur les statistiques réelles × coeffic
 
 **Monnaie du jeu : le LEGO (L)** — les valeurs réelles du référentiel sont exprimées en euros (ce sont les sources) ; l'application affiche des L (1 L = 1 €).
 
-**Référentiel extrait — FAIT (2026-11-05) : [data/referentiel.json](data/referentiel.json) (v1.0)** — chaque valeur porte sa source, son année et son calcul : impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP, à affiner), achats quotidiens ≈ 52,5 €/PNJ (INSEE), salaires publics nets/jour (grilles FPT 2025), taux d'incidents pour 10 000 hab./an (DGSCGC 2024 : incendies 34,2, accidents 44,3 ; SSMSI 2024 : cambriolages 31,8, homicides 0,14), natalité 96,7 / mortalité 94,2 (INSEE), police municipale ≈ 7 agents pour 10 000 hab. (Marseille : 610 agents). Provenance et suivi « à affiner » : [data/README.md](data/README.md).
+**Référentiel extrait — FAIT (2026-11-05) : [data/referentiel.json](data/referentiel.json) (v1.2)** — chaque valeur porte sa source, son année et son calcul : impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP, à affiner), achats quotidiens ≈ 52,5 €/PNJ (INSEE), salaires publics nets/jour (grilles FPT 2025), taux d'incidents pour 10 000 hab./an (DGSCGC 2024 : incendies 34,2, accidents 44,3 ; SSMSI 2024 : cambriolages 31,8, homicides 0,14), natalité 96,7 / mortalité 94,2 (INSEE), police municipale ≈ 7 agents pour 10 000 hab. (Marseille : 610 agents), **pompiers v1.2** : 6,4 pros / 29 volontaires pour 10 000 hab., 4 754 800 interventions 2024 (DGSCGC). Provenance et suivi « à affiner » : [data/README.md](data/README.md).
 
 ### Règle d'échelle (actée — 2026-11-05, K abaissé le même jour)
 
@@ -158,7 +158,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | **0 — Cadrage** | Ce document + arbitrage des questions ouvertes | Toutes les questions §9 tranchées, v1.0 figée | ✅ Fait (2026-11-05) |
 | **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles (Marseille) | Référentiel JSON initial avec chaque valeur + sa source | ✅ Fait (2026-11-05) — référentiel v1.0 poussé : [data/referentiel.json](data/referentiel.json) |
 | **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible | ✅ Fait (2026-11-05) — MVP poussé (commit `f07cd7ab`) : ville par défaut « Bricke-en-Provence » (45 PNJ / 10 bâtiments), 10 tests moteur PASS, conservation de la monnaie vérifiée sur 30 jours ; site : https://losth230.github.io/LEGO/ |
-| **2 — Services** | Police, pompiers, incidents probabilistes (K = 1 000), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | |
+| **2 — Services** | Police, pompiers, incidents probabilistes (K = 1 000), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | ✅ Fait (2026-11-05) — moteur d'incidents (incendie, cambriolage, accident, gravités 1-3, règle R × P × K / 10000 / 365), garde identifiée par métier/grade, dégâts réparés par la ville, vols tracés en pertes, journal romancé ; 18 tests moteur PASS (conservation exacte sur 30 jours avec incidents : ~1,4 incident/jour à 45 figurines, K = 1 000) ; naissances/décès (faits de vie) reportés aux phases suivantes |
 | **3 — Budget approfondi** | Investissement, dette, sinistres majeurs, arbitrages de taux d'imposition, objectifs optionnels | Un déficit force une décision visible : augmenter l'impôt, couper un service, ou emprunter | |
 | **4 — Modules** | Tour des héros/menaces, export & partage, multijoueur | Selon arbitrage | |
 
@@ -183,6 +183,9 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | 2026-11-05 | **Référentiel v1.0 poussé** : valeurs réelles extraites avec sources ; impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP — dépenses de fonctionnement Marseille 1 455 €/hab./an, à affiner), consommation ≈ 52,5 €/PNJ/jour (INSEE), K = 1 000 confirmé |
 | 2026-11-05 | **Monnaie du jeu : le LEGO (L)** — tous les montants s'affichent en L (1 L = 1 €) ; le référentiel reste en euros réels issus des sources |
 | 2026-11-05 | **MVP phase 1 poussé** (commit `f07cd7ab`) : React + TypeScript + Vite, moteur économique en circuit court (impôt quotidien, salaires publics, fonctionnement, achats chez les commerçants), éditeur du monde, journal, référentiels, sauvegarde localStorage + export/import — 10 tests moteur PASS (conservation exacte de la monnaie en centimes entiers sur 30 jours) |
+| 2026-11-05 | **K éditable et adapté à la taille de la ville** : la probabilité suit R × P × K / 10000 / 365 — une petite ville monte K pour vivre au même rythme qu'une grande ; K vit dans les paramètres de la ville (éditeur), défaut 1 000 |
+| 2026-11-05 | **L'éditeur journalise** : chaque création et suppression (emménagement, ouverture de commerce, mise en service, départ) est racontée dans le journal — la ville construite à la main vit comme le reste |
+| 2026-11-05 | **Phase 2 poussée** : incidents (incendie, cambriolage, accident) tirés par gravité, garde des services identifiée par métier/grade (les pompiers volontaires comptent, comme dans le réel), dégâts à la valeur des bâtiments, réparations payées par la ville, vols tracés en pertes documentées du circuit ; effectifs pompiers réels extraits (DGSCGC 2024 : 44 000 pros, 198 900 volontaires, 4 754 800 interventions) dans le référentiel v1.2 |
 
 ### Questions ouvertes
 

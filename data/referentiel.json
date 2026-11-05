@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -210,7 +210,41 @@
       }
     },
     "pompiers": {
-      "note": "Effectifs SDIS non extraits à ce stade ; grilles salariales FPT 2025 dans economie.salaires_publics_nets_par_jour. À compléter en phase 2."
+      "note": "Effectifs France entière 2024 (SDIS, hors militaires BSPP/BMPM) ; grilles salariales FPT 2025 dans economie.salaires_publics_nets_par_jour. Le nombre de figurines pompiers reste un choix de peuplement ; les taux documentent le réel.",
+      "effectifs_total_france": {
+        "valeur": 256400,
+        "unite": "sapeurs-pompiers (tous statuts)",
+        "comptage": "256 400 sapeurs-pompiers au 31/12/2024 dont 44 000 SPP (17 %) et 198 900 SPV (78 %), le reste étant militaires (BSPP, BMPM) et assimilés",
+        "annee": 2024,
+        "source": "DGSCGC — Statistiques annuelles 2024",
+        "url": "https://www.interieur.gouv.fr/documentation/etudes-et-statistiques/statistiques-2024-dgscgc.html"
+      },
+      "spp_par_10k_habitants": {
+        "valeur": 6.41,
+        "unite": "professionnels pour 10 000 habitants",
+        "calcul": "44000 ÷ 68600000 × 10000",
+        "annee": 2024,
+        "source": "DGSCGC — Statistiques annuelles 2024",
+        "url": "https://www.interieur.gouv.fr/documentation/etudes-et-statistiques/statistiques-2024-dgscgc.html"
+      },
+      "spv_par_10k_habitants": {
+        "valeur": 28.99,
+        "unite": "volontaires pour 10 000 habitants",
+        "calcul": "198900 ÷ 68600000 × 10000",
+        "note": "La France tient sur ses volontaires : 78 % de l'effectif — une figurine pompier volontaire est plus réaliste qu'un pro.",
+        "annee": 2024,
+        "source": "DGSCGC — Statistiques annuelles 2024",
+        "url": "https://www.interieur.gouv.fr/documentation/etudes-et-statistiques/statistiques-2024-dgscgc.html"
+      },
+      "interventions_totales_par_10k": {
+        "valeur": 693.15,
+        "unite": "interventions pour 10 000 hab./an (tous motifs)",
+        "calcul": "4754800 ÷ 68600000 × 10000",
+        "note": "Contrôle de cohérence : secours urgence (600,58) + incendies (34,21) + accidents (44,28) + divers ≈ ce total.",
+        "annee": 2024,
+        "source": "DGSCGC — Statistiques annuelles 2024",
+        "url": "https://www.interieur.gouv.fr/documentation/etudes-et-statistiques/statistiques-2024-dgscgc.html"
+      }
     }
   }
 }

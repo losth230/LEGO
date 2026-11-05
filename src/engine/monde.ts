@@ -5,6 +5,7 @@
 import type { Batiment, Etat, Pnj } from "./types.ts";
 import {
   ACHAT_REFERENCE_L,
+  COEFF_INTENSITE_DEFAUT,
   TAUX_IMPOT_DEFAUT_BP,
 } from "./referentiel.ts";
 
@@ -121,12 +122,13 @@ export function createMondeDefaut(): Etat {
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
     sortiesCumulees: 0,
-    params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP },
+    pertesCumulees: 0,
+    params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP, coeffIntensite: COEFF_INTENSITE_DEFAUT },
     pnjs,
     batiments,
     journal: [
@@ -142,9 +144,26 @@ export function createMondeDefaut(): Etat {
 }
 
 // ---------- Mutateurs purs pour l'éditeur ----------
+// Chaque création et suppression raconte une entrée de journal (arbitrage
+// 2026-11-05 : l'éditeur journalise) : la ville construite à la main vit
+// dans le journal comme le reste.
+
+function raconter(e: Etat, texte: string): void {
+  e.journal.push({ jour: e.jour, type: "systeme", texte });
+}
 
 export function ajouterPnj(etat: Etat, pnj: Pnj): Etat {
   const e = structuredClone(etat);
+  const bat = e.batiments.find((b) => b.id === pnj.batimentId);
+  const chez = bat ? " (" + bat.nom + ")" : "";
+  raconter(
+    e,
+    pnj.statut === "commercant"
+      ? pnj.prenom + " " + pnj.nom + " ouvre sa boutique" + chez + " : les caddies s'annoncent."
+      : pnj.statut === "agent_public"
+        ? pnj.prenom + " " + pnj.nom + " entre au service de la ville comme " + pnj.metier + chez + "."
+        : pnj.prenom + " " + pnj.nom + " emménage en ville" + chez + ", " + pnj.metier + ". Bienvenue !",
+  );
   e.pnjs.push(pnj);
   return e;
 }
@@ -158,12 +177,22 @@ export function modifierPnj(etat: Etat, id: string, patch: Partial<Pnj>): Etat {
 
 export function supprimerPnj(etat: Etat, id: string): Etat {
   const e = structuredClone(etat);
+  const partis = e.pnjs.find((p) => p.id === id);
   e.pnjs = e.pnjs.filter((p) => p.id !== id);
+  if (partis) raconter(e, partis.prenom + " " + partis.nom + " quitte la ville. Adieu !");
   return e;
 }
 
 export function ajouterBatiment(etat: Etat, bat: Batiment): Etat {
   const e = structuredClone(etat);
+  raconter(
+    e,
+    bat.type === "habitation"
+      ? "Un nouveau bâtiment se dresse : " + bat.nom + " — les emménagements s'annoncent."
+      : bat.type === "commerce"
+        ? bat.nom + " ouvre ses portes : la ville compte un commerce de plus."
+        : bat.nom + " entre en service : la ville s'équipe.",
+  );
   e.batiments.push(bat);
   return e;
 }
@@ -177,15 +206,23 @@ export function modifierBatiment(etat: Etat, id: string, patch: Partial<Batiment
 
 export function supprimerBatiment(etat: Etat, id: string): Etat {
   const e = structuredClone(etat);
+  const parti = e.batiments.find((b) => b.id === id);
   e.batiments = e.batiments.filter((b) => b.id !== id);
   e.pnjs = e.pnjs.map((p) => (p.batimentId === id ? { ...p, batimentId: null } : p));
+  if (parti) raconter(e, parti.nom + " ferme et s'efface du paysage.");
   return e;
 }
 
-export function modifierVille(etat: Etat, patch: { nomVille?: string; budgetVille?: number; tauxImpotBp?: number }): Etat {
+export function modifierVille(
+  etat: Etat,
+  patch: { nomVille?: string; budgetVille?: number; tauxImpotBp?: number; coeffIntensite?: number },
+): Etat {
   const e = structuredClone(etat);
   if (patch.nomVille !== undefined) e.nomVille = patch.nomVille;
   if (patch.budgetVille !== undefined) e.budgetVille = Math.max(0, Math.round(patch.budgetVille));
   if (patch.tauxImpotBp !== undefined) e.params.tauxImpotBp = Math.max(0, Math.round(patch.tauxImpotBp));
+  if (patch.coeffIntensite !== undefined) {
+    e.params.coeffIntensite = Math.max(1, Math.round(patch.coeffIntensite));
+  }
   return e;
 }

@@ -227,6 +227,11 @@ tr:hover td {
   border-color: var(--vert);
   color: var(--vert);
 }
+.badge-incident {
+  border-color: var(--rouge);
+  color: var(--rouge);
+  background: rgba(255, 59, 48, 0.12);
+}
 .badge-solde {
   color: var(--texte);
 }

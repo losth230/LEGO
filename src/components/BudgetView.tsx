@@ -43,8 +43,17 @@ export function BudgetView() {
         <h2>💸 Sorties vers l'extérieur</h2>
         <p className="grand-nombre">{montantL(etat.sortiesCumulees)}</p>
         <p className="mute">
-          Cumul des coûts de fonctionnement payés aux fournisseurs extérieurs depuis le jour 1
-          (seules sorties documentées du circuit, §4.3).
+          Cumul des coûts de fonctionnement, réparations, carburant d'intervention et frais
+          médicaux payés aux fournisseurs extérieurs depuis le jour 1
+          (sorties documentées du circuit, §4.3).
+        </p>
+      </div>
+      <div className="carte carte-indicateur">
+        <h2>🥷 Pertes disparues</h2>
+        <p className="grand-nombre">{montantL(etat.pertesCumulees)}</p>
+        <p className="mute">
+          Cumul des vols non recouvrés depuis le jour 1 : l'argent qui quitte le circuit
+          dans la poche d'un voleur (§4.3).
         </p>
       </div>
       <div className="carte carte-indicateur">

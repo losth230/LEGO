@@ -1,22 +1,30 @@
-// Tests du moteur (phase 1) — exécution : npm test
+// Tests du moteur (phases 1 et 2) — exécution : npm test
 // (node --experimental-strip-types --test src/engine/moteur.test.ts)
 // Critère d'acceptation phase 1 : 30 jours passés, argent cohérent, journal lisible.
+// Phase 2 : incidents tirés (règle R × P × K / 10000 / 365), garde des
+// services, dégâts/vols tracés, déterminisme seedé par jour.
 
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { Etat, JournalEntree } from "./types.ts";
-import { createMondeDefaut, modifierVille } from "./monde.ts";
+import { ajouterBatiment, createMondeDefaut, modifierVille, nouveauBatiment, nouveauPnj, supprimerPnj } from "./monde.ts";
 import { migrerEtat } from "./migrations.ts";
 import {
   impotDu,
   monnaieEnCircuit,
   passerJour,
 } from "./moteur.ts";
-import { salaireJourL, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
+import { gardePolice, gardePompiers, probaQuotidienne } from "./evenements.ts";
+import { COEFF_INTENSITE_DEFAUT, salaireJourL, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
 function entrees(jour: number, type: string, j: JournalEntree[]): JournalEntree[] {
   return j.filter((e) => e.jour === jour && e.type === type);
+}
+
+/** K = 1 : probabilités d'incident quasi nulles, pour isoler l'économie. */
+function calme(etat: Etat): Etat {
+  return modifierVille(etat, { coeffIntensite: 1 });
 }
 
 test("monde par défaut : 10 bâtiments, 45 figurines, jour 0", () => {
@@ -34,7 +42,7 @@ test("monde par défaut : 10 bâtiments, 45 figurines, jour 0", () => {
 });
 
 test("un jour : impôts prélevés, salaires versés, sorties tracées, achats encaissés", () => {
-  const m = createMondeDefaut();
+  const m = calme(createMondeDefaut());
   const attenduImpots = m.pnjs.reduce((s, p) => s + impotDu(p, m.params.tauxImpotBp), 0);
   const attenduSalaires = m.pnjs
     .filter((p) => p.statut === "agent_public")
@@ -53,8 +61,10 @@ test("un jour : impôts prélevés, salaires versés, sorties tracées, achats e
   assert.equal(achats.length, 1);
   assert.ok((achats[0].montant ?? 0) > 0);
   assert.equal(entrees(1, "solde", j1.journal).length, 1);
-  // 5 entrées par jour (impôts, salaires, fonctionnement, achats, solde)
-  assert.equal(j1.journal.filter((e) => e.jour === 1).length, 5);
+  // 5 entrées économiques par jour (impôts, salaires, fonctionnement, achats, solde)
+  for (const typeAtt of ["impots", "salaires", "fonctionnement", "achats", "solde"]) {
+    assert.equal(entrees(1, typeAtt, j1.journal).length, 1, typeAtt);
+  }
 });
 
 test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
@@ -63,19 +73,21 @@ test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
   let e: Etat = m;
   for (let i = 0; i < 30; i++) e = passerJour(e);
   const restant = monnaieEnCircuit(e);
-  assert.equal(restant, initial - e.sortiesCumulees);
+  assert.equal(restant, initial - e.sortiesCumulees - e.pertesCumulees);
   // chaque figurine a un compte positif ou nul, aucun NaN
   for (const p of e.pnjs) {
     assert.ok(Number.isFinite(p.compte) && p.compte >= 0, p.prenom);
   }
   assert.ok(Number.isFinite(e.budgetVille));
   assert.equal(e.jour, 30);
-  // le journal a grossi chaque jour : 30 x 5 entrées + l'entrée du jour 0
-  assert.equal(e.journal.length, 151);
+  // le journal a grossi chaque jour : 30 x 5 entrées économiques minimum
+  // (plus les incidents tirés au K par défaut) + l'entrée du jour 0
+  assert.ok(e.journal.length >= 151, "journal: " + e.journal.length);
+  assert.ok(e.journal.some((x) => x.type === "incident"), "au moins un incident en 30 jours");
 });
 
 test("le vendeur de frites encaisse les achats des habitants", () => {
-  const m = createMondeDefaut();
+  const m = calme(createMondeDefaut());
   const avant = m.pnjs.find((p) => p.prenom === "Mario")!.compte;
   const j1 = passerJour(m);
   const mario = j1.pnjs.find((p) => p.prenom === "Mario")!;
@@ -86,7 +98,7 @@ test("le vendeur de frites encaisse les achats des habitants", () => {
 });
 
 test("un PNJ sans le sou paie ce qu'il peut ; le journal le raconte", () => {
-  const m = createMondeDefaut();
+  const m = calme(createMondeDefaut());
   const pauvre = m.pnjs[10];
   m.pnjs[10] = { ...pauvre, compte: 100 }; // 1,00 L
   const j1 = passerJour(m);
@@ -115,7 +127,7 @@ test("ville pauvre : salaires et fonctionnement payés au prorata des caisses", 
   // avant les salaires — on force un monde sans contribuables privés,
   // aux caisses vides, pour tester le prorata.
   const vide: Etat = {
-    ...m,
+    ...calme(m),
     pnjs: m.pnjs.filter((p) => p.statut === "agent_public"),
   };
   vide.budgetVille = 300;
@@ -127,7 +139,7 @@ test("ville pauvre : salaires et fonctionnement payés au prorata des caisses", 
 });
 
 test("sans commerce, personne ne dépense et l'argent reste en place", () => {
-  const m = createMondeDefaut();
+  const m = calme(createMondeDefaut());
   m.batiments = m.batiments.filter((b) => b.type !== "commerce");
   const avant = monnaieEnCircuit(m);
   const j1 = passerJour(m);
@@ -156,4 +168,99 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
+  assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
+  assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
+});
+
+// ---------- Phase 2 : incidents, garde des services ----------
+
+test("garde : pompiers (pro + volontaire) et police identifiés par métier/grade", () => {
+  const m = createMondeDefaut();
+  assert.equal(gardePompiers(m).length, 2, "Élodie + la sapeuse-pompière volontaire");
+  assert.equal(gardePolice(m).length, 1, "Karim, policier municipal");
+});
+
+test("règle d'échelle : R × P × K / 10000 / 365", () => {
+  // R = 34,21 incendies/10k/an, P = 45 figurines, K = 1000 -> ~0,42/jour
+  const p = probaQuotidienne(34.21, 45, 1000);
+  assert.ok(Math.abs(p - 0.4219) < 0.001, "proba = " + p);
+  assert.equal(probaQuotidienne(34.21, 45, 1) < 0.001, true, "K = 1 : ville quasi paisible");
+});
+
+test("K géant : le jour 1 déborde d'incidents", () => {
+  const m = modifierVille(createMondeDefaut(), { coeffIntensite: 100000 });
+  const j1 = passerJour(m);
+  const inc = entrees(1, "incident", j1.journal);
+  assert.ok(inc.length >= 2, "incidents attendus, obtenu : " + inc.length);
+  assert.ok(j1.journal.some((e) => e.texte.includes("s'embrase")), "l'incendie est raconté");
+});
+
+test("incendie sans pompiers ni budget : le bâtiment reste sinistré", () => {
+  let m = createMondeDefaut();
+  for (const p of gardePompiers(m)) m = supprimerPnj(m, p.id);
+  // ville pauvre : la réparation ne pourra pas suivre, le sinistre marque le bâtiment
+  m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 100 });
+  const j1 = passerJour(m);
+  assert.ok(
+    j1.journal.some((e) => e.texte.includes("aucun pompier")),
+    "le journal raconte l'absence de pompiers",
+  );
+  const touches = j1.batiments.filter((b) => b.etat === "sinistre");
+  assert.ok(touches.length >= 1, "un bâtiment sinistré");
+  assert.ok(j1.batiments.some((b) => b.valeur < 300000 && b.etat === "sinistre"), "valeur dépréciée");
+  assert.equal(gardePompiers(j1).length, 0);
+});
+
+test("garde au complet : l'incendie est maîtrisé, dégâts légers", () => {
+  let m = createMondeDefaut();
+  // 4 pompiers supplémentaires : garde de 5, gravité 3 couverte.
+  for (let i = 0; i < 4; i++) {
+    m.pnjs.push(
+      nouveauPnj({
+        prenom: "Pompier" + i,
+        nom: "Test" + i,
+        metier: "sapeur-pompier",
+        statut: "agent_public",
+        grade: "sapeur_pompier_debutant",
+        batimentId: m.batiments[2].id,
+        revenuIndicatif: 5800,
+      }),
+    );
+  }
+  const m2 = modifierVille(m, { coeffIntensite: 100000 });
+  const j1 = passerJour(m2);
+  assert.equal(j1.batiments.filter((b) => b.etat === "sinistre").length, 0, "aucun sinistre");
+  const feu = j1.journal.find((e) => e.texte.includes("s'embrase"));
+  assert.ok(feu !== undefined && feu.texte.includes("avant midi"), "maitrise rapide racontée");
+  // dégâts légers : <= 2 % x 3 de la valeur du plus gros bâtiment
+  const maxValeur = Math.max(...j1.batiments.map((b) => b.valeur));
+  assert.ok(Math.abs(feu.montant ?? 0) <= Math.round(maxValeur * 0.06));
+});
+
+test("cambriolage sans police : la perte sort du circuit", () => {
+  let m = createMondeDefaut();
+  for (const p of gardePolice(m)) m = supprimerPnj(m, p.id);
+  const avant = monnaieEnCircuit(m);
+  const m2 = modifierVille(m, { coeffIntensite: 100000 });
+  const j1 = passerJour(m2);
+  const vols = j1.journal.filter((e) => e.texte.includes("Cambriolage"));
+  assert.ok(vols.length >= 1, "le cambriolage est raconté");
+  assert.ok(j1.pertesCumulees > 0, "pertes tracées : " + j1.pertesCumulees);
+  const apres = monnaieEnCircuit(j1);
+  assert.equal(apres, avant - j1.sortiesCumulees - j1.pertesCumulees, "conservation exacte");
+});
+
+test("déterminisme : même jour, mêmes événements, toujours", () => {
+  const m = createMondeDefaut();
+  const a = passerJour(m);
+  const b = passerJour(m);
+  assert.equal(JSON.stringify(a), JSON.stringify(b));
+});
+
+test("l'éditeur raconte : emménagement, arrivée, départ, ouverture", () => {
+  let m = createMondeDefaut();
+  const n = m.journal.length;
+  m = ajouterBatiment(m, nouveauBatiment({ nom: "Maison des Tests", type: "habitation" }));
+  assert.ok(m.journal.length > n, "une entrée de journal a été ajoutée");
+  assert.ok(m.journal.some((e) => e.texte.includes("Maison des Tests")));
 });

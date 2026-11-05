@@ -51,6 +51,7 @@ export type TypeJournal =
   | "salaires"
   | "fonctionnement"
   | "achats"
+  | "incident"
   | "solde"
   | "systeme";
 
@@ -65,6 +66,13 @@ export interface JournalEntree {
 export interface ParamsVille {
   /** Taux d'imposition quotidien en points de base (762 = 7,62 %). */
   tauxImpotBp: number;
+  /**
+   * Coefficient d'intensité des événements K (défaut 1 000, cahier §5).
+   * Curseur d'amusement personnel : la proba quotidienne d'un incident
+   * est R × P × K / 10000 / 365 — une petite ville monte K pour vivre
+   * au même rythme qu'une grande (arbitrage 2026-11-05 : K adaptatif).
+   */
+  coeffIntensite: number;
 }
 
 export interface Etat {
@@ -75,6 +83,8 @@ export interface Etat {
   budgetVille: number;
   /** Cumul des sorties vers les fournisseurs extérieurs en centimes. */
   sortiesCumulees: number;
+  /** Cumul des pertes disparues du circuit (vols non recouvrés) en centimes. */
+  pertesCumulees: number;
   params: ParamsVille;
   pnjs: Pnj[];
   batiments: Batiment[];
