@@ -1,9 +1,10 @@
 // Application principale : barre de ville, onglets, filet de sécurité.
 
-import { Component, useState, type ErrorInfo, type ReactNode } from "react";
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from "react";
 import { FournisseurStore, useStore } from "./state/store.tsx";
 import { montantL } from "./engine/referentiel.ts";
 import { joursDeMarge } from "./engine/moteur.ts";
+import { appliquerTheme, ecrireTheme, lireTheme } from "./theme.ts";
 import { Journal } from "./components/Journal.tsx";
 import { HabitantsTable } from "./components/HabitantsTable.tsx";
 import { BatimentsTable } from "./components/BatimentsTable.tsx";
@@ -53,6 +54,12 @@ function BarreVille(): ReactNode {
   const { etat, passerUnJour, exporter, importerFichier, reinitialiser } = useStore();
   const marge = joursDeMarge(etat);
   const margeCritique = marge <= 5;
+  const [clair, setClair] = useState(() => lireTheme() === "clair");
+  useEffect(() => {
+    const theme = clair ? "clair" : "sombre";
+    appliquerTheme(theme);
+    ecrireTheme(theme);
+  }, [clair]);
   return (
     <header className="barre-ville">
       <div className="barre-titre">
@@ -75,6 +82,13 @@ function BarreVille(): ReactNode {
         ⏭ Passer un jour
       </button>
       <div className="barre-outils">
+        <button
+          className="bouton-mini"
+          onClick={() => setClair((c) => !c)}
+          title="Basculer entre thème sombre et clair (préférence gardée)"
+        >
+          {clair ? "🌙 Sombre" : "☀️ Clair"}
+        </button>
         <button className="bouton-mini" onClick={exporter}>⬇ Exporter</button>
         <label className="bouton-mini bouton-import">
           ⬆ Importer

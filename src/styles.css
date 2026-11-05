@@ -8,9 +8,51 @@
   --texte: #e8e6df;
   --mute: #9a9a92;
   --jaune: #ffd400;
+  --jaune-texte: #ffd400;
   --rouge: #e03131;
   --bleu: #4dabf7;
   --vert: #51cf6e;
+  color-scheme: dark;
+}
+
+/* Mode clair (bouton en barre de ville, préférence en localStorage) :
+   fond papier chaud, accents gardés mais assombris pour rester lisibles. */
+:root[data-theme="clair"] {
+  --fond: #f4f1ea;
+  --fond-carte: #ffffff;
+  --fond-clair: #faf7f0;
+  --bord: #d9d3c7;
+  --texte: #26241f;
+  --mute: #6f6a5f;
+  --jaune: #ffd400;
+  --jaune-texte: #b58900;
+  --rouge: #d93838;
+  --bleu: #1f7ac2;
+  --vert: #2f9e49;
+  color-scheme: light;
+}
+
+/* Surcharge des teintes fixes pensées pour le fond sombre. */
+:root[data-theme="clair"] tr:hover td {
+  background: rgba(0, 0, 0, 0.04);
+}
+:root[data-theme="clair"] .rangée-active td {
+  background: rgba(255, 212, 0, 0.25);
+}
+:root[data-theme="clair"] .fiche-pnj td {
+  background: rgba(0, 0, 0, 0.03);
+}
+:root[data-theme="clair"] .badge-flux {
+  background: rgba(47, 158, 73, 0.10);
+}
+:root[data-theme="clair"] .badge-dette {
+  background: rgba(31, 122, 194, 0.08);
+}
+:root[data-theme="clair"] .badge-incident {
+  background: rgba(217, 56, 56, 0.10);
+}
+:root[data-theme="clair"] .alerte-tresorerie {
+  background: rgba(217, 56, 56, 0.09);
 }
 
 * {
@@ -202,7 +244,7 @@ tr:hover td {
 }
 .badge-commerce {
   border-color: var(--jaune);
-  color: var(--jaune);
+  color: var(--jaune-texte);
 }
 .badge-prive {
   color: var(--mute);
@@ -213,7 +255,7 @@ tr:hover td {
 }
 .badge-impots {
   border-color: var(--jaune);
-  color: var(--jaune);
+  color: var(--jaune-texte);
 }
 .badge-salaires {
   border-color: var(--bleu);
@@ -258,7 +300,7 @@ tr:hover td {
 /* ---------- journal ---------- */
 
 .journal-jour h3 {
-  color: var(--jaune);
+  color: var(--jaune-texte);
   margin-bottom: 4px;
 }
 .journal-ligne {
@@ -292,7 +334,7 @@ tr:hover td {
   padding: 4px 0;
 }
 .comptes strong {
-  color: var(--jaune);
+  color: var(--jaune-texte);
 }
 
 /* ---------- formulaires ---------- */
