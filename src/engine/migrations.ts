@@ -8,7 +8,7 @@ import type { Etat } from "./types.ts";
 import { createMondeDefaut } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 3;
+export const SCHEMA_VERSION_ETAT = 4;
 
 /** Normalise un état inconnu (localStorage corrompu, version future, import). */
 export function migrerEtat(brut: unknown): Etat {
@@ -23,9 +23,19 @@ export function migrerEtat(brut: unknown): Etat {
   }
 
   const defaut = createMondeDefaut();
-  const pnjs = Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs;
+  // Migration v3 -> v4 : modèle flux (phase 3.6) — lieu de travail des
+  // employés privés et recettes du dernier jour par commerce.
+  const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p) => ({
+    ...p,
+    travailBatimentId:
+      (p as Partial<{ travailBatimentId?: string | null }>).travailBatimentId ?? null,
+  }));
   const batiments = Array.isArray(b.batiments) ? b.batiments : defaut.batiments;
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;
+  const recettesCommerce =
+    b.recettesCommerce !== null && typeof b.recettesCommerce === "object"
+      ? (b.recettesCommerce as Record<string, number>)
+      : {};
 
   // Migration v1 -> v2 : K éditable (params.coeffIntensite) et pertes cumulées.
   const paramsBrut = (b.params ?? defaut.params) as Partial<Etat["params"]>;
@@ -59,5 +69,6 @@ export function migrerEtat(brut: unknown): Etat {
     pnjs,
     batiments,
     journal,
+    recettesCommerce,
   };
 }

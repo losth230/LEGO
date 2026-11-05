@@ -227,6 +227,11 @@ tr:hover td {
   border-color: var(--vert);
   color: var(--vert);
 }
+.badge-flux {
+  border-color: var(--vert);
+  color: var(--vert);
+  background: rgba(81, 207, 110, 0.10);
+}
 .badge-dette {
   border-color: var(--bleu);
   color: var(--bleu);

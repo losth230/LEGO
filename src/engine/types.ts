@@ -22,6 +22,12 @@ export interface Pnj {
   grade?: string;
   /** Bâtiment lié : logement (habitation), boutique (commerce) ou service (service public). */
   batimentId: string | null;
+  /**
+   * Lieu de travail d'un employé privé (commerce) — modèle flux, phase 3.6.
+   * Le patron (commerçant) garde sa boutique dans batimentId ; l'employé
+   * habite dans batimentId et travaille ici.
+   */
+  travailBatimentId?: string | null;
   /** Revenu indicatif quotidien en centimes — assiette fiscale (cahier des charges §3.2). */
   revenuIndicatif: number;
   /** Budget d'achat quotidien en centimes (dépense dans les commerces). */
@@ -52,6 +58,7 @@ export type TypeJournal =
   | "fonctionnement"
   | "dette"
   | "achats"
+  | "flux"
   | "incident"
   | "solde"
   | "systeme";
@@ -97,5 +104,10 @@ export interface Etat {
   params: ParamsVille;
   pnjs: Pnj[];
   batiments: Batiment[];
+  /**
+   * Recettes du dernier jour par commerce (centimes) — modèle flux, phase 3.6.
+   * Sert au calibrage des effectifs (effectif_max ≈ 0,88 × recettes / 57,75).
+   */
+  recettesCommerce?: Record<string, number>;
   journal: JournalEntree[];
 }

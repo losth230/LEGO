@@ -1,8 +1,10 @@
-// Tests du moteur (phases 1 et 2) — exécution : npm test
+// Tests du moteur (phases 1 à 3.6) — exécution : npm test
 // (node --experimental-strip-types --test src/engine/moteur.test.ts)
 // Critère d'acceptation phase 1 : 30 jours passés, argent cohérent, journal lisible.
 // Phase 2 : incidents tirés (règle R × P × K / 10000 / 365), garde des
 // services, dégâts/vols tracés, déterminisme seedé par jour.
+// Phase 3.6 : modèle flux — les commerces redistribuent leurs recettes du
+// jour (salaires + primes), la marge patronale seule reste au patron.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -24,9 +26,11 @@ import {
   chargesJournalieres,
   interetsDus,
   coefficientRenfort,
+  effectifMax,
   joursDeMarge,
   impotDu,
   monnaieEnCircuit,
+  PART_SALARIALE_FLUX,
   passerJour,
 } from "./moteur.ts";
 import { gardeArmee, gardePolice, gardePompiers, probaQuotidienne } from "./evenements.ts";
@@ -75,10 +79,23 @@ test("un jour : impôts prélevés, salaires versés, sorties tracées, achats e
   assert.equal(achats.length, 1);
   assert.ok((achats[0].montant ?? 0) > 0);
   assert.equal(entrees(1, "solde", j1.journal).length, 1);
-  // 5 entrées économiques par jour (impôts, salaires, fonctionnement, achats, solde)
+  // Entrées économiques par jour : impôts, salaires, fonctionnement, achats,
+  // flux (3 commerces, testés séparément) et solde.
   for (const typeAtt of ["impots", "salaires", "fonctionnement", "achats", "solde"]) {
     assert.equal(entrees(1, typeAtt, j1.journal).length, 1, typeAtt);
   }
+  assert.equal(entrees(1, "flux", j1.journal).length, 3, "trois commerces racontent leur flux");
+  // Sans employé, un commerce thésaurise : la phase 3.6 le raconte (stock).
+  assert.ok(
+    entrees(1, "flux", j1.journal).every((e) => e.texte.includes("stock")),
+    "l'accumulation sans employé est racontée",
+  );
+  // Recettes du dernier jour persistées (calibrage des effectifs).
+  assert.ok(j1.recettesCommerce !== undefined);
+  assert.equal(Object.keys(j1.recettesCommerce!).length, 3);
+  for (const v of Object.values(j1.recettesCommerce!)) assert.ok(v > 70000, "recettes: " + v);
+  // Fonctionnement rerouté : la ville achète sur place (montant identique).
+  assert.ok(fonct[0].texte.includes("commerces locaux"), "l'achat sur place est raconté");
 });
 
 test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
@@ -187,9 +204,11 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
-  assert.equal(m.schemaVersion, 3, "v1 -> v3 : schema à jour");
+  assert.equal(m.schemaVersion, 4, "v1 -> v4 : schema à jour");
   assert.equal(m.dette, 0, "v2 -> v3 : dette initialisée");
   assert.equal(m.mouvementsBanqueCumules, 0, "v2 -> v3 : mouvements banque initialisés");
+  assert.ok(m.pnjs.every((p) => p.travailBatimentId === null), "v3 -> v4 : lieu de travail initialisé");
+  assert.deepEqual(m.recettesCommerce, {}, "v3 -> v4 : recettes des commerces initialisées");
 });
 
 // ---------- Phase 2 : incidents, garde des services ----------
@@ -427,4 +446,102 @@ test("coefficientRenfort : deux militaires contiennent la moitié d un incident 
   assert.equal(coefficientRenfort(3, 0), 1);
   assert.equal(coefficientRenfort(1, 10), 1);
   assert.equal(coefficientRenfort(2, 10), 1);
+});
+
+// ---------- phase 3.6 : compagnies privées, modèle flux ----------
+
+test("effectifMax : le calibrage des effectifs d'un commerce (0,88 × recettes / 57,75)", () => {
+  assert.equal(effectifMax(77400, 5775), 11, "0,88 × 774 / 57,75 ≈ 11,8 -> 11 employés max");
+  assert.equal(effectifMax(0, 5775), 0, "pas de recettes, pas d'emploi");
+  assert.equal(effectifMax(100000, 0), 0, "salaire nul : calibrage impossible, 0");
+});
+
+test("flux : un commerce redistribue le jour même, seul le patron garde sa marge (monde témoin)", () => {
+  // Monde témoin : 1 commerce, 1 patron, 2 employés, 1 client, aucun service public.
+  const base = calme(createMondeDefaut());
+  const boutique = base.batiments.find((b) => b.type === "commerce")!;
+  const monde: Etat = {
+    ...base,
+    batiments: [boutique],
+    pnjs: [
+      nouveauPnj({ prenom: "Jeanne", nom: "Test", statut: "commercant", batimentId: boutique.id, revenuIndicatif: 6000, compte: 0 }),
+      nouveauPnj({ prenom: "Alban", nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
+      nouveauPnj({ prenom: "Brune", nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
+      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5250, budgetAchat: 20000, compte: 200000 }),
+    ],
+  };
+  const avant = monnaieEnCircuit(monde);
+  const j1 = passerJour(monde);
+  // Le client achète 200 L : tout atterrit chez le patron (l'impôt se paie
+  // sur son compte, il ne réduit pas son budget d'achat).
+  const recettes = j1.recettesCommerce![boutique.id];
+  assert.equal(recettes, 20000);
+  const plafond = Math.round(PART_SALARIALE_FLUX * recettes);
+  // Salaires contractuels + primes = 88 % des recettes, racontés et payés.
+  const flux = entrees(1, "flux", j1.journal);
+  assert.equal(flux.length, 1);
+  assert.equal(flux[0].montant, plafond, "le commerce ne garde que 12 % du flux");
+  assert.ok(flux[0].texte.includes("redistribue") && flux[0].texte.includes("primes"), "la redistribution est racontée");
+  const employes = j1.pnjs.filter((p) => p.travailBatimentId === boutique.id);
+  // 115,50 L de salaires dus + 60,50 L de primes partagées à parts égales.
+  assert.equal(employes[0].compte, 5775 + Math.round((plafond - 11550) / 2));
+  assert.equal(employes[1].compte, 5775 + (plafond - 11550 - Math.round((plafond - 11550) / 2)));
+  // Le patron ne garde que sa marge patronale (12 %).
+  assert.equal(j1.pnjs[0].compte, recettes - plafond);
+  assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte : l'argent a seulement circulé");
+});
+
+test("flux : sur-embauche et caisses vides — prorata, salaires impayés, faillite racontée", () => {
+  const base = calme(createMondeDefaut());
+  const boutique = base.batiments.find((b) => b.type === "commerce")!;
+  const monde: Etat = {
+    ...base,
+    batiments: [boutique],
+    pnjs: [
+      nouveauPnj({ prenom: "Jeanne", nom: "Test", statut: "commercant", batimentId: boutique.id, revenuIndicatif: 6000, compte: 0 }),
+      // Cinq employés à 57,75 L/j : 288,75 L dus pour ~193 L de recettes.
+      ...[1, 2, 3, 4, 5].map((i) =>
+        nouveauPnj({ prenom: "Employe" + i, nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
+      ),
+      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5250, budgetAchat: 20000, compte: 200000 }),
+    ],
+  };
+  const j1 = passerJour(monde);
+  const recettes = j1.recettesCommerce![boutique.id];
+  const salairesDus = 5 * 5775;
+  const flux = entrees(1, "flux", j1.journal);
+  assert.equal(flux.length, 1);
+  assert.ok(flux[0].texte.includes("impayés") && flux[0].texte.includes("faillite"), "la faillite est racontée");
+  // Prorata exact : les employés se partagent tout ce que le patron possédait.
+  const paye = j1.pnjs.filter((p) => p.travailBatimentId === boutique.id).reduce((s, p) => s + p.compte, 0);
+  assert.equal(paye, recettes, "prorata au centime : tout est versé, rien de caché");
+  assert.ok(salairesDus - paye > 0, "une partie des salaires reste due : " + (salairesDus - paye));
+  assert.equal(j1.pnjs[0].compte, 0, "le patron a vidé ses caisses jusqu'au dernier centime");
+});
+
+test("flux : sans commerce ouvert, la ville se fournit à l'extérieur (sortie tracée)", () => {
+  let m = calme(createMondeDefaut());
+  for (const p of m.pnjs.filter((p) => p.statut === "commercant")) m = supprimerPnj(m, p.id);
+  const j1 = passerJour(m);
+  const fonct = entrees(1, "fonctionnement", j1.journal)[0];
+  assert.ok(fonct.texte.includes("extérieurs"), "l'approvisionnement extérieur est raconté");
+  assert.equal(fonct.montant, 8000, "le fonctionnement reste dû");
+  assert.equal(j1.sortiesCumulees, 8000, "la sortie est tracée");
+  assert.equal(Object.keys(j1.recettesCommerce ?? {}).length, 0, "aucune recettes de commerce");
+});
+
+test("flux : deux employés au Fournil Doré, la bascule stock vers flux en monde réel", () => {
+  const m = calme(createMondeDefaut());
+  const boulangerie = m.batiments.find((b) => b.nom.includes("Fournil"))!.id;
+  m.pnjs[10] = { ...m.pnjs[10], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  m.pnjs[11] = { ...m.pnjs[11], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  const j1 = passerJour(m);
+  const recettes = j1.recettesCommerce![boulangerie];
+  const plafond = Math.round(PART_SALARIALE_FLUX * recettes);
+  const entree = entrees(1, "flux", j1.journal).find((e) => e.texte.includes("Fournil"));
+  assert.ok(entree !== undefined, "le Fournil raconte sa journée");
+  assert.equal(entree!.montant, plafond, "88 % du flux repartent en salaires et primes le soir même");
+  // Les deux autres commerces, sans employé, thésaurisent toujours (raconté).
+  assert.equal(entrees(1, "flux", j1.journal).filter((e) => e.texte.includes("stock")).length, 2);
+  assert.equal(j1.sortiesCumulees, 0, "rien ne sort du circuit quand les commerces sont ouverts");
 });

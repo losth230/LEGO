@@ -53,6 +53,15 @@ export const COEFF_INTENSITE_DEFAUT = Math.max(1, Math.round(refNombre("meta.coe
 /** Taux d'emprunt annuel des collectivités en % (3,54 % en 2024). */
 export const TAUX_EMPRUNT_PCT = refNombre("economie.taux_emprunt_collectivites.valeur", 3.54);
 
+/**
+ * Part maximale des recettes d'un commerce redistribuée en salaires (phase 3.6) :
+ * la marge patronale conserve 12 % du flux — marge sur le flux, jamais le stock.
+ */
+export const PART_SALARIALE_FLUX = refNombre("economie.part_salariale_flux.valeur", 0.88);
+
+/** Coût complet moyen d'un employé privé par jour (L) — base du calibrage des effectifs. */
+export const COUT_EMPLOYE_PRIVE_L = refNombre("economie.cout_employe_prive_reference.valeur", 57.75);
+
 /** Formate des centimes en LEGOs affichables : 123456 -> "1 234,56 L". */
 export function montantL(centimes: number): string {
   const euros = (centimes / 100).toLocaleString("fr-FR", {

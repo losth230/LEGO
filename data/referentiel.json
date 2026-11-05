@@ -1,5 +1,5 @@
 {
-  "version": "1.4",
+  "version": "1.5",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -67,6 +67,22 @@
       "source": "INSEE — La consommation des ménages en 2023 (Insee Première n° 2002)",
       "url": "https://www.insee.fr/fr/statistiques/8210847",
       "note": "Réparti chaque jour entre les commerces de la ville ; part modulable par l'application."
+    },
+    "part_salariale_flux": {
+      "valeur": 0.88,
+      "unite": "part des recettes d'un commerce redistribuée en salaires",
+      "calcul": "1 - marge patronale (12 %)",
+      "annee": 2026,
+      "source": "Arbitrage phase 3.6 — modèle flux (2026-11-05)",
+      "note": "Marge sur le flux, jamais le stock : un commerce redistribue ses recettes du jour (salaires dus + primes) jusqu'à 88 % de ses recettes ; la marge patronale (12 %) reste au patron. Calibrage associé : effectif_max ≈ 0,88 × recettes / 57,75."
+    },
+    "cout_employe_prive_reference": {
+      "valeur": 57.75,
+      "unite": "euro/employé privé/jour (coût complet)",
+      "calcul": "calibrage interne : salaire privé complet moyen ≈ 57,75 L/jour",
+      "annee": 2026,
+      "source": "Arbitrage phase 3.6 — modèle flux (2026-11-05), aligné sur un salaire privé complet autour du SMIC",
+      "note": "Base du calibrage des effectifs d'un commerce : effectif_max ≈ 0,88 × recettes / 57,75. Valeur de calibrage de jeu (marge nette globale quasi nulle dans une ville fermée), pas une donnée INSEE."
     },
     "salaires_publics_nets_par_jour": {
       "adjoint_technique": {

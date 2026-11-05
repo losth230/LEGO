@@ -1,6 +1,6 @@
 # data/ — Référentiel de valeurs réelles
 
-**[referentiel.json](referentiel.json)** (v1.4, 2026-11-05) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire). v1.4 : grilles de salaires complètes par corps — police municipale (5 grades), sapeurs-pompiers (12 grades, indemnité de feu incluse) et armée (15 grades, solde nette avec primes NPRM 2025).
+**[referentiel.json](referentiel.json)** (v1.5, 2026-11-05) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire). v1.4 : grilles de salaires complètes par corps — police municipale (5 grades), sapeurs-pompiers (12 grades, indemnité de feu incluse) et armée (15 grades, solde nette avec primes NPRM 2025). v1.5 : modèle flux — part salariale 0,88 (88 % des recettes d'un commerce redistribuées en salaires, marge patronale 12 %) et coût complet d'un employé privé 57,75 L/jour (calibrage de jeu : `effectif_max ≈ 0,88 × recettes / 57,75`).
 
 ## Monnaie
 

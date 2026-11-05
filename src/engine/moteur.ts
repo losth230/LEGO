@@ -1,6 +1,9 @@
 // Moteur économique quotidien — cahier des charges §4.1 et §4.3.
 // Pur et déterministe : aucun accès réseau, aucun stockage, pas de React.
-// Ordre du règlement (§4.1) : impôts -> salaires publics -> fonctionnement -> achats.
+// Ordre du règlement (§4.1) : impôts -> salaires publics -> fonctionnement
+// (acheté sur place si un commerce est ouvert, phase 3.6) -> intérêts ->
+// achats -> redistribution du flux (salaires privés + primes, phase 3.6)
+// -> incidents.
 
 import type {
   Batiment,
@@ -9,13 +12,15 @@ import type {
   Pnj,
 } from "./types.ts";
 import {
+  COUT_EMPLOYE_PRIVE_L,
+  PART_SALARIALE_FLUX,
   TAUX_EMPRUNT_PCT,
   TAUX_IMPOT_DEFAUT_BP,
   salaireJourL,
 } from "./referentiel.ts";
 import { gardePolice, gardePompiers, gardeArmee, tirerIncidents } from "./evenements.ts";
 
-export { TAUX_IMPOT_DEFAUT_BP };
+export { TAUX_IMPOT_DEFAUT_BP, PART_SALARIALE_FLUX, COUT_EMPLOYE_PRIVE_L };
 
 /** Intérêts de dette dus pour une journée (centimes) — taux réel 3,54 %/an. */
 export function interetsDus(dette: number): number {
@@ -47,6 +52,45 @@ export function commercesPourAcheteur(etat: Etat, pnj: Pnj): Batiment[] {
     const proprio = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
     return proprio !== undefined && proprio.id !== pnj.id;
   });
+}
+
+/** Commerces ouverts : un commerce n'est ouvert que s'il a son commerçant. */
+export function commercesOuverts(etat: Etat): Batiment[] {
+  return etat.batiments.filter(
+    (b) =>
+      b.type === "commerce" &&
+      etat.pnjs.some((p) => p.batimentId === b.id && p.statut === "commercant"),
+  );
+}
+
+/** Employés privés travaillant dans un commerce (lieu de travail renseigné). */
+export function employesDuCommerce(etat: Etat, batimentId: string): Pnj[] {
+  return etat.pnjs.filter(
+    (p) => p.statut === "prive" && p.travailBatimentId === batimentId,
+  );
+}
+
+/**
+ * Effectif maximal qu'un commerce peut salarier sans thésauriser :
+ * ~88 % des recettes en salaires, le reste est la marge patronale
+ * (phase 3.6 — marge sur le flux, jamais le stock).
+ */
+export function effectifMax(recettesCentimes: number, salaireJourCentimes: number): number {
+  if (salaireJourCentimes <= 0) return 0;
+  return Math.floor((PART_SALARIALE_FLUX * recettesCentimes) / salaireJourCentimes);
+}
+
+/** Répartit un montant en centimes proportionnellement aux poids (sans en perdre). */
+function repartir(montant: number, poids: number[]): number[] {
+  const total = poids.reduce((s, v) => s + v, 0);
+  if (total <= 0 || montant <= 0) return poids.map(() => 0);
+  const parts = poids.map((v) => Math.floor((montant * v) / total));
+  let reste = montant - parts.reduce((s, v) => s + v, 0);
+  for (let i = 0; i < parts.length && reste > 0; i++) {
+    parts[i] += 1;
+    reste -= 1;
+  }
+  return parts;
 }
 
 /** Impôt dû par un PNJ pour une journée (centimes), arrondi à l'entier. */
@@ -89,6 +133,9 @@ interface Totaux {
   interetsPayes: number;
   interetsDusTotal: number;
   interetsCapitalises: number;
+  // --- phase 3.6 : modèle flux ---
+  fonctionnementLocal: boolean;
+  salairesPrivesPayes: number;
 }
 
 function etapeImpots(etat: Etat, totaux: Totaux): void {
@@ -117,13 +164,33 @@ function etapeSalaires(etat: Etat, totaux: Totaux): void {
 }
 
 function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
+  // Phase 3.6 — la ville achète sur place : le fonctionnement des services
+  // rejoint les recettes des commerces ouverts et repart en salaires le soir.
+  // Sans commerce ouvert, la ville se fournit à l'extérieur (sortie tracée).
+  const boutiques = commercesOuverts(etat);
+  totaux.fonctionnementLocal = boutiques.length > 0;
   for (const bat of etat.batiments) {
     if (bat.type !== "service_public") continue;
     const paye = Math.min(bat.coutFonctionnement, etat.budgetVille);
     etat.budgetVille -= paye;
-    etat.sortiesCumulees += paye;
     totaux.fonctionnementPaye += paye;
-    totaux.sortiesJour += paye;
+    if (paye === 0) continue;
+    if (boutiques.length === 0) {
+      etat.sortiesCumulees += paye;
+      totaux.sortiesJour += paye;
+    } else {
+      const parts = repartir(paye, boutiques.map(() => 1));
+      for (let i = 0; i < boutiques.length; i++) {
+        const proprio = etat.pnjs.find(
+          (p) => p.batimentId === boutiques[i].id && p.statut === "commercant",
+        );
+        if (proprio) proprio.compte += parts[i];
+        totaux.encaissements.set(
+          boutiques[i].id,
+          (totaux.encaissements.get(boutiques[i].id) ?? 0) + parts[i],
+        );
+      }
+    }
   }
 }
 
@@ -166,6 +233,92 @@ function etapeAchats(etat: Etat, totaux: Totaux): void {
       totaux.encaissements.set(bat.id, (totaux.encaissements.get(bat.id) ?? 0) + part);
     }
   }
+}
+
+/**
+ * Modèle flux (phase 3.6) : un commerce ne thésaurise pas — il redistribue
+ * ses recettes du jour. Les salaires des employés sont contractuels (payés
+ * sur les recettes, puis sur le matelas du patron, prorata si les caisses
+ * ne suffisent pas) ; au-delà, tout l'excédent jusqu'à 88 % des recettes
+ * repart en primes proportionnelles. Seule la marge (12 %) reste au patron.
+ * Un commerce sans employé, lui, garde tout : l'accumulation (stock) est
+ * racontée dans le journal — c'est au joueur d'embaucher pour la corriger.
+ */
+function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
+  const entrees: JournalEntree[] = [];
+  if (etat.recettesCommerce === undefined) etat.recettesCommerce = {};
+  for (const bat of etat.batiments) {
+    if (bat.type !== "commerce") continue;
+    const proprio = etat.pnjs.find(
+      (p) => p.batimentId === bat.id && p.statut === "commercant",
+    );
+    if (!proprio) continue;
+    const recettes = totaux.encaissements.get(bat.id) ?? 0;
+    etat.recettesCommerce[bat.id] = recettes;
+    const employes = employesDuCommerce(etat, bat.id);
+    if (recettes === 0 && employes.length === 0) continue;
+
+    const salairesDus = employes.reduce((s, p) => s + p.revenuIndicatif, 0);
+    const plafond = Math.round(PART_SALARIALE_FLUX * recettes);
+    let payeSalaires = 0;
+    let primesPayees = 0;
+    let impayes = 0;
+
+    if (employes.length > 0) {
+      // 1) Salaires contractuels : d'abord les recettes du jour, puis la réserve du patron.
+      const disponibles = proprio.compte;
+      if (disponibles >= salairesDus) {
+        for (const p of employes) p.compte += p.revenuIndicatif;
+        proprio.compte -= salairesDus;
+        payeSalaires = salairesDus;
+      } else {
+        const parts = repartir(disponibles, employes.map((p) => p.revenuIndicatif));
+        for (let i = 0; i < employes.length; i++) {
+          employes[i].compte += parts[i];
+          payeSalaires += parts[i];
+        }
+        proprio.compte = 0;
+        impayes = salairesDus - payeSalaires;
+      }
+      // 2) Primes : l'excédent au-delà des salaires, jusqu'à 88 % des recettes,
+      //    repart aux employés — jamais au stock.
+      const poolPrimes = Math.max(0, plafond - salairesDus);
+      if (poolPrimes > 0 && proprio.compte > 0) {
+        const parts = repartir(Math.min(poolPrimes, proprio.compte), employes.map((p) => p.revenuIndicatif));
+        for (let i = 0; i < employes.length; i++) {
+          employes[i].compte += parts[i];
+          primesPayees += parts[i];
+        }
+        proprio.compte -= primesPayees;
+      }
+    }
+
+    const redistribute = payeSalaires + primesPayees;
+    totaux.salairesPrivesPayes += redistribute;
+    const marge = recettes - redistribute;
+    let texte: string;
+    if (employes.length === 0) {
+      texte =
+        bat.nom + " encaisse " + fmt(recettes) + " : aucun salarié — " +
+        proprio.prenom + " " + proprio.nom +
+        " garde tout. Sans redistribution, l'argent s'accumule (stock) ; embaucher ferait tourner le flux.";
+    } else {
+      texte =
+        bat.nom + " redistribue ses recettes du jour (" + fmt(recettes) + ") : " +
+        fmt(payeSalaires) + " de salaires pour " + employes.length + " employé(s)" +
+        (primesPayees > 0 ? ", " + fmt(primesPayees) + " de primes partagées" : "") +
+        (impayes > 0
+          ? " — alerte : " + fmt(impayes) + " de salaires impayés, la boutique est au bord de la faillite"
+          : "") +
+        " ; " + proprio.prenom + " " + proprio.nom + " " +
+        (marge >= 0
+          ? "garde sa marge : " + fmt(marge)
+          : "puise dans sa réserve pour " + fmt(-marge)) +
+        ".";
+    }
+    entrees.push({ jour: etat.jour, type: "flux", texte, montant: redistribute });
+  }
+  return entrees;
 }
 
 // ---------- Incidents et services (phase 2, §4.2) ----------
@@ -297,7 +450,12 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
   return entrees;
 }
 
-function journaliserJour(etat: Etat, totaux: Totaux, incidents: JournalEntree[]): void {
+function journaliserJour(
+  etat: Etat,
+  totaux: Totaux,
+  flux: JournalEntree[],
+  incidents: JournalEntree[],
+): void {
   const j: JournalEntree[] = [];
   const contrib = etat.pnjs.length;
   j.push({
@@ -333,10 +491,13 @@ function journaliserJour(etat: Etat, totaux: Totaux, incidents: JournalEntree[])
   j.push({
     jour: etat.jour,
     type: "fonctionnement",
-    texte:
-      "Fournitures, énergie et entretien des services publics : " +
-      fmt(totaux.fonctionnementPaye) +
-      " quittent le circuit vers les fournisseurs extérieurs.",
+    texte: totaux.fonctionnementLocal
+      ? "Fournitures, énergie et entretien des services publics : " +
+        fmt(totaux.fonctionnementPaye) +
+        " versés aux commerces locaux — la ville achète sur place, l'argent reste dans le circuit."
+      : "Fournitures, énergie et entretien des services publics : " +
+        fmt(totaux.fonctionnementPaye) +
+        " quittent le circuit vers des fournisseurs extérieurs — aucun commerce ouvert pour acheter sur place.",
     montant: totaux.fonctionnementPaye,
   });
   if (totaux.achatsTotal > 0 || totaux.acheteursSansCommerce > 0) {
@@ -362,6 +523,7 @@ function journaliserJour(etat: Etat, totaux: Totaux, incidents: JournalEntree[])
       montant: totaux.achatsTotal,
     });
   }
+  for (const f of flux) j.push(f);
   if (totaux.interetsDusTotal > 0) {
     j.push({
       jour: etat.jour,
@@ -463,14 +625,17 @@ export function passerJour(etat: Etat): Etat {
     interetsPayes: 0,
     interetsDusTotal: 0,
     interetsCapitalises: 0,
+    fonctionnementLocal: false,
+    salairesPrivesPayes: 0,
   };
   etapeImpots(e, totaux);
   etapeSalaires(e, totaux);
   etapeFonctionnement(e, totaux);
   etapeInterets(e, totaux);
   etapeAchats(e, totaux);
+  const entreesFlux = etapeSalariesPrives(e, totaux);
   const entreesIncidents = etapeIncidents(e, totaux);
-  journaliserJour(e, totaux, entreesIncidents);
+  journaliserJour(e, totaux, entreesFlux, entreesIncidents);
   return e;
 }
 

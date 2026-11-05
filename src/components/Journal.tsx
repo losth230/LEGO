@@ -10,6 +10,7 @@ const ETIQUETTES: Record<TypeJournal, { icone: string; libelle: string; classe: 
   fonctionnement: { icone: "🛠", libelle: "Fonctionnement", classe: "badge-fonctionnement" },
   dette: { icone: "💳", libelle: "Dette", classe: "badge-dette" },
   achats: { icone: "🛒", libelle: "Achats", classe: "badge-achats" },
+  flux: { icone: "🔁", libelle: "Flux privé", classe: "badge-flux" },
   incident: { icone: "🚨", libelle: "Incident", classe: "badge-incident" },
   solde: { icone: "📊", libelle: "Solde", classe: "badge-solde" },
   systeme: { icone: "🏙", libelle: "Ville", classe: "badge-systeme" },

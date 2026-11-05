@@ -30,6 +30,7 @@ export function nouveauPnj(p: Partial<Pnj> & { prenom: string; nom: string }): P
     statut: p.statut ?? "prive",
     grade: p.grade,
     batimentId: p.batimentId ?? null,
+    travailBatimentId: p.travailBatimentId ?? null,
     revenuIndicatif: revenu,
     budgetAchat: p.budgetAchat ?? revenu,
     compte: p.compte ?? 400000,
@@ -166,13 +167,19 @@ export function ajouterPnj(etat: Etat, pnj: Pnj): Etat {
   const e = structuredClone(etat);
   const bat = e.batiments.find((b) => b.id === pnj.batimentId);
   const chez = bat ? " (" + bat.nom + ")" : "";
+  const travail = pnj.travailBatimentId
+    ? e.batiments.find((b) => b.id === pnj.travailBatimentId)
+    : null;
   raconter(
     e,
     pnj.statut === "commercant"
       ? pnj.prenom + " " + pnj.nom + " ouvre sa boutique" + chez + " : les caddies s'annoncent."
       : pnj.statut === "agent_public"
         ? pnj.prenom + " " + pnj.nom + " entre au service de la ville comme " + pnj.metier + chez + "."
-        : pnj.prenom + " " + pnj.nom + " emménage en ville" + chez + ", " + pnj.metier + ". Bienvenue !",
+        : travail
+          ? pnj.prenom + " " + pnj.nom + " est embauché(e) chez " + travail.nom + " comme " +
+            pnj.metier + " : son salaire privé coulera chaque soir (modèle flux)."
+          : pnj.prenom + " " + pnj.nom + " emménage en ville" + chez + ", " + pnj.metier + ". Bienvenue !",
   );
   e.pnjs.push(pnj);
   return e;
@@ -217,9 +224,21 @@ export function modifierBatiment(etat: Etat, id: string, patch: Partial<Batiment
 export function supprimerBatiment(etat: Etat, id: string): Etat {
   const e = structuredClone(etat);
   const parti = e.batiments.find((b) => b.id === id);
+  const emploisPerdus = e.pnjs.filter((p) => p.travailBatimentId === id).length;
   e.batiments = e.batiments.filter((b) => b.id !== id);
-  e.pnjs = e.pnjs.map((p) => (p.batimentId === id ? { ...p, batimentId: null } : p));
-  if (parti) raconter(e, parti.nom + " ferme et s'efface du paysage.");
+  e.pnjs = e.pnjs.map((p) =>
+    p.batimentId === id
+      ? { ...p, batimentId: null }
+      : p.travailBatimentId === id
+        ? { ...p, travailBatimentId: null }
+        : p,
+  );
+  if (parti)
+    raconter(
+      e,
+      parti.nom + " ferme et s'efface du paysage." +
+        (emploisPerdus > 0 ? " Ses " + emploisPerdus + " employé(s) se retrouvent sans emploi." : ""),
+    );
   return e;
 }
 

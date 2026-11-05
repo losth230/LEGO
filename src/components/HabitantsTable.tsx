@@ -19,6 +19,9 @@ function nomComplet(p: Pnj): string {
 function Fiche({ pnj }: { pnj: Pnj }) {
   const { etat } = useStore();
   const bat = etat.batiments.find((b) => b.id === pnj.batimentId);
+  const travail = pnj.travailBatimentId
+    ? etat.batiments.find((b) => b.id === pnj.travailBatimentId)
+    : null;
   const impot = impotDu(pnj, etat.params.tauxImpotBp);
   return (
     <tr className="fiche-pnj">
@@ -28,6 +31,12 @@ function Fiche({ pnj }: { pnj: Pnj }) {
             <strong>{nomComplet(pnj)}</strong> — {pnj.metier}, {pnj.age} ans
             <br />
             Logement/service : {bat ? bat.nom : "sans bâtiment"}
+            {travail ? (
+              <>
+                <br />
+                Lieu de travail : {travail.nom}
+              </>
+            ) : null}
           </div>
           <div>
             Revenu indicatif : {montantL(pnj.revenuIndicatif)} / jour
@@ -39,6 +48,8 @@ function Fiche({ pnj }: { pnj: Pnj }) {
             <br />
             {pnj.statut === "agent_public" ? (
               <>Salaire : {montantL(Math.round(salaireJourL(pnj.grade ?? "") * 100))} / jour</>
+            ) : travail ? (
+              <>Salaire privé : {montantL(pnj.revenuIndicatif)} / jour versé par le commerce (modèle flux)</>
             ) : (
               <>Sans rémunération régulière (§4.3 — cas assumé)</>
             )}

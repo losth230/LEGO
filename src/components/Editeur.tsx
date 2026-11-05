@@ -3,8 +3,9 @@
 
 import { useState, type ReactNode } from "react";
 import { useStore } from "../state/store.tsx";
-import type { EtatBatiment, Pnj, Statut, TypeBatiment } from "../engine/types.ts";
-import { montantL, salaireJourL } from "../engine/referentiel.ts";
+import type { Batiment, EtatBatiment, Pnj, Statut, TypeBatiment } from "../engine/types.ts";
+import { COUT_EMPLOYE_PRIVE_L, montantL, salaireJourL } from "../engine/referentiel.ts";
+import { effectifMax, employesDuCommerce } from "../engine/moteur.ts";
 import {
   ajouterBatiment,
   ajouterPnj,
@@ -106,6 +107,25 @@ function CarteVille() {
 
 // ---------- bâtiments ----------
 
+/** Calibrage du modèle flux affiché sur chaque commerce (phase 3.6). */
+function InfoCommerce({ batiment: b }: { batiment: Batiment }) {
+  const { etat } = useStore();
+  const proprio = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
+  const recettes = etat.recettesCommerce?.[b.id] ?? 0;
+  const employes = employesDuCommerce(etat, b.id).length;
+  const cout = Math.round(COUT_EMPLOYE_PRIVE_L * 100);
+  const conseille = effectifMax(recettes, cout);
+  return (
+    <p className="mute">
+      {proprio
+        ? "Recettes de la veille : " + montantL(recettes)
+        : "Commerce sans commerçant : il n'encaisse rien"}{" "}
+      · Employé(s) : {employes} · Calibrage flux : jusqu'à ~{conseille} figurine(s) à{" "}
+      {montantL(cout)}/jour (88 % des recettes en salaires).
+    </p>
+  );
+}
+
 function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.ts").Batiment }) {
   const { etat, majEtat } = useStore();
   const [ouvert, setOuvert] = useState(false);
@@ -154,6 +174,7 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
           </button>
         </span>
       </div>
+      {b.type === "commerce" ? <InfoCommerce batiment={b} /> : null}
       {ouvert ? (
         <div className="formulaire">
           <Champ label="Nom">
@@ -267,6 +288,7 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
   const [statut, setStatut] = useState<Statut>(p.statut);
   const [grade, setGrade] = useState(p.grade ?? GRADES[0]);
   const [batimentId, setBatimentId] = useState(p.batimentId ?? "");
+  const [travailId, setTravailId] = useState(p.travailBatimentId ?? "");
   const [revenu, setRevenu] = useState(versL(p.revenuIndicatif));
   const [achat, setAchat] = useState(versL(p.budgetAchat));
   const [compte, setCompte] = useState(versL(p.compte));
@@ -282,6 +304,7 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
         statut,
         grade: statut === "agent_public" ? grade : undefined,
         batimentId: batimentId === "" ? null : batimentId,
+        travailBatimentId: statut === "prive" && travailId !== "" ? travailId : null,
         revenuIndicatif: nombreL(revenu),
         budgetAchat: nombreL(achat),
         compte: nombreL(compte),
@@ -348,6 +371,18 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
               </select>
             </Champ>
           ) : null}
+          {statut === "prive" ? (
+            <Champ label="Lieu de travail (commerce — le salaire privé est le revenu indicatif)">
+              <select className="input" value={travailId} onChange={(e) => setTravailId(e.target.value)}>
+                <option value="">— sans emploi —</option>
+                {etat.batiments
+                  .filter((b) => b.type === "commerce")
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>{b.nom}</option>
+                  ))}
+              </select>
+            </Champ>
+          ) : null}
           <Champ label="Bâtiment">
             <select className="input" value={batimentId} onChange={(e) => setBatimentId(e.target.value)}>
               <option value="">— aucun —</option>
@@ -383,6 +418,7 @@ function CartePnjs() {
   const [statut, setStatut] = useState<Statut>("prive");
   const [grade, setGrade] = useState(GRADES[0]);
   const [batimentId, setBatimentId] = useState("");
+  const [travailId, setTravailId] = useState("");
   const [revenu, setRevenu] = useState("52,50");
 
   const ajouter = () => {
@@ -394,6 +430,7 @@ function CartePnjs() {
       statut,
       grade: statut === "agent_public" ? grade : undefined,
       batimentId: batimentId === "" ? null : batimentId,
+      travailBatimentId: statut === "prive" && travailId !== "" ? travailId : null,
       revenuIndicatif: nombreL(revenu),
     });
     majEtat(ajouterPnj(etat, p));

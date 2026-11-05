@@ -53,8 +53,8 @@ export function BudgetView() {
         <h2>💸 Sorties vers l'extérieur</h2>
         <p className="grand-nombre">{montantL(etat.sortiesCumulees)}</p>
         <p className="mute">
-          Cumul des coûts de fonctionnement, réparations, carburant d'intervention et frais
-          médicaux payés aux fournisseurs extérieurs depuis le jour 1
+          Cumul des réparations, du carburant d'intervention et des frais médicaux, plus le
+          fonctionnement quand aucun commerce n'est ouvert pour acheter sur place
           (sorties documentées du circuit, §4.3).
         </p>
       </div>
