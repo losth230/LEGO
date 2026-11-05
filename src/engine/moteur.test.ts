@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 
 import type { Etat, JournalEntree } from "./types.ts";
 import {
+  ajouterPnj,
   ajouterBatiment,
   createMondeDefaut,
   emprunterVille,
@@ -22,12 +23,13 @@ import { migrerEtat } from "./migrations.ts";
 import {
   chargesJournalieres,
   interetsDus,
+  coefficientRenfort,
   joursDeMarge,
   impotDu,
   monnaieEnCircuit,
   passerJour,
 } from "./moteur.ts";
-import { gardePolice, gardePompiers, probaQuotidienne } from "./evenements.ts";
+import { gardeArmee, gardePolice, gardePompiers, probaQuotidienne } from "./evenements.ts";
 import { COEFF_INTENSITE_DEFAUT, salaireJourL, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
 function entrees(jour: number, type: string, j: JournalEntree[]): JournalEntree[] {
@@ -39,16 +41,16 @@ function calme(etat: Etat): Etat {
   return modifierVille(etat, { coeffIntensite: 1 });
 }
 
-test("monde par défaut : 10 bâtiments, 45 figurines, jour 0", () => {
+test("monde par défaut : 11 bâtiments, 48 figurines (garnison incluse), jour 0", () => {
   const m = createMondeDefaut();
-  assert.equal(m.batiments.length, 10);
-  assert.equal(m.pnjs.length, 45);
+  assert.equal(m.batiments.length, 11);
+  assert.equal(m.pnjs.length, 48);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
-  assert.equal(services.length, 3);
+  assert.equal(services.length, 4);
   const agents = m.pnjs.filter((p) => p.statut === "agent_public");
-  assert.equal(agents.length, 3);
+  assert.equal(agents.length, 6);
   const boutiques = m.batiments.filter((b) => b.type === "commerce");
   assert.equal(boutiques.length, 3);
 });
@@ -68,7 +70,7 @@ test("un jour : impôts prélevés, salaires versés, sorties tracées, achats e
   const salaires = entrees(1, "salaires", j1.journal);
   assert.equal(salaires[0].montant, attenduSalaires);
   const fonct = entrees(1, "fonctionnement", j1.journal);
-  assert.equal(fonct[0].montant, 5000); // 3 services : 20 + 15 + 15 L
+  assert.equal(fonct[0].montant, 8000); // 4 services : 20 + 15 + 15 + 30 L (caserne militaire incluse)
   const achats = entrees(1, "achats", j1.journal);
   assert.equal(achats.length, 1);
   assert.ok((achats[0].montant ?? 0) > 0);
@@ -176,9 +178,9 @@ test("l'épargne n'est pas touchée par le moteur", () => {
 
 test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
   assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 45);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 48);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 45, "version future -> monde par défaut");
+  assert.equal(futur.pnjs.length, 48, "version future -> monde par défaut");
   const m = migrerEtat({ schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
@@ -360,4 +362,69 @@ test("conservation avec la banque : 30 jours, un emprunt en route", () => {
     initial + e.mouvementsBanqueCumules - e.sortiesCumulees - e.pertesCumulees,
     "conservation exacte, banque incluse",
   );
+});
+
+// ---------- phase 3.5 : corps, grades hiérarchisés, branche militaire ----------
+
+test("grilles de salaires strictement croissantes dans chaque corps", () => {
+  const pompiers = [
+    "sapeur_pompier_debutant", "sapeur_1re_classe_spp", "caporal_spp", "caporal_chef_spp",
+    "sergent_spp", "adjudant_spp", "adjudant_chef_spp", "lieutenant_spp", "capitaine_spp",
+    "commandant_spp", "lieutenant_colonel_spp", "colonel_spp",
+  ];
+  const police = ["policier_municipal", "brigadier_pm", "brigadier_chef_pm", "major_pm", "inspecteur_pm"];
+  const armee = [
+    "soldat_armee", "caporal_armee", "caporal_chef_armee", "sergent_armee", "sergent_chef_armee",
+    "sous_lieutenant_armee", "adjudant_armee", "adjudant_chef_armee", "major_armee", "lieutenant_armee",
+    "capitaine_armee", "commandant_armee", "lieutenant_colonel_armee", "colonel_armee", "general_armee",
+  ];
+  for (const grades of [pompiers, police, armee]) {
+    for (let i = 1; i < grades.length; i++) {
+      assert.ok(
+        salaireJourL(grades[i]) > salaireJourL(grades[i - 1]),
+        grades[i] + " (" + salaireJourL(grades[i]) + ") doit gagner plus que " + grades[i - 1] +
+          " (" + salaireJourL(grades[i - 1]) + ")",
+      );
+    }
+  }
+  // Bas de tableau modeste, haut de tableau confortable (référentiel v1.4).
+  assert.ok(salaireJourL("soldat_armee") < 50);
+  assert.ok(salaireJourL("general_armee") > 180);
+  assert.ok(salaireJourL("colonel_spp") > 160);
+});
+
+test("gardeArmee : la garnison est détectée par grade et par métier", () => {
+  const m = createMondeDefaut();
+  const g = gardeArmee(m);
+  assert.equal(g.length, 3);
+  assert.ok(g.every((p) => p.grade?.endsWith("_armee")));
+
+  // Un figurant promu par métier seul (grade non renseigné) compte aussi.
+  const avecVolontaire = ajouterPnj(
+    m,
+    nouveauPnj({ prenom: "Léo", nom: "Test", metier: "militaire de carrière", statut: "agent_public" }),
+  );
+  assert.equal(gardeArmee(avecVolontaire).length, 4);
+});
+
+test("charges : la garnison pèse sur les charges journalières", () => {
+  const m = createMondeDefaut();
+  const avec = chargesJournalieres(m);
+  const sansGarnison = chargesJournalieres({
+    ...m,
+    pnjs: m.pnjs.filter((p) => !(p.grade ?? "").endsWith("_armee")),
+    batiments: m.batiments.filter((b) => !b.nom.includes("militaire")),
+  });
+  const soldes = salaireJourL("soldat_armee") + salaireJourL("caporal_armee") + salaireJourL("capitaine_armee");
+  // Écart attendu : 3 soldes + le fonctionnement de la caserne militaire (30 L/j).
+  assert.equal(avec - sansGarnison, Math.round(soldes * 100) + 3000);
+});
+
+test("coefficientRenfort : deux militaires contiennent la moitié d un incident majeur", () => {
+  assert.equal(coefficientRenfort(3, 2), 0.5);
+  assert.equal(coefficientRenfort(3, 5), 0.5);
+  assert.equal(coefficientRenfort(3, 1), 1);
+  assert.equal(coefficientRenfort(3, 0), 1);
+  assert.equal(coefficientRenfort(1, 10), 1);
+  assert.equal(coefficientRenfort(2, 10), 1);
 });

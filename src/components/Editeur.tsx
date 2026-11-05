@@ -17,14 +17,14 @@ import {
   supprimerPnj,
 } from "../engine/monde.ts";
 
-const GRADES = [
-  "policier_municipal",
-  "sapeur_pompier_debutant",
-  "caporal_spp",
-  "adjudant_spp",
-  "lieutenant_spp",
-  "adjoint_technique",
+const GROUPES_GRADES: Array<{ corps: string; grades: string[] }> = [
+  { corps: "Mairie", grades: ["adjoint_technique"] },
+  { corps: "Police municipale", grades: ["policier_municipal", "brigadier_pm", "brigadier_chef_pm", "major_pm", "inspecteur_pm"] },
+  { corps: "Sapeurs-pompiers", grades: ["sapeur_pompier_debutant", "sapeur_1re_classe_spp", "caporal_spp", "caporal_chef_spp", "sergent_spp", "adjudant_spp", "adjudant_chef_spp", "lieutenant_spp", "capitaine_spp", "commandant_spp", "lieutenant_colonel_spp", "colonel_spp"] },
+  { corps: "Armée", grades: ["soldat_armee", "caporal_armee", "caporal_chef_armee", "sergent_armee", "sergent_chef_armee", "sous_lieutenant_armee", "adjudant_armee", "adjudant_chef_armee", "major_armee", "lieutenant_armee", "capitaine_armee", "commandant_armee", "lieutenant_colonel_armee", "colonel_armee", "general_armee"] },
 ];
+
+const GRADES = GROUPES_GRADES.flatMap((g) => g.grades);
 
 const TYPES_BATIMENT: TypeBatiment[] = ["habitation", "commerce", "service_public"];
 const ETATS_BATIMENT: EtatBatiment[] = ["neuf", "bon", "degrade", "sinistre"];
@@ -338,8 +338,12 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
           {statut === "agent_public" ? (
             <Champ label={"Grade (salaire " + salaireJourL(grade) + " L/jour)"}>
               <select className="input" value={grade} onChange={(e) => setGrade(e.target.value)}>
-                {GRADES.map((g) => (
-                  <option key={g} value={g}>{g}</option>
+                {GROUPES_GRADES.map((g) => (
+                  <optgroup key={g.corps} label={g.corps}>
+                    {g.grades.map((gr) => (
+                      <option key={gr} value={gr}>{gr}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </Champ>
@@ -425,8 +429,12 @@ function CartePnjs() {
         {statut === "agent_public" ? (
           <Champ label={"Grade (salaire " + salaireJourL(grade) + " L/jour)"}>
             <select className="input" value={grade} onChange={(e) => setGrade(e.target.value)}>
-              {GRADES.map((g) => (
-                <option key={g} value={g}>{g}</option>
+              {GROUPES_GRADES.map((g) => (
+                <optgroup key={g.corps} label={g.corps}>
+                  {g.grades.map((gr) => (
+                    <option key={gr} value={gr}>{gr}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </Champ>

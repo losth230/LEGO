@@ -1,5 +1,5 @@
 {
-  "version": "1.3",
+  "version": "1.4",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -69,6 +69,14 @@
       "note": "Réparti chaque jour entre les commerces de la ville ; part modulable par l'application."
     },
     "salaires_publics_nets_par_jour": {
+      "adjoint_technique": {
+        "valeur": 48.3,
+        "mensuel_net": "~1450",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles FPT 2025 (à valider)",
+        "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
+      },
       "policier_municipal": {
         "valeur": 56.7,
         "mensuel_net": "~1700",
@@ -76,6 +84,42 @@
         "annee": 2025,
         "source": "Grilles indiciaires FPT 2025 (à valider contre décret JORFTEXT000051724928)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
+      },
+      "brigadier_pm": {
+        "valeur": 61.7,
+        "mensuel_net": "1750-1950",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles FPT 2025 — police municipale (à valider)",
+        "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "brigadier_chef_pm": {
+        "valeur": 66.7,
+        "mensuel_net": "1850-2100",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles FPT 2025 — police municipale (à valider)",
+        "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "major_pm": {
+        "valeur": 71.7,
+        "mensuel_net": "1950-2300",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles FPT 2025 — police municipale (à valider)",
+        "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "inspecteur_pm": {
+        "valeur": 80.0,
+        "mensuel_net": "2150-2600",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles FPT 2025 — police municipale (à valider)",
+        "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/",
+        "note": "net mensuel médian (primes incluses) / 30"
       },
       "sapeur_pompier_debutant": {
         "valeur": 62.5,
@@ -85,6 +129,15 @@
         "source": "Grilles FPT 2025 — sapeur-pompier professionnel 2e classe (à valider)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
       },
+      "sapeur_1re_classe_spp": {
+        "valeur": 65.5,
+        "mensuel_net": "1875-2050",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
       "caporal_spp": {
         "valeur": 69.8,
         "mensuel_net": "1836-2353",
@@ -93,29 +146,219 @@
         "source": "Grilles FPT 2025 (à valider)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
       },
+      "caporal_chef_spp": {
+        "valeur": 74.5,
+        "mensuel_net": "1980-2450",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "sergent_spp": {
+        "valeur": 78.0,
+        "mensuel_net": "2080-2500",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
       "adjudant_spp": {
-        "valeur": 72.2,
-        "mensuel_net": "1880-2450",
+        "valeur": 82.0,
+        "mensuel_net": "2100-2460",
         "unite": "euro/agent/jour",
         "annee": 2025,
         "source": "Grilles FPT 2025 (à valider)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
+      },
+      "adjudant_chef_spp": {
+        "valeur": 87.0,
+        "mensuel_net": "2250-2700",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
       },
       "lieutenant_spp": {
-        "valeur": 79.7,
-        "mensuel_net": "1954-2826",
+        "valeur": 92.0,
+        "mensuel_net": "2350-2760",
         "unite": "euro/agent/jour",
         "annee": 2025,
         "source": "Grilles FPT 2025 (à valider)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
       },
-      "adjoint_technique": {
-        "valeur": 48.3,
-        "mensuel_net": "~1450",
+      "capitaine_spp": {
+        "valeur": 105.0,
+        "mensuel_net": "2600-3300",
         "unite": "euro/agent/jour",
         "annee": 2025,
-        "source": "Grilles FPT 2025 (à valider)",
-        "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "commandant_spp": {
+        "valeur": 118.0,
+        "mensuel_net": "2900-3900",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "lieutenant_colonel_spp": {
+        "valeur": 135.0,
+        "mensuel_net": "3300-4500",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "colonel_spp": {
+        "valeur": 165.0,
+        "mensuel_net": "3800-5500",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grilles indiciaires SPP 2025 (FPT) + indemnité de feu 25 %",
+        "url": "https://concourspompiers.fr/blog/salaire-pompier-professionnel-2025-grilles-primes-evolution/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "soldat_armee": {
+        "valeur": 43.3,
+        "mensuel_net": "1300-1550",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "caporal_armee": {
+        "valeur": 51.7,
+        "mensuel_net": "1450-1750",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "caporal_chef_armee": {
+        "valeur": 56.7,
+        "mensuel_net": "1600-1900",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "sergent_armee": {
+        "valeur": 60.0,
+        "mensuel_net": "1700-2000",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "sergent_chef_armee": {
+        "valeur": 66.7,
+        "mensuel_net": "1850-2200",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "sous_lieutenant_armee": {
+        "valeur": 70.0,
+        "mensuel_net": "2000-2200",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "adjudant_armee": {
+        "valeur": 71.7,
+        "mensuel_net": "1950-2150",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "adjudant_chef_armee": {
+        "valeur": 76.7,
+        "mensuel_net": "2100-2350",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "major_armee": {
+        "valeur": 83.3,
+        "mensuel_net": "2200-2550",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "lieutenant_armee": {
+        "valeur": 88.0,
+        "mensuel_net": "2350-2650",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "capitaine_armee": {
+        "valeur": 96.7,
+        "mensuel_net": "2600-3000",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "commandant_armee": {
+        "valeur": 110.0,
+        "mensuel_net": "3000-3900",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "lieutenant_colonel_armee": {
+        "valeur": 130.0,
+        "mensuel_net": "3200-4600",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "colonel_armee": {
+        "valeur": 160.0,
+        "mensuel_net": "3800-6000",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
+      },
+      "general_armee": {
+        "valeur": 190.0,
+        "mensuel_net": "4400-7500",
+        "unite": "euro/agent/jour",
+        "annee": 2025,
+        "source": "Grille de solde militaire 2025 (point d'indice 4,9228 EUR) + primes NPRM",
+        "url": "https://geopix.blog/%F0%9F%92%B0-combien-gagne-vraiment-un-militaire-en-france-en-2025-le-guide-complet-des-salaires-par-grade/",
+        "note": "net mensuel médian (primes incluses) / 30"
       }
     },
     "dette_municipale": {

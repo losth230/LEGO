@@ -13,7 +13,7 @@ import {
   TAUX_IMPOT_DEFAUT_BP,
   salaireJourL,
 } from "./referentiel.ts";
-import { gardePolice, gardePompiers, tirerIncidents } from "./evenements.ts";
+import { gardePolice, gardePompiers, gardeArmee, tirerIncidents } from "./evenements.ts";
 
 export { TAUX_IMPOT_DEFAUT_BP };
 
@@ -52,6 +52,15 @@ export function commercesPourAcheteur(etat: Etat, pnj: Pnj): Batiment[] {
 /** Impôt dû par un PNJ pour une journée (centimes), arrondi à l'entier. */
 export function impotDu(pnj: Pnj, tauxImpotBp: number): number {
   return Math.round((pnj.revenuIndicatif * tauxImpotBp) / 10000);
+}
+
+/**
+ * Renfort de la garnison (branche militaire) : sur un incident majeur (gravité 3),
+ * au moins deux militaires disponibles contiennent la moitié des dégâts/frais.
+ * Renvoie le multiplicateur à appliquer (1 sans renfort, 0,5 avec).
+ */
+export function coefficientRenfort(gravite: 1 | 2 | 3, militairesDispo: number): number {
+  return gravite === 3 && militairesDispo >= 2 ? 0.5 : 1;
 }
 
 /** Budget d'achat quotidien d'un PNJ (centimes). */
@@ -176,15 +185,17 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
   const entrees: JournalEntree[] = [];
   const pompiers = gardePompiers(etat);
   const police = gardePolice(etat);
+  const armee = gardeArmee(etat);
 
   for (const inc of tirerIncidents(etat, etat.jour)) {
     totaux.incidentsJour += 1;
+    const renfort = armee.length >= 2 && inc.gravite === 3;
     if (inc.type === "incendie") {
       const bat = etat.batiments.find((b) => b.id === inc.cibleId);
       if (!bat) continue;
       const dispo = pompiers.length;
       const part = dispo >= inc.gravite ? 0.02 : dispo > 0 ? 0.08 : 0.2;
-      const degats = Math.round(bat.valeur * part * inc.gravite);
+      const degats = Math.round(bat.valeur * part * inc.gravite * coefficientRenfort(inc.gravite, armee.length));
       const nomPompiers = dispo + (dispo > 1 ? " pompiers" : " pompier");
       let texte =
         bat.nom + " s'embrase au petit matin" +
@@ -195,7 +206,8 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
               (dispo === 1 ? "1 pompier en vient à bout" : nomPompiers + " en viennent à bout") +
               " avant midi, "
             : " : " + nomPompiers + " contre un feu de gravité " + inc.gravite + ", les flammes ne cèdent que vers midi, ") +
-        fmt(degats) + " de dégâts";
+        fmt(degats) + " de dégâts" +
+        (renfort ? " — la garnison déploie engins et bras, le sinistre est contenu" : "");
       // La ville paie la remise en état (§4.4) : sortie vers entreprises extérieures.
       const repare = Math.min(degats, etat.budgetVille);
       etat.budgetVille -= repare;
@@ -235,7 +247,8 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
             " : la patrouille le surprend à temps, rien de volé.",
         });
       } else {
-        const vol = dispo > 0 ? Math.floor(butin / 2) : butin;
+        const volBrut = dispo > 0 ? Math.floor(butin / 2) : butin;
+        const vol = Math.round(volBrut * coefficientRenfort(inc.gravite, armee.length));
         cible.compte -= vol;
         etat.pertesCumulees += vol;
         totaux.pertesVolJour += vol;
@@ -247,6 +260,7 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
             (dispo > 0
               ? "la patrouille arrive trop tard, le voleur s'envole avec la moitié du butin"
               : "aucune patrouille pour lui couper la route") +
+            (renfort ? " — patrouille Vigipirate de la garnison en renfort, une partie du butin est récupérée" : "") +
             " — " + fmt(vol) + " disparus.",
           montant: -vol,
         });
@@ -255,7 +269,10 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       const victime = etat.pnjs.find((p) => p.id === inc.cibleId);
       if (!victime) continue;
       const dispo = pompiers.length;
-      const frais = fraisMedicaux(inc.gravite, dispo < inc.gravite, victime.compte);
+      const frais = Math.round(
+        fraisMedicaux(inc.gravite, dispo < inc.gravite, victime.compte) *
+          coefficientRenfort(inc.gravite, armee.length),
+      );
       victime.compte -= frais;
       etat.sortiesCumulees += frais;
       totaux.fraisMedicauxJour += frais;
@@ -271,6 +288,7 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
             : dispo >= inc.gravite
               ? " est dégagé en dix minutes par les pompiers"
               : " attend les secours, l'effectif est juste") +
+          (renfort ? " — la garnison lève un poste de secours, les frais sont contenus" : "") +
           " — " + fmt(frais) + " de frais médicaux.",
         montant: -frais,
       });

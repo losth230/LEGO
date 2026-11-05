@@ -66,6 +66,19 @@ export function gardePolice(etat: Etat): Pnj[] {
   );
 }
 
+/** Figurines de la garnison mobilisables (branche militaire). */
+export function gardeArmee(etat: Etat): Pnj[] {
+  const sansAccents = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return etat.pnjs.filter(
+    (p) =>
+      (p.grade ?? "").endsWith("_armee") ||
+      ["milita", "soldat", "general", "armee"].some((m) =>
+        sansAccents(p.metier).includes(m),
+      ),
+  );
+}
+
 // ---------- Tirages ----------
 
 const TAUX: Record<TypeIncident, string> = {

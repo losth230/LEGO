@@ -1,6 +1,6 @@
 # data/ — Référentiel de valeurs réelles
 
-**[referentiel.json](referentiel.json)** (v1.3, 2026-11-05) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire).
+**[referentiel.json](referentiel.json)** (v1.4, 2026-11-05) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire). v1.4 : grilles de salaires complètes par corps — police municipale (5 grades), sapeurs-pompiers (12 grades, indemnité de feu incluse) et armée (15 grades, solde nette avec primes NPRM 2025).
 
 ## Monnaie
 

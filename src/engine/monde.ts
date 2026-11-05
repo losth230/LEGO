@@ -54,6 +54,7 @@ const PRENOMS_F = "Adèle:Camille:Delphine:Émilie:Fantine:Gabrielle:Hélène:In
 const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:Ibrahim:Jules:Kévin:Léo:Marco:Nicolas:Oscar:Pierre:Quentin:Raphaël:Sacha:Tanguy:Ulysse:Victor:Xavier:Yann:Zaïd:Jean:Karim:Mario".split(":");
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
+
 /** Le monde par défaut : ~10 bâtiments, 45 figurines (cahier des charges phase 1). */
 export function createMondeDefaut(): Etat {
   compteur = 0;
@@ -69,6 +70,7 @@ export function createMondeDefaut(): Etat {
     nouveauBatiment({ nom: "Maison des Dupont", type: "habitation", quartier: "Nord", valeur: 350000, capacite: 4 }),
     nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capacite: 20 }),
     nouveauBatiment({ nom: "Maison de la Colline", type: "habitation", quartier: "Nord", valeur: 300000, capacite: 6 }),
+    nouveauBatiment({ nom: "Caserne militaire du Sud", type: "service_public", quartier: "Sud", valeur: 1100000, etat: "neuf", coutFonctionnement: 3000, capacite: 8 }),
   ];
 
   const idMairie = batiments[0].id;
@@ -78,6 +80,7 @@ export function createMondeDefaut(): Etat {
   const idFriterie = batiments[4].id;
   const idQuincaillerie = batiments[5].id;
   const immeubles = [batiments[6].id, batiments[7].id, batiments[8].id, batiments[9].id];
+  const idCaserneMilitaire = batiments[10].id;
 
   const pnjs: Pnj[] = [];
 
@@ -85,6 +88,10 @@ export function createMondeDefaut(): Etat {
   pnjs.push(nouveauPnj({ prenom: "Brigitte", nom: "Roussel", age: 52, genre: "F", metier: "secrétaire de mairie", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4500 }));
   pnjs.push(nouveauPnj({ prenom: "Karim", nom: "Benali", age: 34, genre: "M", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", batimentId: idPolice, revenuIndicatif: 5300 }));
   pnjs.push(nouveauPnj({ prenom: "Élodie", nom: "Garnier", age: 29, genre: "F", metier: "sapeur-pompier", statut: "agent_public", grade: "sapeur_pompier_debutant", batimentId: idCaserne, revenuIndicatif: 5800 }));
+  // Garnison (3) — branche militaire, soldes réelles 2025 (grilles NPRM, voir référentiel).
+  pnjs.push(nouveauPnj({ prenom: "Rémi", nom: "Fontaine", age: 22, genre: "M", metier: "soldat", statut: "agent_public", grade: "soldat_armee", batimentId: idCaserneMilitaire, revenuIndicatif: 1300 }));
+  pnjs.push(nouveauPnj({ prenom: "Aline", nom: "Mercier", age: 31, genre: "F", metier: "caporal", statut: "agent_public", grade: "caporal_armee", batimentId: idCaserneMilitaire, revenuIndicatif: 1500 }));
+  pnjs.push(nouveauPnj({ prenom: "Hugo", nom: "Delattre", age: 45, genre: "M", metier: "capitaine", statut: "agent_public", grade: "capitaine_armee", batimentId: idCaserneMilitaire, revenuIndicatif: 2600 }));
 
   // Commerçants (3).
   pnjs.push(nouveauPnj({ prenom: "Jean", nom: "Castella", age: 47, genre: "M", metier: "boulanger", statut: "commercant", batimentId: idBoulangerie, revenuIndicatif: 6000, compte: 600000 }));
