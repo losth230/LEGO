@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.3 — cadrage figé (v1.0, 2026-11-05) ; **phase 0.5 terminée** : qualification des sources + **[référentiel JSON initial](data/referentiel.json)** (v1.0, même jour). Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
+> **Statut :** v1.4 — cadrage figé (v1.0, 2026-11-05) ; phase 0.5 terminée (qualification des sources + [référentiel JSON initial](data/referentiel.json) v1.0) ; monnaie du jeu arbitrée : **le LEGO (L)**. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
@@ -117,6 +117,8 @@ Incendie déclaré (probabilité calée sur les statistiques réelles × coeffic
 
 **Qualification des sources — FAITE (2026-11-05).** Toutes les sources nécessaires sont publiques et sous **licence ouverte** (Licence Ouverte v2 / Etalab) ; formats exploitables (CSV/ODS/XLSX/PDF), granularité par commune ou nationale. Détail complet, statuts par source et valeurs extraites : [docs/phase-0.5-qualification-sources.md](docs/phase-0.5-qualification-sources.md).
 
+**Monnaie du jeu : le LEGO (L)** — les valeurs réelles du référentiel sont exprimées en euros (ce sont les sources) ; l'application affiche des L (1 L = 1 €).
+
 **Référentiel extrait — FAIT (2026-11-05) : [data/referentiel.json](data/referentiel.json) (v1.0)** — chaque valeur porte sa source, son année et son calcul : impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP, à affiner), achats quotidiens ≈ 52,5 €/PNJ (INSEE), salaires publics nets/jour (grilles FPT 2025), taux d'incidents pour 10 000 hab./an (DGSCGC 2024 : incendies 34,2, accidents 44,3 ; SSMSI 2024 : cambriolages 31,8, homicides 0,14), natalité 96,7 / mortalité 94,2 (INSEE), police municipale ≈ 7 agents pour 10 000 hab. (Marseille : 610 agents). Provenance et suivi « à affiner » : [data/README.md](data/README.md).
 
 ### Règle d'échelle (actée — 2026-11-05, K abaissé le même jour)
@@ -136,7 +138,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 
 - **Tableaux** — bâtiments, habitants (triables/filtrables), budget, indicateurs dans le temps
 - **Fiches PNJ** — identité, métier, statut (agent public / commerçant / privé), compte, impôt payé, historique personnel
-- **Journal de la ville** — les événements racontés, **très légèrement romancés** (« 12 mars : le four du boulanger a pris feu au petit matin ; 4 pompiers ont eu raison des flammes, 2 400 € de dégâts »)
+- **Journal de la ville** — les événements racontés, **très légèrement romancés** (« 12 mars : le four du boulanger a pris feu au petit matin ; 4 pompiers ont eu raison des flammes, 2 400 L de dégâts »)
 - **Objectifs optionnels** — panneau activable : équilibre budgétaire, sécurité (criminalité, délai d'intervention police), incendie/secours (délai moyen et taux de réussite des interventions) ; alertes sans écran de défaite
 - **Éditeur du monde** — créer/modifier/renommer bâtiments et habitants
 - **Référentiels** — tous les paramètres (taux d'imposition, consommation quotidienne, salaires publics, effectifs, probabilités, coefficient d'intensité) consultables et modifiables, avec leur source
@@ -179,6 +181,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | 2026-11-05 | **Tonalité du journal : très légèrement romancé** |
 | 2026-11-05 | **Principe directeur : le réalisme est le point de départ, l'amusement arbitre** — en cas de doute, trancher en faveur du fun |
 | 2026-11-05 | **Référentiel v1.0 poussé** : valeurs réelles extraites avec sources ; impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP — dépenses de fonctionnement Marseille 1 455 €/hab./an, à affiner), consommation ≈ 52,5 €/PNJ/jour (INSEE), K = 1 000 confirmé |
+| 2026-11-05 | **Monnaie du jeu : le LEGO (L)** — tous les montants s'affichent en L (1 L = 1 €) ; le référentiel reste en euros réels issus des sources |
 
 ### Questions ouvertes
 

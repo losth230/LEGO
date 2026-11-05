@@ -1,8 +1,15 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
+    "monnaie": {
+      "valeur": "LEGO (L)",
+      "unite": "affichage",
+      "source": "Arbitrage cadrage 2026-11-05",
+      "annee": 2026,
+      "note": "1 L = 1 € : le référentiel est exprimé en euros réels (sources), l'application affiche des L ; conversion purement cosmétique."
+    },
     "ville_reference": {
       "valeur": "Marseille",
       "unite": "-",
