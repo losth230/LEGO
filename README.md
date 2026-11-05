@@ -1,18 +1,20 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.1 — **cadrage figé** (v1.0, 2026-11-05) ; qualification des sources et veille existant réalisées (2026-11-05, cf. §5 et §10). Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
+> **Statut :** v1.2 — **cadrage figé et complet** (v1.0, 2026-11-05) ; qualification des sources, veille existant et derniers arbitrages (K = 1 000, ville de référence Marseille) du même jour. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
 
 ## 1. Vision
 
-L'application est **le double numérique de la vraie ville LEGO** posée sur la table. Chaque bâtiment construit en briques a son équivalent simulé ; chaque figurine est un habitant avec un nom, un métier et un compte en banque. La ville s'imagin(e) comme **une métropole d'environ un million d'habitants** — la table en est l'échantillon de figurines nommées, et un coefficient d'intensité fait vivre à ce petit nombre la vie trépidante d'une grande ville. Le temps avance d'un clic : **un bouton fait passer les jours**. Chaque jour, les habitants paient leurs impôts et achètent dans les commerces ; le budget municipal finance ses services publics — police, pompiers — qui mobilisent leurs moyens face aux incidents.
+L'application est **le double numérique de la vraie ville LEGO** posée sur la table. Chaque bâtiment construit en briques a son équivalent simulé ; chaque figurine est un habitant avec un nom, un métier et un compte en banque. La ville s'imagin(e) comme **une métropole d'environ un million d'habitants** — la table en est l'échantillon de figurines nommées. Le temps avance d'un clic : **un bouton fait passer les jours**. Chaque jour, les habitants paient leurs impôts et achètent dans les commerces ; le budget municipal finance ses services publics — police, pompiers — qui mobilisent leurs moyens face aux incidents.
+
+**Principe directeur (arbitré 2026-11-05) : le réalisme est le point de départ, pas l'objectif — chaque arbitrage privilégie l'amusement.**
 
 Trois promesses :
 
 1. **Fidélité au réel (la table)** — la ville simulée reflète la ville physique : mêmes bâtiments, mêmes habitants.
-2. **Cohérence économique réaliste** — fiscalité, consommation, budgets et effectifs calibrés sur des **données françaises réelles** (data.gouv.fr, INSEE, ministère de l'Intérieur), pas sur des valeurs inventées.
+2. **Cohérence économique réaliste comme base** — fiscalité, consommation, budgets et effectifs partent de **données françaises réelles** (data.gouv.fr, INSEE, ministère de l'Intérieur), jamais de valeurs inventées — puis le curseur du fun (coefficient d'intensité, référentiels éditables) dose le rythme.
 3. **Une vie lisible** — des **tableaux et un journal** (très légèrement romancé) racontent ce qui s'y passe, jour après jour. Pas de carte : l'information vit dans des listes, des fiches et le journal.
 
 ## 2. Périmètre
@@ -80,7 +82,7 @@ Trois promesses :
 ### 4.2 Moteurs (exécutés à chaque passage de jour)
 
 1. **Moteur économique (circuit court)** — prélèvement de l'impôt quotidien sur chaque PNJ (assiette : revenu indicatif) → budget municipal ; versement quotidien des salaires aux agents publics ; paiement des coûts de fonctionnement ; **achats quotidiens des habitants** (budget consommation calibré sur les dépenses réelles des ménages) répartis entre les commerces de la ville → les commerçants encaissent.
-2. **Moteur d'événements** — tirage probabiliste des **incidents** (incendies, cambriolages, accidents de la route, pannes) selon la **règle d'échelle §5** (taux réels × coefficient d'intensité 10 000), ET des **faits de vie** (une naissance, un accident de la vie, un ménage qui arrive ou repart) — seule porte d'entrée des changements de population.
+2. **Moteur d'événements** — tirage probabiliste des **incidents** (incendies, cambriolages, accidents de la route, pannes) selon la **règle d'échelle §5** (taux réels × coefficient d'intensité 1 000), ET des **faits de vie** (une naissance, un accident de la vie, un ménage qui arrive ou repart) — seule porte d'entrée des changements de population.
 3. **Moteur de services** — chaque incident mobilise les moyens disponibles : effectifs de garde, gravité → réussite/délai/échec de l'intervention, conséquences matérielles et humaines (amendes, dommages).
 
 ### 4.3 Circuit court de la monnaie (comptabilité fermée)
@@ -113,20 +115,20 @@ Incendie déclaré (probabilité calée sur les statistiques réelles × coeffic
 | Criminalité | Cambriolages, vols, délits par habitant | [SSMSI](https://statistiques.interieur.gouv.fr/ssmsi/chiffres-cles) — chiffres clés annuels + jeux de données data.gouv |
 | Faits de vie | Natalité, mortalité (pour les événements), taille des ménages | INSEE — indicateurs communaux |
 
-**Qualification des sources — FAITE (2026-11-05).** Toutes les sources nécessaires sont publiques et sous **licence ouverte** (Licence Ouverte v2 / Etalab) ; formats exploitables (CSV/ODS/XLSX/PDF), granularité par commune ou nationale. Détail complet, statuts par source et premières valeurs extraites : [docs/phase-0.5-qualification-sources.md](docs/phase-0.5-qualification-sources.md).
+**Qualification des sources — FAITE (2026-11-05).** Toutes les sources nécessaires sont publiques et sous **licence ouverte** (Licence Ouverte v2 / Etalab) ; formats exploitables (CSV/ODS/XLSX/PDF), granularité par commune ou nationale. Détail complet, statuts par source et valeurs extraites : [docs/phase-0.5-qualification-sources.md](docs/phase-0.5-qualification-sources.md).
 
-### Règle d'échelle (actée — 2026-11-05)
+### Règle d'échelle (actée — 2026-11-05, K abaissé le même jour)
 
-La ville LEGO est **une échelle très réduite** (les figurines nommées, quelques dizaines), mais s'imagin(e) comme **une métropole ≈ 1 million d'habitants**. Deux règles distinctes :
+La ville LEGO est **une échelle très réduite** (les figurines nommées, quelques dizaines), mais s'imagin(e) comme **une métropole ≈ 1 million d'habitants** — identité narrative ; le rythme des événements, lui, est dosé par un **curseur d'amusement** :
 
-- **Événements — coefficient d'intensité × 10 000** (éditable dans les référentiels). Pour un incident de taux réel `R` (événements par an pour 10 000 habitants) et une population de `P` figurines :
-  `proba quotidienne = R × P × K / 10 000 / 365`, avec `K = 10 000`.
-  Exemple avec le taux réel d'incendies (≈ 34,2 pour 10 000 hab./an, DGSCGC 2024) et P = 60 figurines : **≈ 5,6 incendies/jour** — la ville vit le rythme réel d'une métropole de 600 000 habitants. Le coefficient `K` est modifiable : `K = 1` = réalisme strict à l'échelle figurine. **Point d'attention sur l'adéquation des moyens des services : question ouverte n°2.**
-- **Économie — valeurs réelles par habitant, appliquées telles quelles aux figurines** (impôt quotidien ≈ budget communal par habitant / 365, salaires publics réels, consommation quotidienne réelle par ménage). Les comptes restent à l'échelle figurine pour préserver le circuit court : le « million d'habitants » est la population **imaginée** (elle justifie les taux, effectifs et valeurs de référence d'une grande ville), pas une masse monétaire multipliée.
+- **Événements — coefficient d'intensité K = 1 000** (éditable dans les référentiels). Pour un incident de taux réel `R` (événements par an pour 10 000 habitants) et une population de `P` figurines :
+  `proba quotidienne = R × P × K / 10 000 / 365`, avec `K = 1 000`.
+  Exemple avec le taux réel d'incendies (≈ 34,2 pour 10 000 hab./an, DGSCGC 2024) et P = 60 figurines : **≈ 0,56 incendie/jour** — un incendie tous les deux jours environ : assez pour animer le journal, assez rare pour que les pompiers de la ville restent à la hauteur. Le curseur : K = 100 = très calme, K = 1 000 = animé (défaut), K = 10 000 = métropole frénétique.
+- **Économie — valeurs réelles par habitant de la ville de référence, appliquées telles quelles aux figurines** (impôt quotidien ≈ budget communal par habitant / 365, salaires publics réels, consommation quotidienne réelle par ménage). Les comptes restent à l'échelle figurine pour préserver le circuit court : le « million d'habitants » est la population **imaginée**, pas une masse monétaire multipliée.
 
 ### Ville de référence (actée — 2026-11-05)
 
-Le calibrage s'appuie sur **une métropole française ≈ 1 million d'habitants**. Proposition (phase 0.5) : moyenne des plus grandes communes hors Paris (Marseille, Lyon, Toulouse, Nice, Nantes) pour lisser les singularités locales — arbitre final au moment de l'extraction.
+**Une seule ville : Marseille (~875 000 habitants)** — la commune française la plus proche du million, couverte par toutes les sources communales qualifiées. Ses valeurs par habitant servent d'ancrage économique ; le réalisme est le point de départ, l'amusement arbitre (coefficient d'intensité, référentiels éditables).
 
 ## 6. Interface
 
@@ -150,9 +152,9 @@ Le calibrage s'appuie sur **une métropole française ≈ 1 million d'habitants*
 | Phase | Contenu | Critère d'acceptation | État |
 |---|---|---|---|
 | **0 — Cadrage** | Ce document + arbitrage des questions ouvertes | Toutes les questions §9 tranchées, v1.0 figée | ✅ Fait (2026-11-05) |
-| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles + choix de la ville de référence | Référentiel JSON initial avec chaque valeur + sa source | ▶ En cours — qualification FAITE (2026-11-05), extraction à suivre |
+| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles (Marseille) | Référentiel JSON initial avec chaque valeur + sa source | ▶ En cours — qualification FAITE + ville arbitrée (2026-11-05), extraction à suivre |
 | **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible | |
-| **2 — Services** | Police, pompiers, incidents probabilistes (coeff. d'intensité), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | |
+| **2 — Services** | Police, pompiers, incidents probabilistes (K = 1 000), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | |
 | **3 — Budget approfondi** | Investissement, dette, sinistres majeurs, arbitrages de taux d'imposition, objectifs optionnels | Un déficit force une décision visible : augmenter l'impôt, couper un service, ou emprunter | |
 | **4 — Modules** | Tour des héros/menaces, export & partage, multijoueur | Selon arbitrage | |
 
@@ -167,16 +169,17 @@ Le calibrage s'appuie sur **une métropole française ≈ 1 million d'habitants*
 | 2026-11-05 | **L'unité de règlement = la journée** : impôts et salaires prélevés/versés chaque jour, pas de mensualisation |
 | 2026-11-05 | **Rémunération des commerçants par les achats** : un PNJ privé gagne de l'argent quand d'autres habitants achètent chez lui (ex. le vendeur de frites) |
 | 2026-11-05 | **Pas de taxe foncière pour l'instant** |
-| 2026-11-05 | **Échelle très réduite + coefficient d'intensité × 10 000** (éditable) sur les taux d'événements réels ; l'économie reste à l'échelle figurine (valeurs réelles par habitant) |
-| 2026-11-05 | **Ville de référence ≈ 1 million d'habitants** (métropole française — moyenne des plus grandes communes proposée en phase 0.5) ; la ville LEGO s'imagin(e) comme sa version réduite |
+| 2026-11-05 | **Échelle très réduite** : coefficient d'intensité sur les taux d'événements réels (d'abord × 10 000, abaissé le même jour — cf. ci-dessous) ; l'économie reste à l'échelle figurine (valeurs réelles par habitant) |
+| 2026-11-05 | **Coefficient d'intensité abaissé à K = 1 000** (option C, éditable) — « l'objectif n'est pas d'être réaliste mais de s'amuser » : ~0,56 incendie/jour pour 60 figurines, un rythme animé mais tenable pour les moyens figurine des services |
+| 2026-11-05 | **Ville de référence unique : Marseille** (~875 000 hab., commune la plus proche du million) — pas de moyenne de villes |
 | 2026-11-05 | **Objectifs** : bac à sable par défaut + objectifs optionnels activables (équilibre budgétaire, sécurité, incendie, secours) — alertes sans écran de défaite |
 | 2026-11-05 | **Nom du projet/ville : LEGO** (provisoire) |
 | 2026-11-05 | **Tonalité du journal : très légèrement romancé** |
+| 2026-11-05 | **Principe directeur : le réalisme est le point de départ, l'amusement arbitre** — en cas de doute, trancher en faveur du fun |
 
-### Questions ouvertes (rouvertes par la qualification — 2026-11-05)
+### Questions ouvertes
 
-1. **Adéquation des moyens des services à l'échelle métropolitaine** : avec K = 10 000, la ville vit ~5,6 incendies/jour (rythme réel d'une métropole de 600 000 hab.) — mais ses pompiers sont quelques figurines. Options : **A.** effectifs des services « imaginés » (valeurs réelles d'une métropole, abstraction assumée), **B.** moyens figurine face au rythme métropole (crise permanente, gameplay héroïque), **C.** coefficient abaissé (ex. K = 1 000). Détail : docs/phase-0.5-qualification-sources.md §3.
-2. **Ville de référence** : proposition = moyenne des plus grandes communes hors Paris (Marseille, Lyon, Toulouse, Nice, Nantes) ; à valider.
+Aucune en attente — le cadrage est complet. De nouvelles questions seront rouvertes au fil du développement, datées ici.
 
 ## 10. État de l'art et positionnement (veille 2026-11-05)
 

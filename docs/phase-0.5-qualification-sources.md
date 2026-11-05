@@ -1,6 +1,6 @@
 # Phase 0.5 — Qualification des sources & état de l'art
 
-> **Date :** 2026-11-05 · **Statut :** qualification réalisée ; extraction du référentiel JSON à la suite.
+> **Date :** 2026-11-05 · **Statut :** qualification réalisée, ville de référence arbitrée (Marseille) ; extraction du référentiel JSON à la suite.
 > **Méthode :** inspection des métadonnées API data.gouv.fr, des pages INSEE/ministère de l'Intérieur, et veille web (requêtes FR + EN) sur les projets similaires.
 
 ---
@@ -26,6 +26,8 @@
 | 7 | [Enquête Budget de famille](https://www.insee.fr/fr/information/7652980) (INSEE) | Publications agrégées (INSEE Première…) | Licence ouverte (agrégats) ; micro-données à accès restreint (inutiles au projet) | Structure de consommation par poste | Édition 2026 (29 000 logements) ; agrégats disponibles avant | ✅ Qualifiée via agrégats |
 | 8 | Grilles indiciaires FPT (salaires pompiers pro, police municipale) — [décrets Légifrance](https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/) (officiel) + synthèses 2025 | Texte réglementaire | Information publique | Par grade/échelon | 2025 | ✅ Qualifiée (vérifier la valeur du point d'indice) |
 | 9 | Indicateurs démographiques INSEE (natalité, mortalité, ménages) | CSV / API insee.fr | Licence ouverte | National, départemental, communal | Millésime annuel | ✅ Qualifiée |
+
+**Ville de référence (arbitrée 2026-11-05) : Marseille (~875 000 hab.)** — commune française la plus proche du million, couverte par toutes les sources communales ci-dessus (comptes consolidés, effectifs de police municipale). Une seule ville, pas de moyenne : le réalisme est un point de départ, pas l'objectif.
 
 ---
 
@@ -55,18 +57,19 @@
 | Agent de police municipale | ≈ 1 700 € |
 | Adjoint technique territorial | ≈ 1 450 € |
 
-### ⚠ Impact du coefficient d'intensité K = 10 000 (à arbitrer)
+### Coefficient d'intensité — arbitrage du 2026-11-05 : option C, K = 1 000
 
-Avec le taux réel d'incendies (≈ 34,2 / 10 000 hab./an), P = 60 figurines et K = 10 000 :
+Le point de départ : avec le taux réel d'incendies (≈ 34,2 / 10 000 hab./an), P = 60 figurines et K = 10 000, la ville vivait **≈ 5,6 incendies/jour** (le rythme réel d'une métropole de 600 000 habitants) — incompatible avec des moyens à l'échelle figurine (quelques pompiers).
 
-- Population « imaginée » : 60 × 10 000 = **600 000 habitants** (une vraie métropole, cohérent avec la ville de référence ≈ 1M).
-- Fréquence simulée : 34,2 × 60 / 365 ≈ **5,6 incendies/jour** — c'est le rythme *réel* d'une métropole de 600 000 habitants.
+Trois options étaient sur la table : **A.** effectifs des services « imaginés » à l'échelle métropole · **B.** moyens figurine face au rythme métropole (crise permanente) · **C.** coefficient abaissé.
 
-**Tension identifiée :** les ÉVÉNEMENTS vivent à l'échelle métropole (5+ incendies/jour), mais les MOYENS de la ville sont à l'échelle figurine (quelques pompiers). Une vraie ville de 600k emploie des centaines de sapeurs-pompiers. Trois options :
+**Arbitrage : C — K = 1 000** (éditable dans les référentiels), au motif : *« l'objectif n'est pas d'être réaliste mais de s'amuser »*.
 
-- **A. Moyens imaginés** : les effectifs des services sont des valeurs de référence réelles d'une métropole (abstraites, pas une figurine par pompier) — la cohérence métropolitaine est totale ;
-- **B. Moyens figurine** : 5 pompiers face à 5 incendies/jour = crise permanente — gameplay « héroïque » assumé ;
-- **C. Coefficient abaissé** : K plus faible (ex. 1 000 → 0,56 incendie/jour) pour un rythme intermédiaire.
+Conséquences avec P = 60 figurines et K = 1 000 :
+
+- Incendies : 34,2 × 60 × 1 000 / 10 000 / 365 ≈ **0,56/jour** — ≈ 1 incendie tous les 2 jours : assez pour animer le journal, assez rare pour que les quelques pompiers de la ville restent à la hauteur ;
+- Le curseur K reste le seul réglage de rythme : K = 100 = très calme, K = 1 000 = animé (défaut), K = 10 000 = frénétique ;
+- Les secours aux personnes (≈ 60 % des interventions réelles) pourront être traités en incidents légers ou agrégés — choix d'implémentation en phase 2, dosé par le même K.
 
 ---
 
@@ -87,7 +90,8 @@ Avec le taux réel d'incendies (≈ 34,2 / 10 000 hab./an), P = 60 figurines et 
 
 ## 5. Recommandations pour la suite (extraction du référentiel)
 
-1. **Ville de référence (proposition)** : moyenne des plus grandes communes de France hors Paris (Marseille ~875 000, Lyon ~522 000, Toulouse ~504 000, Nice ~342 000, Nantes ~323 000) pour lisser les singularités locales — plutôt qu'une seule ville. Arbitre final : Thibaut.
+1. **Ville de référence : Marseille** (~875 000 hab.) — arbitré 2026-11-05. Extraire en priorité ses valeurs par habitant dans les sources #1, #3, #4.
 2. **Priorité d'extraction** : (1) budget par habitant (source #1), (2) taux d'incidents DGSCGC/SSMSI (sources #5, #6), (3) grilles salariales FPT (#8), (4) structure de consommation (#7), (5) effectifs police/pompiers (#3, #4).
 3. **Archivage** : télécharger les fichiers sources (CSV/PDF) dans le repo (dossier `data/sources/`) pour que le référentiel reste reproductible même si une source disparaît.
 4. **Traçabilité** : chaque valeur du référentiel JSON porte `source`, `url`, `annee` et `granularite` (règle du cahier des charges §5).
+5. **Coefficient d'intensité** : K = 1 000 par défaut, éditable dans les référentiels (arbitrage « fun » du 2026-11-05).
