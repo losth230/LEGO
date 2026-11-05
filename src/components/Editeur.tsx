@@ -476,6 +476,18 @@ function CartePnjs() {
             </select>
           </Champ>
         ) : null}
+        {statut === "prive" ? (
+          <Champ label="Lieu de travail (commerce — le salaire privé est le revenu indicatif)">
+            <select className="input" value={travailId} onChange={(e) => setTravailId(e.target.value)}>
+              <option value="">— sans emploi —</option>
+              {etat.batiments
+                .filter((b) => b.type === "commerce")
+                .map((b) => (
+                  <option key={b.id} value={b.id}>{b.nom}</option>
+                ))}
+            </select>
+          </Champ>
+        ) : null}
         <Champ label="Bâtiment">
           <select className="input" value={batimentId} onChange={(e) => setBatimentId(e.target.value)}>
             <option value="">— aucun —</option>
