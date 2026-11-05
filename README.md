@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.2 — **cadrage figé et complet** (v1.0, 2026-11-05) ; qualification des sources, veille existant et derniers arbitrages (K = 1 000, ville de référence Marseille) du même jour. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
+> **Statut :** v1.3 — cadrage figé (v1.0, 2026-11-05) ; **phase 0.5 terminée** : qualification des sources + **[référentiel JSON initial](data/referentiel.json)** (v1.0, même jour). Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
@@ -117,6 +117,8 @@ Incendie déclaré (probabilité calée sur les statistiques réelles × coeffic
 
 **Qualification des sources — FAITE (2026-11-05).** Toutes les sources nécessaires sont publiques et sous **licence ouverte** (Licence Ouverte v2 / Etalab) ; formats exploitables (CSV/ODS/XLSX/PDF), granularité par commune ou nationale. Détail complet, statuts par source et valeurs extraites : [docs/phase-0.5-qualification-sources.md](docs/phase-0.5-qualification-sources.md).
 
+**Référentiel extrait — FAIT (2026-11-05) : [data/referentiel.json](data/referentiel.json) (v1.0)** — chaque valeur porte sa source, son année et son calcul : impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP, à affiner), achats quotidiens ≈ 52,5 €/PNJ (INSEE), salaires publics nets/jour (grilles FPT 2025), taux d'incidents pour 10 000 hab./an (DGSCGC 2024 : incendies 34,2, accidents 44,3 ; SSMSI 2024 : cambriolages 31,8, homicides 0,14), natalité 96,7 / mortalité 94,2 (INSEE), police municipale ≈ 7 agents pour 10 000 hab. (Marseille : 610 agents). Provenance et suivi « à affiner » : [data/README.md](data/README.md).
+
 ### Règle d'échelle (actée — 2026-11-05, K abaissé le même jour)
 
 La ville LEGO est **une échelle très réduite** (les figurines nommées, quelques dizaines), mais s'imagin(e) comme **une métropole ≈ 1 million d'habitants** — identité narrative ; le rythme des événements, lui, est dosé par un **curseur d'amusement** :
@@ -152,7 +154,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | Phase | Contenu | Critère d'acceptation | État |
 |---|---|---|---|
 | **0 — Cadrage** | Ce document + arbitrage des questions ouvertes | Toutes les questions §9 tranchées, v1.0 figée | ✅ Fait (2026-11-05) |
-| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles (Marseille) | Référentiel JSON initial avec chaque valeur + sa source | ▶ En cours — qualification FAITE + ville arbitrée (2026-11-05), extraction à suivre |
+| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles (Marseille) | Référentiel JSON initial avec chaque valeur + sa source | ✅ Fait (2026-11-05) — référentiel v1.0 poussé : [data/referentiel.json](data/referentiel.json) |
 | **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible | |
 | **2 — Services** | Police, pompiers, incidents probabilistes (K = 1 000), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | |
 | **3 — Budget approfondi** | Investissement, dette, sinistres majeurs, arbitrages de taux d'imposition, objectifs optionnels | Un déficit force une décision visible : augmenter l'impôt, couper un service, ou emprunter | |
@@ -176,6 +178,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | 2026-11-05 | **Nom du projet/ville : LEGO** (provisoire) |
 | 2026-11-05 | **Tonalité du journal : très légèrement romancé** |
 | 2026-11-05 | **Principe directeur : le réalisme est le point de départ, l'amusement arbitre** — en cas de doute, trancher en faveur du fun |
+| 2026-11-05 | **Référentiel v1.0 poussé** : valeurs réelles extraites avec sources ; impôt quotidien ≈ 4,0 €/PNJ (proxy IFRAP — dépenses de fonctionnement Marseille 1 455 €/hab./an, à affiner), consommation ≈ 52,5 €/PNJ/jour (INSEE), K = 1 000 confirmé |
 
 ### Questions ouvertes
 
