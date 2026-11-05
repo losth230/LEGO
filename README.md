@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.5 — cadrage figé (v1.0, 2026-11-05) ; phase 0.5 terminée ; **phase 1 (MVP) poussée (2026-11-05)** : moteur économique en circuit court, éditeur du monde, journal, référentiels — site : https://losth230.github.io/LEGO/ (déploiement GitHub Pages en cours) ; monnaie du jeu : **le LEGO (L)**. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
+> **Statut :** v1.5 — cadrage figé (v1.0, 2026-11-05) ; phase 0.5 terminée ; **phase 1 (MVP) poussée (2026-11-05)** : moteur économique en circuit court, éditeur du monde, journal, référentiels — site : https://losth230.github.io/LEGO/ ; monnaie du jeu : **le LEGO (L)**. Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
