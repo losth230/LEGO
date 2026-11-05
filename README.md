@@ -1,19 +1,19 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v0.4 — document de cadrage. Base de propositions : chaque section est arbitralbe, les décisions actées et les questions ouvertes vivent en §8-§9.
+> **Statut :** v1.0 — **cadrage figé** : toutes les questions ouvertes sont arbitrées. Les évolutions de cadrage seront datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
 
 ## 1. Vision
 
-L'application est **le double numérique de la vraie ville LEGO** posée sur la table. Chaque bâtiment construit en briques a son équivalent simulé ; chaque figurine est un habitant avec un nom, un métier et un compte en banque. Le temps avance d'un clic : **un bouton fait passer les jours**. Chaque jour, les habitants paient leurs impôts et achètent dans les commerces ; le budget municipal finance ses services publics — police, pompiers — qui mobilisent leurs moyens face aux incidents.
+L'application est **le double numérique de la vraie ville LEGO** posée sur la table. Chaque bâtiment construit en briques a son équivalent simulé ; chaque figurine est un habitant avec un nom, un métier et un compte en banque. La ville s'imagin(e) comme **une métropole d'environ un million d'habitants** — la table en est l'échantillon de figurines nommées, et un coefficient d'intensité fait vivre à ce petit nombre la vie trépidante d'une grande ville. Le temps avance d'un clic : **un bouton fait passer les jours**. Chaque jour, les habitants paient leurs impôts et achètent dans les commerces ; le budget municipal finance ses services publics — police, pompiers — qui mobilisent leurs moyens face aux incidents.
 
 Trois promesses :
 
 1. **Fidélité au réel (la table)** — la ville simulée reflète la ville physique : mêmes bâtiments, mêmes habitants.
 2. **Cohérence économique réaliste** — fiscalité, consommation, budgets et effectifs calibrés sur des **données françaises réelles** (data.gouv.fr, INSEE, ministère de l'Intérieur), pas sur des valeurs inventées.
-3. **Une vie lisible** — des **tableaux et un journal** racontent ce qui s'y passe, jour après jour. Pas de carte : l'information vit dans des listes, des fiches et le journal.
+3. **Une vie lisible** — des **tableaux et un journal** (très légèrement romancé) racontent ce qui s'y passe, jour après jour. Pas de carte : l'information vit dans des listes, des fiches et le journal.
 
 ## 2. Périmètre
 
@@ -26,6 +26,7 @@ Trois promesses :
 - Services de sécurité : police, pompiers (effectifs, moyens, interventions)
 - Avancement du temps manuel : **bouton « Passer un jour »** — l'unité de règlement est **la journée**
 - Journal des événements + tableaux d'indicateurs
+- **Objectifs optionnels activables** : équilibre budgétaire, sécurité, incendie, secours — des indicateurs qui alertent sans bloquer ; la simulation reste un **bac à sable**
 - Éditeur du monde (ajouter/modifier bâtiments et habitants pour coller à la vraie ville)
 
 **Hors périmètre v1** (arbitré ou candidat pour des phases ultérieures)
@@ -79,7 +80,7 @@ Trois promesses :
 ### 4.2 Moteurs (exécutés à chaque passage de jour)
 
 1. **Moteur économique (circuit court)** — prélèvement de l'impôt quotidien sur chaque PNJ (assiette : revenu indicatif) → budget municipal ; versement quotidien des salaires aux agents publics ; paiement des coûts de fonctionnement ; **achats quotidiens des habitants** (budget consommation calibré sur les dépenses réelles des ménages) répartis entre les commerces de la ville → les commerçants encaissent.
-2. **Moteur d'événements** — tirage probabiliste des **incidents** (incendies, cambriolages, accidents de la route, pannes) à partir de taux réels, ET des **faits de vie** (une naissance, un accident de la vie, un ménage qui arrive ou repart) — seule porte d'entrée des changements de population.
+2. **Moteur d'événements** — tirage probabiliste des **incidents** (incendies, cambriolages, accidents de la route, pannes) selon la **règle d'échelle §5** (taux réels × coefficient d'intensité 10 000), ET des **faits de vie** (une naissance, un accident de la vie, un ménage qui arrive ou repart) — seule porte d'entrée des changements de population.
 3. **Moteur de services** — chaque incident mobilise les moyens disponibles : effectifs de garde, gravité → réussite/délai/échec de l'intervention, conséquences matérielles et humaines (amendes, dommages).
 
 ### 4.3 Circuit court de la monnaie (comptabilité fermée)
@@ -94,7 +95,7 @@ L'argent ne naît ni ne disparaît : il **circule en boucle courte**.
 
 ### 4.4 Exemple de chaîne causale
 
-Incendie déclaré (probabilité calée sur les statistiques réelles) → les pompiers engagent des moyens selon la gravité → si l'effectif de garde est insuffisant, le délai augmente et les dégâts sont plus lourds → réparation payée par la ville → creux dans le budget municipal → arbitrage : la ville diffère un investissement ou **augmente le taux d'imposition quotidien**.
+Incendie déclaré (probabilité calée sur les statistiques réelles × coefficient d'intensité) → les pompiers engagent des moyens selon la gravité → si l'effectif de garde est insuffisant, le délai augmente et les dégâts sont plus lourds → réparation payée par la ville → creux dans le budget municipal → arbitrage : la ville diffère un investissement ou **augmente le taux d'imposition quotidien**.
 
 **Chaque maillon de la chaîne est visible dans le journal de la ville.**
 
@@ -112,13 +113,18 @@ Incendie déclaré (probabilité calée sur les statistiques réelles) → les p
 | Criminalité | Cambriolages, vols, délits par habitant | SSMSI (service statistique du ministère de l'Intérieur) |
 | Faits de vie | Natalité, mortalité (pour les événements), taille des ménages | INSEE — indicateurs communaux |
 
-### ⚠ Règle d'échelle (problème ouvert majeur — cf. question n°1)
+### Règle d'échelle (actée — 2026-11-05)
 
-Les taux réels s'expriment **pour 1 000 ou 10 000 habitants**. Une ville LEGO fait plutôt 30 à 60 figurines. Appliquer les taux réels tels quels = **quasi aucun incident en des années de jeu** (ex. ~3 incendies pour 10 000 hab./an → 0,02 pour 60 figurines). Trois options :
+La ville LEGO est **une échelle très réduite** (les figurines nommées, quelques dizaines), mais s'imagin(e) comme **une métropole ≈ 1 million d'habitants**. Deux règles distinctes :
 
-- **A. Réalisme strict** : taux réels, les incidents sont rarissimes — cohérent mais probablement ternant ;
-- **B. Densification éditable** : taux réels × coefficient d'intensité réglable dans les référentiels (le réalisme reste la base, le joueur dose le drame) ;
-- **C. Facteur d'échelle** : 1 figurine = N habitants (la ville LEGO « représente » une vraie commune) — mais alors le journal raconte des statistiques abstraites, pas des figurines nommées.
+- **Événements — coefficient d'intensité × 10 000** (éditable dans les référentiels). Pour un incident de taux réel `R` (événements par an pour 10 000 habitants) et une population de `P` figurines :
+  `proba quotidienne = R × P × K / 10 000 / 365`, avec `K = 10 000`.
+  Exemple : incendies R ≈ 3 pour 10 000 hab./an, P = 60 figurines → **≈ 0,49 incendie/jour** — la ville vit la vie trépidante d'une métropole. Le coefficient `K` est modifiable : `K = 1` = réalisme strict à l'échelle figurine.
+- **Économie — valeurs réelles par habitant, appliquées telles quelles aux figurines** (impôt quotidien ≈ budget communal par habitant / 365, salaires publics réels, consommation quotidienne réelle par ménage). Les comptes restent à l'échelle figurine pour préserver le circuit court : le « million d'habitants » est la population **imaginée** (elle justifie les taux, effectifs et valeurs de référence d'une grande ville), pas une masse monétaire multipliée.
+
+### Ville de référence (actée — 2026-11-05)
+
+Le calibrage s'appuie sur **une métropole française ≈ 1 million d'habitants**. Candidates pour la phase 0.5 : Marseille (~875 000 hab., commune la plus proche du million), agglomération lyonnaise, ou panneau de métropoles — choix définitif lors de la qualification des données.
 
 ### Qualification des données (à faire avant tout développement)
 
@@ -128,9 +134,10 @@ Les sources ci-dessus sont **nommées mais pas encore qualifiées** : vérifier 
 
 - **Tableaux** — bâtiments, habitants (triables/filtrables), budget, indicateurs dans le temps
 - **Fiches PNJ** — identité, métier, statut (agent public / commerçant / privé), compte, impôt payé, historique personnel
-- **Journal de la ville** — les événements racontés en texte (« 12 mars : incendie chez le boulanger, 4 pompiers mobilisés, 2 400 € de dégâts »)
+- **Journal de la ville** — les événements racontés, **très légèrement romancés** (« 12 mars : le four du boulanger a pris feu au petit matin ; 4 pompiers ont eu raison des flammes, 2 400 € de dégâts »)
+- **Objectifs optionnels** — panneau activable : équilibre budgétaire, sécurité (criminalité, délai d'intervention police), incendie/secours (délai moyen et taux de réussite des interventions) ; alertes sans écran de défaite
 - **Éditeur du monde** — créer/modifier/renommer bâtiments et habitants
-- **Référentiels** — tous les paramètres (taux d'imposition, consommation quotidienne, salaires publics, effectifs, probabilités) consultables et modifiables, avec leur source
+- **Référentiels** — tous les paramètres (taux d'imposition, consommation quotidienne, salaires publics, effectifs, probabilités, coefficient d'intensité) consultables et modifiables, avec leur source
 
 ## 7. Architecture technique (proposée)
 
@@ -142,18 +149,16 @@ Les sources ci-dessus sont **nommées mais pas encore qualifiées** : vérifier 
 
 ## 8. Feuille de route
 
-| Phase | Contenu | Critère d'acceptation |
-|---|---|---|
-| **0 — Cadrage** | Ce document + arbitrage des questions ouvertes | Toutes les questions §9 tranchées, v1.0 figée |
-| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles | Référentiel JSON initial avec chaque valeur + sa source |
-| **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible |
-| **2 — Services** | Police, pompiers, incidents probabilistes, interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments |
-| **3 — Budget approfondi** | Investissement, dette, sinistres majeurs, arbitrages de taux d'imposition | Un déficit force une décision visible : augmenter l'impôt, couper un service, ou emprunter |
-| **4 — Modules** | Tour des héros/menaces, export & partage, multijoueur | Selon arbitrage |
+| Phase | Contenu | Critère d'acceptation | État |
+|---|---|---|---|
+| **0 — Cadrage** | Ce document + arbitrage des questions ouvertes | Toutes les questions §9 tranchées, v1.0 figée | ✅ Fait (2026-11-05) |
+| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles + choix de la ville de référence | Référentiel JSON initial avec chaque valeur + sa source | ▶ Prochaine |
+| **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible | |
+| **2 — Services** | Police, pompiers, incidents probabilistes (coeff. d'intensité), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | |
+| **3 — Budget approfondi** | Investissement, dette, sinistres majeurs, arbitrages de taux d'imposition, objectifs optionnels | Un déficit force une décision visible : augmenter l'impôt, couper un service, ou emprunter | |
+| **4 — Modules** | Tour des héros/menaces, export & partage, multijoueur | Selon arbitrage | |
 
-## 9. Décisions actées et questions ouvertes
-
-### Décisions actées
+## 9. Décisions actées
 
 | Date | Décision |
 |---|---|
@@ -164,15 +169,16 @@ Les sources ci-dessus sont **nommées mais pas encore qualifiées** : vérifier 
 | 2026-11-05 | **L'unité de règlement = la journée** : impôts et salaires prélevés/versés chaque jour, pas de mensualisation |
 | 2026-11-05 | **Rémunération des commerçants par les achats** : un PNJ privé gagne de l'argent quand d'autres habitants achètent chez lui (ex. le vendeur de frites) |
 | 2026-11-05 | **Pas de taxe foncière pour l'instant** |
+| 2026-11-05 | **Échelle très réduite + coefficient d'intensité × 10 000** (éditable) sur les taux d'événements réels ; l'économie reste à l'échelle figurine (valeurs réelles par habitant) |
+| 2026-11-05 | **Ville de référence ≈ 1 million d'habitants** (métropole française — choix définitif en phase 0.5) ; la ville LEGO s'imagin(e) comme sa version réduite |
+| 2026-11-05 | **Objectifs** : bac à sable par défaut + objectifs optionnels activables (équilibre budgétaire, sécurité, incendie, secours) — alertes sans écran de défaite |
+| 2026-11-05 | **Nom du projet/ville : LEGO** (provisoire) |
+| 2026-11-05 | **Tonalité du journal : très légèrement romancé** |
 
-### Questions ouvertes (à arbitrer)
+### Questions ouvertes
 
-1. **Échelle de population** *(prioritaire — conditionne tout le moteur d'événements)* : 1 figurine = 1 habitant avec taux réels (option A — rareté réaliste), taux × coefficient d'intensité éditable (option B), ou 1 figurine = N habitants (option C) ? Cf. §5.
-2. **Commune de référence** pour le calibrage : une petite ville française type (≈ 5 000-10 000 hab.) ? Laquelle ?
-3. **Objectifs** : simulation pure type bac à sable, ou objectifs optionnels (équilibre budgétaire, sécurité) ?
-4. **Nom du projet/ville** : nommer la ville et l'application.
-5. **Tonalité du journal** : sobre factuel ou romancé (micro-narration façon « La Brique du Jour ») ?
+Aucune — le cadrage est figé (v1.0). De nouvelles questions seront rouvertes au fil du développement, datées ici.
 
 ---
 
-*Document vivant — chaque arbitrage est réécrit directement ici, daté en tête de §9. L'implémentation suit ensuite, phase par phase.*
+*Document vivant — chaque évolution de cadrage est réécrite directement ici et datée en §9. L'implémentation suit ensuite, phase par phase.*
