@@ -50,6 +50,9 @@ export const TAUX_IMPOT_DEFAUT_BP = Math.round((IMPOT_REFERENCE_L / ACHAT_REFERE
 /** Coefficient d'intensité K par défaut : 1 000 (« animé », cahier §5). */
 export const COEFF_INTENSITE_DEFAUT = Math.max(1, Math.round(refNombre("meta.coeff_intensite.valeur", 1000)));
 
+/** Taux d'emprunt annuel des collectivités en % (3,54 % en 2024). */
+export const TAUX_EMPRUNT_PCT = refNombre("economie.taux_emprunt_collectivites.valeur", 3.54);
+
 /** Formate des centimes en LEGOs affichables : 123456 -> "1 234,56 L". */
 export function montantL(centimes: number): string {
   const euros = (centimes / 100).toLocaleString("fr-FR", {

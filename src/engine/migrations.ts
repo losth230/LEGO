@@ -8,7 +8,7 @@ import type { Etat } from "./types.ts";
 import { createMondeDefaut } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 2;
+export const SCHEMA_VERSION_ETAT = 3;
 
 /** Normalise un état inconnu (localStorage corrompu, version future, import). */
 export function migrerEtat(brut: unknown): Etat {
@@ -41,6 +41,10 @@ export function migrerEtat(brut: unknown): Etat {
   };
   const pertesCumulees =
     typeof b.pertesCumulees === "number" ? b.pertesCumulees : 0;
+  // Migration v2 -> v3 : dette bancaire et mouvements de capitaux (phase 3).
+  const dette = typeof b.dette === "number" ? b.dette : 0;
+  const mouvementsBanqueCumules =
+    typeof b.mouvementsBanqueCumules === "number" ? b.mouvementsBanqueCumules : 0;
 
   return {
     schemaVersion: SCHEMA_VERSION_ETAT,
@@ -49,6 +53,8 @@ export function migrerEtat(brut: unknown): Etat {
     budgetVille: typeof b.budgetVille === "number" ? b.budgetVille : 0,
     sortiesCumulees: typeof b.sortiesCumulees === "number" ? b.sortiesCumulees : 0,
     pertesCumulees,
+    dette,
+    mouvementsBanqueCumules,
     params,
     pnjs,
     batiments,

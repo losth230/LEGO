@@ -9,12 +9,36 @@ import type {
   Pnj,
 } from "./types.ts";
 import {
+  TAUX_EMPRUNT_PCT,
   TAUX_IMPOT_DEFAUT_BP,
   salaireJourL,
 } from "./referentiel.ts";
 import { gardePolice, gardePompiers, tirerIncidents } from "./evenements.ts";
 
 export { TAUX_IMPOT_DEFAUT_BP };
+
+/** Intérêts de dette dus pour une journée (centimes) — taux réel 3,54 %/an. */
+export function interetsDus(dette: number): number {
+  return Math.round((dette * TAUX_EMPRUNT_PCT) / 100 / 365);
+}
+
+/** Charges fixes quotidiennes de la ville (centimes) : salaires, fonctionnement, intérêts. */
+export function chargesJournalieres(etat: Etat): number {
+  const salaires = etat.pnjs
+    .filter((p) => p.statut === "agent_public")
+    .reduce((s, p) => s + Math.round(salaireJourL(p.grade ?? "") * 100), 0);
+  const fonct = etat.batiments
+    .filter((b) => b.type === "service_public")
+    .reduce((s, b) => s + b.coutFonctionnement, 0);
+  return salaires + fonct + interetsDus(etat.dette);
+}
+
+/** Nombre de jours de charges encore couverts par la caisse (Infinity si tout va bien). */
+export function joursDeMarge(etat: Etat): number {
+  const charges = chargesJournalieres(etat);
+  if (charges <= 0) return Infinity;
+  return Math.floor(etat.budgetVille / charges);
+}
 
 /** Nombre de magasins ouverts pour un acheteur (un commerçant n'achète pas chez lui). */
 export function commercesPourAcheteur(etat: Etat, pnj: Pnj): Batiment[] {
@@ -52,6 +76,10 @@ interface Totaux {
   pertesVolJour: number;
   degatsJour: number;
   fraisMedicauxJour: number;
+  // --- phase 3 : dette bancaire ---
+  interetsPayes: number;
+  interetsDusTotal: number;
+  interetsCapitalises: number;
 }
 
 function etapeImpots(etat: Etat, totaux: Totaux): void {
@@ -87,6 +115,22 @@ function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
     etat.sortiesCumulees += paye;
     totaux.fonctionnementPaye += paye;
     totaux.sortiesJour += paye;
+  }
+}
+
+/** Intérêts de la dette versés à la banque (phase 3) ; impayés capitalisés. */
+function etapeInterets(etat: Etat, totaux: Totaux): void {
+  if (etat.dette <= 0) return;
+  const du = interetsDus(etat.dette);
+  const paye = Math.min(du, etat.budgetVille);
+  etat.budgetVille -= paye;
+  etat.sortiesCumulees += paye;
+  totaux.interetsPayes += paye;
+  totaux.interetsDusTotal += du;
+  totaux.sortiesJour += paye;
+  if (paye < du) {
+    etat.dette += du - paye;
+    totaux.interetsCapitalises += du - paye;
   }
 }
 
@@ -300,10 +344,30 @@ function journaliserJour(etat: Etat, totaux: Totaux, incidents: JournalEntree[])
       montant: totaux.achatsTotal,
     });
   }
-  etat.journal.push(...j);
-  etat.journal.push(...incidents);
-  const solde = totaux.impotsPayes - totaux.salairesPayes - totaux.fonctionnementPaye;
-  etat.journal.push({
+  if (totaux.interetsDusTotal > 0) {
+    j.push({
+      jour: etat.jour,
+      type: "dette",
+      texte:
+        totaux.interetsCapitalises > 0
+          ? "Les caisses n'ont pu honorer que " +
+            fmt(totaux.interetsPayes) +
+            " d'intérêts : " +
+            fmt(totaux.interetsCapitalises) +
+            " sont capitalisés dans la dette (encours : " +
+            fmt(etat.dette) +
+            ")."
+          : "La banque encaisse " +
+            fmt(totaux.interetsPayes) +
+            " d'intérêts de la dette (encours : " +
+            fmt(etat.dette) +
+            ").",
+      montant: -totaux.interetsPayes,
+    });
+  }
+  const solde =
+    totaux.impotsPayes - totaux.salairesPayes - totaux.fonctionnementPaye - totaux.interetsPayes;
+  j.push({
     jour: etat.jour,
     type: "solde",
     texte:
@@ -317,6 +381,29 @@ function journaliserJour(etat: Etat, totaux: Totaux, incidents: JournalEntree[])
       ".",
     montant: solde,
   });
+  // Ordre du journal : économie de routine -> incidents de la journée -> solde -> alerte.
+  etat.journal.push(...j.slice(0, -1));
+  etat.journal.push(...incidents);
+  etat.journal.push(j[j.length - 1]);
+  alerteTresorerie(etat);
+}
+
+/**
+ * Alerte de trésorerie (phase 3) : quand les caisses ne couvrent plus que
+ * quelques jours de charges, le journal somme la ville de choisir —
+ * monter l'impôt, fermer un service dans l'éditeur, ou emprunter (§8 phase 3).
+ */
+function alerteTresorerie(etat: Etat): void {
+  const marge = joursDeMarge(etat);
+  if (marge > 5) return;
+  const texte =
+    etat.budgetVille === 0
+      ? "Les caisses sont vides ! Il faut choisir : monter le taux d'imposition (onglet Éditeur), fermer un service, ou emprunter (onglet Budget)."
+      : "Trésorerie tendue : les caisses ne couvrent plus que " +
+        marge +
+        (marge > 1 ? " jours" : " jour") +
+        " de charges. Monter le taux d'imposition, fermer un service dans l'éditeur, ou emprunter dans l'onglet Budget — il faut choisir.";
+  etat.journal.push({ jour: etat.jour, type: "systeme", texte });
 }
 
 function fmt(centimes: number): string {
@@ -355,10 +442,14 @@ export function passerJour(etat: Etat): Etat {
     pertesVolJour: 0,
     degatsJour: 0,
     fraisMedicauxJour: 0,
+    interetsPayes: 0,
+    interetsDusTotal: 0,
+    interetsCapitalises: 0,
   };
   etapeImpots(e, totaux);
   etapeSalaires(e, totaux);
   etapeFonctionnement(e, totaux);
+  etapeInterets(e, totaux);
   etapeAchats(e, totaux);
   const entreesIncidents = etapeIncidents(e, totaux);
   journaliserJour(e, totaux, entreesIncidents);

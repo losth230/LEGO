@@ -7,6 +7,7 @@ import {
   ACHAT_REFERENCE_L,
   COEFF_INTENSITE_DEFAUT,
   TAUX_IMPOT_DEFAUT_BP,
+  montantL,
 } from "./referentiel.ts";
 
 const REF_ACHAT = Math.round(ACHAT_REFERENCE_L * 100); // 5250 centimes = 52,50 L
@@ -122,12 +123,14 @@ export function createMondeDefaut(): Etat {
   }
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
     sortiesCumulees: 0,
     pertesCumulees: 0,
+    dette: 0,
+    mouvementsBanqueCumules: 0,
     params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP, coeffIntensite: COEFF_INTENSITE_DEFAUT },
     pnjs,
     batiments,
@@ -224,5 +227,42 @@ export function modifierVille(
   if (patch.coeffIntensite !== undefined) {
     e.params.coeffIntensite = Math.max(1, Math.round(patch.coeffIntensite));
   }
+  return e;
+}
+
+/** Emprunter à la banque (phase 3) : les caisses respirent, la dette grimpe. */
+export function emprunterVille(etat: Etat, montantCentimes: number): Etat {
+  const e = structuredClone(etat);
+  const m = Math.max(0, Math.round(montantCentimes));
+  if (m === 0) return e;
+  e.budgetVille += m;
+  e.dette += m;
+  e.mouvementsBanqueCumules += m;
+  raconter(
+    e,
+    "La ville emprunte " +
+      montantL(m) +
+      " à la banque : les caisses respirent, la dette grimpe à " +
+      montantL(e.dette) +
+      " d'encours.",
+  );
+  return e;
+}
+
+/** Rembourser la banque (phase 3) : la dette fond, l'argent quitte le circuit. */
+export function rembourserVille(etat: Etat, montantCentimes: number): Etat {
+  const e = structuredClone(etat);
+  const r = Math.min(Math.max(0, Math.round(montantCentimes)), etat.budgetVille, etat.dette);
+  if (r === 0) return e;
+  e.budgetVille -= r;
+  e.dette -= r;
+  e.mouvementsBanqueCumules -= r;
+  raconter(
+    e,
+    "La ville rembourse " +
+      montantL(r) +
+      " de sa dette" +
+      (e.dette === 0 ? " : plus un centime de dette, la ville respire !" : " — encours restant : " + montantL(e.dette) + "."),
+  );
   return e;
 }

@@ -8,9 +8,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { Etat, JournalEntree } from "./types.ts";
-import { ajouterBatiment, createMondeDefaut, modifierVille, nouveauBatiment, nouveauPnj, supprimerPnj } from "./monde.ts";
+import {
+  ajouterBatiment,
+  createMondeDefaut,
+  emprunterVille,
+  modifierVille,
+  nouveauBatiment,
+  nouveauPnj,
+  rembourserVille,
+  supprimerPnj,
+} from "./monde.ts";
 import { migrerEtat } from "./migrations.ts";
 import {
+  chargesJournalieres,
+  interetsDus,
+  joursDeMarge,
   impotDu,
   monnaieEnCircuit,
   passerJour,
@@ -73,7 +85,10 @@ test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
   let e: Etat = m;
   for (let i = 0; i < 30; i++) e = passerJour(e);
   const restant = monnaieEnCircuit(e);
-  assert.equal(restant, initial - e.sortiesCumulees - e.pertesCumulees);
+  assert.equal(
+    restant,
+    initial + e.mouvementsBanqueCumules - e.sortiesCumulees - e.pertesCumulees,
+  );
   // chaque figurine a un compte positif ou nul, aucun NaN
   for (const p of e.pnjs) {
     assert.ok(Number.isFinite(p.compte) && p.compte >= 0, p.prenom);
@@ -170,6 +185,9 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
+  assert.equal(m.schemaVersion, 3, "v1 -> v3 : schema à jour");
+  assert.equal(m.dette, 0, "v2 -> v3 : dette initialisée");
+  assert.equal(m.mouvementsBanqueCumules, 0, "v2 -> v3 : mouvements banque initialisés");
 });
 
 // ---------- Phase 2 : incidents, garde des services ----------
@@ -263,4 +281,83 @@ test("l'éditeur raconte : emménagement, arrivée, départ, ouverture", () => {
   m = ajouterBatiment(m, nouveauBatiment({ nom: "Maison des Tests", type: "habitation" }));
   assert.ok(m.journal.length > n, "une entrée de journal a été ajoutée");
   assert.ok(m.journal.some((e) => e.texte.includes("Maison des Tests")));
+});
+
+// ---------- Phase 3 : dette bancaire, trésorerie, arbitrages ----------
+
+test("charges et marge : la ville sait combien de jours elle tient", () => {
+  const m = calme(createMondeDefaut());
+  assert.ok(chargesJournalieres(m) > 0, "la ville a des charges");
+  assert.equal(joursDeMarge(m), Math.floor(m.budgetVille / chargesJournalieres(m)));
+});
+
+test("emprunter : les caisses respirent, la dette grimpe, le journal raconte", () => {
+  const m = createMondeDefaut();
+  const e = emprunterVille(m, 200000);
+  assert.equal(e.budgetVille, m.budgetVille + 200000);
+  assert.equal(e.dette, 200000);
+  assert.equal(e.mouvementsBanqueCumules, 200000);
+  assert.ok(e.journal.some((x) => x.texte.includes("emprunte")), "l'emprunt est raconté");
+});
+
+test("les intérêts coulent chaque jour vers la banque (3,54 %/an réel)", () => {
+  let m = calme(createMondeDefaut());
+  m = emprunterVille(m, 10000000); // 100 000 L
+  const interets = interetsDus(10000000);
+  assert.ok(interets > 900 && interets < 1000, "≈ 9,70 L/jour : " + interets);
+  const j1 = passerJour(m);
+  const dette = entrees(1, "dette", j1.journal);
+  assert.equal(dette.length, 1);
+  assert.equal(dette[0].montant, -interets);
+  assert.ok(j1.sortiesCumulees >= interets, "les intérêts sont une sortie documentée");
+});
+
+test("sans le sou : les intérêts se capitalisent, la dette grossit", () => {
+  let m = calme(createMondeDefaut());
+  m = emprunterVille(m, 10000000);
+  m = modifierVille(m, { budgetVille: 0 });
+  const j1 = passerJour(m);
+  const du = interetsDus(10000000);
+  assert.equal(j1.budgetVille, 0);
+  assert.equal(j1.dette, 10000000 + du, "les intérêts impayés s'ajoutent à l'encours");
+  assert.ok(j1.journal.some((x) => x.texte.includes("capitalisés")), "la capitalisation est racontée");
+});
+
+test("rembourser : la dette fond ; à zéro, la ville est libre", () => {
+  let m = calme(createMondeDefaut());
+  m = emprunterVille(m, 300000);
+  m = rembourserVille(m, 100000);
+  assert.equal(m.dette, 200000);
+  assert.equal(m.mouvementsBanqueCumules, 200000);
+  const libre = rembourserVille(m, 999999999);
+  assert.equal(libre.dette, 0, "pas de remboursement au-delà de l'encours");
+  assert.ok(libre.journal.some((x) => x.texte.includes("plus un centime de dette")), "la délivrance est racontée");
+});
+
+test("alerte trésorerie : le journal somme la ville de choisir", () => {
+  let m = calme(createMondeDefaut());
+  m = modifierVille(m, { budgetVille: 300 });
+  const j1 = passerJour(m);
+  assert.ok(joursDeMarge(j1) <= 5, "la marge est critique");
+  assert.ok(
+    j1.journal.some(
+      (x) =>
+        x.type === "systeme" &&
+        (x.texte.includes("Trésorerie tendue") || x.texte.includes("caisses sont vides")),
+    ),
+    "l'alerte est journalisée",
+  );
+});
+
+test("conservation avec la banque : 30 jours, un emprunt en route", () => {
+  let e = calme(createMondeDefaut());
+  const initial = monnaieEnCircuit(e);
+  for (let i = 0; i < 10; i++) e = passerJour(e);
+  e = emprunterVille(e, 5000000);
+  for (let i = 0; i < 20; i++) e = passerJour(e);
+  assert.equal(
+    monnaieEnCircuit(e),
+    initial + e.mouvementsBanqueCumules - e.sortiesCumulees - e.pertesCumulees,
+    "conservation exacte, banque incluse",
+  );
 });

@@ -50,6 +50,7 @@ export type TypeJournal =
   | "impots"
   | "salaires"
   | "fonctionnement"
+  | "dette"
   | "achats"
   | "incident"
   | "solde"
@@ -85,6 +86,14 @@ export interface Etat {
   sortiesCumulees: number;
   /** Cumul des pertes disparues du circuit (vols non recouvrés) en centimes. */
   pertesCumulees: number;
+  /** Encours de dette bancaire en centimes (intérêts réels : référentiel). */
+  dette: number;
+  /**
+   * Cumul net des mouvements de capitaux avec la banque en centimes
+   * (emprunts +, remboursements -) — la banque est hors du circuit :
+   * la conservation de la monnaie en tient compte (§4.3).
+   */
+  mouvementsBanqueCumules: number;
   params: ParamsVille;
   pnjs: Pnj[];
   batiments: Batiment[];

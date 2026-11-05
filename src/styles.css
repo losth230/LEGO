@@ -227,6 +227,11 @@ tr:hover td {
   border-color: var(--vert);
   color: var(--vert);
 }
+.badge-dette {
+  border-color: var(--bleu);
+  color: var(--bleu);
+  background: rgba(77, 171, 247, 0.10);
+}
 .badge-incident {
   border-color: var(--rouge);
   color: var(--rouge);
@@ -392,4 +397,19 @@ footer {
   .bouton-jour {
     width: 100%;
   }
+}
+
+/* ---------- dette et trésorerie (phase 3) ---------- */
+
+.input-court {
+  max-width: 140px;
+}
+.alerte-tresorerie {
+  background: rgba(255, 59, 48, 0.14);
+  border: 1px solid var(--rouge);
+  border-radius: 8px;
+  color: var(--texte);
+  padding: 10px 14px;
+  margin: 10px 16px 0;
+  font-size: 14px;
 }

@@ -1,6 +1,6 @@
 # data/ — Référentiel de valeurs réelles
 
-**[referentiel.json](referentiel.json)** (v1.2, 2026-11-05) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire).
+**[referentiel.json](referentiel.json)** (v1.3, 2026-11-05) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire).
 
 ## Monnaie
 
@@ -19,7 +19,7 @@ L'application affiche des **LEGOs (L)** — 1 L = 1 €. Le référentiel stocke
 
 ## Règle d'échelle
 
-`proba quotidienne = taux_par_10k_hab_an × P_figurines × K / 10000 / 365` avec **K = 1 000** (éditable). L'économie reste à l'échelle figurine : valeurs réelles par habitant appliquées telles quelles (impôt ≈ 4,0 L/PNJ/jour, achats ≈ 52,5 L/PNJ/jour).
+`proba quotidienne = taux_par_10k_hab_an × P_figurines × K / 10000 / 365` avec **K = 1 000** (éditable). L'économie reste à l'échelle figurine : valeurs réelles par habitant appliquées telles quelles (impôt ≈ 4,0 L/PNJ/jour, achats ≈ 52,5 L/PNJ/jour, taux d'emprunt des collectivités 3,54 %/an).
 
 ## À affiner (suivi)
 

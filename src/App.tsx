@@ -3,6 +3,7 @@
 import { Component, useState, type ErrorInfo, type ReactNode } from "react";
 import { FournisseurStore, useStore } from "./state/store.tsx";
 import { montantL } from "./engine/referentiel.ts";
+import { joursDeMarge } from "./engine/moteur.ts";
 import { Journal } from "./components/Journal.tsx";
 import { HabitantsTable } from "./components/HabitantsTable.tsx";
 import { BatimentsTable } from "./components/BatimentsTable.tsx";
@@ -50,6 +51,8 @@ class FiletSecurite extends Component<{ children: ReactNode }, { erreur: Error |
 
 function BarreVille(): ReactNode {
   const { etat, passerUnJour, exporter, importerFichier, reinitialiser } = useStore();
+  const marge = joursDeMarge(etat);
+  const margeCritique = marge <= 5;
   return (
     <header className="barre-ville">
       <div className="barre-titre">
@@ -61,6 +64,12 @@ function BarreVille(): ReactNode {
       <div className="barre-budget">
         <p className="mute">Caisse de la ville</p>
         <p className="grand-nombre">{montantL(etat.budgetVille)}</p>
+      </div>
+      <div className="barre-budget">
+        <p className="mute">Marge de trésorerie</p>
+        <p className={"grand-nombre " + (margeCritique ? "negatif" : "")}>
+          {marge === Infinity ? "∞" : marge + " j"}
+        </p>
       </div>
       <button className="bouton bouton-jour" onClick={passerUnJour}>
         ⏭ Passer un jour
@@ -96,9 +105,23 @@ function BarreVille(): ReactNode {
 
 function Application(): ReactNode {
   const [onglet, setOnglet] = useState<Onglet>("journal");
+  const { etat } = useStore();
+  const marge = joursDeMarge(etat);
+  const alerte = marge <= 5;
   return (
     <div className="app">
       <BarreVille />
+      {alerte ? (
+        <div className="alerte-tresorerie" role="alert">
+          ⚠️{" "}
+          {etat.budgetVille === 0
+            ? "Les caisses sont vides ! Il faut choisir : monter le taux d'imposition (Éditeur), fermer un service, ou emprunter (Budget)."
+            : "Trésorerie tendue : " +
+              marge +
+              (marge > 1 ? " jours" : " jour") +
+              " de charges en caisse. Monte l'impôt, ferme un service, ou emprunte."}
+        </div>
+      ) : null}
       <nav className="onglets">
         {ONGLETS.map((o) => (
           <button
