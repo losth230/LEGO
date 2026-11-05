@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.0 — **cadrage figé** : toutes les questions ouvertes sont arbitrées. Les évolutions de cadrage seront datées en §9 ; l'implémentation suit la feuille de route §8.
+> **Statut :** v1.1 — **cadrage figé** (v1.0, 2026-11-05) ; qualification des sources et veille existant réalisées (2026-11-05, cf. §5 et §10). Les évolutions de cadrage sont datées en §9 ; l'implémentation suit la feuille de route §8.
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
 ---
@@ -90,7 +90,7 @@ L'argent ne naît ni ne disparaît : il **circule en boucle courte**.
 - Comptes : **PNJ** (courant + épargne) et **ville** (budget).
 - Flux PNJ ↔ ville : impôt quotidien **PNJ → ville** ; salaire quotidien **ville → agent public** ; amende **PNJ → ville** (via événement).
 - Flux PNJ ↔ PNJ : achat quotidien **habitant → commerçant** (la seule rémunération privée de la simulation, calibrée sur la consommation réelle des ménages).
-- Sorties documentées du circuit : coûts de fonctionnement payés à des fournisseurs extérieurs (carburant, réparations) — tracées comme pertes pour la ville ; sinistres/vols = pertes tracées.
+- Sorties documentées du circuit : coûts de fonctionnement payés à des fournisseurs extérieurs (carburant, réparations) — tracés comme pertes pour la ville ; sinistres/vols = pertes tracées.
 - **Cas limite assumé** : un PNJ privé **hors commerce** (sans boutique) ne reçoit aucun flux régulier — son compte s'érode par l'impôt. Les PNJ concernés peuvent être définis commerçants/agents publics dans l'éditeur ; c'est un choix de peuplement, pas un bug du moteur.
 
 ### 4.4 Exemple de chaîne causale
@@ -106,12 +106,14 @@ Incendie déclaré (probabilité calée sur les statistiques réelles × coeffic
 | Domaine | Donnée | Source |
 |---|---|---|
 | Fiscalité & budget | Recettes fiscales par habitant, dépenses de fonctionnement, dette | [Comptes consolidés des communes 2018-2025](https://www.data.gouv.fr/datasets/comptes-consolides-des-communes-2018-2025), [Balances comptables 2024](https://www.data.gouv.fr/datasets/balances-comptables-des-communes-en-2024) (data.gouv.fr) |
-| Consommation | Budget consommation quotidien des ménages, structure des dépenses (alimentation, loisirs…) | INSEE — enquête Budget de famille |
-| Salaires publics | Rémunération des agents territoriaux (policiers municipaux, sapeurs-pompiers professionnels) | INSEE / statuts de la fonction publique territoriale, DGSCGC |
-| Police municipale | Effectifs par commune, taux pour 10 000 habitants | [Effectifs de police municipale par commune](https://www.data.gouv.fr/datasets/police-municipale-effectifs-par-commune) (data.gouv.fr) |
+| Consommation | Budget consommation quotidien des ménages, structure des dépenses (alimentation, loisirs…) | INSEE — enquête [Budget de famille](https://www.insee.fr/fr/information/7652980) (agrégats) |
+| Salaires publics | Rémunération des agents territoriaux (policiers municipaux, sapeurs-pompiers professionnels) | Grilles indiciaires FPT — décrets [Légifrance](https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/) |
+| Police municipale | Effectifs par commune, taux pour 10 000 habitants | [Effectifs par commune 2013-2024](https://www.data.gouv.fr/datasets/effectifs-de-police-municipale-par-commune-france-entiere-2013-2024) (data.gouv.fr, CSV) |
 | Pompiers | Effectifs, volume et types d'interventions par habitant | [Statistiques annuelles DGSCGC](https://www.interieur.gouv.fr/documentation/etudes-et-statistiques/statistiques-2024-dgscgc.html) (ministère de l'Intérieur) |
-| Criminalité | Cambriolages, vols, délits par habitant | SSMSI (service statistique du ministère de l'Intérieur) |
+| Criminalité | Cambriolages, vols, délits par habitant | [SSMSI](https://statistiques.interieur.gouv.fr/ssmsi/chiffres-cles) — chiffres clés annuels + jeux de données data.gouv |
 | Faits de vie | Natalité, mortalité (pour les événements), taille des ménages | INSEE — indicateurs communaux |
+
+**Qualification des sources — FAITE (2026-11-05).** Toutes les sources nécessaires sont publiques et sous **licence ouverte** (Licence Ouverte v2 / Etalab) ; formats exploitables (CSV/ODS/XLSX/PDF), granularité par commune ou nationale. Détail complet, statuts par source et premières valeurs extraites : [docs/phase-0.5-qualification-sources.md](docs/phase-0.5-qualification-sources.md).
 
 ### Règle d'échelle (actée — 2026-11-05)
 
@@ -119,16 +121,12 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 
 - **Événements — coefficient d'intensité × 10 000** (éditable dans les référentiels). Pour un incident de taux réel `R` (événements par an pour 10 000 habitants) et une population de `P` figurines :
   `proba quotidienne = R × P × K / 10 000 / 365`, avec `K = 10 000`.
-  Exemple : incendies R ≈ 3 pour 10 000 hab./an, P = 60 figurines → **≈ 0,49 incendie/jour** — la ville vit la vie trépidante d'une métropole. Le coefficient `K` est modifiable : `K = 1` = réalisme strict à l'échelle figurine.
+  Exemple avec le taux réel d'incendies (≈ 34,2 pour 10 000 hab./an, DGSCGC 2024) et P = 60 figurines : **≈ 5,6 incendies/jour** — la ville vit le rythme réel d'une métropole de 600 000 habitants. Le coefficient `K` est modifiable : `K = 1` = réalisme strict à l'échelle figurine. **Point d'attention sur l'adéquation des moyens des services : question ouverte n°2.**
 - **Économie — valeurs réelles par habitant, appliquées telles quelles aux figurines** (impôt quotidien ≈ budget communal par habitant / 365, salaires publics réels, consommation quotidienne réelle par ménage). Les comptes restent à l'échelle figurine pour préserver le circuit court : le « million d'habitants » est la population **imaginée** (elle justifie les taux, effectifs et valeurs de référence d'une grande ville), pas une masse monétaire multipliée.
 
 ### Ville de référence (actée — 2026-11-05)
 
-Le calibrage s'appuie sur **une métropole française ≈ 1 million d'habitants**. Candidates pour la phase 0.5 : Marseille (~875 000 hab., commune la plus proche du million), agglomération lyonnaise, ou panneau de métropoles — choix définitif lors de la qualification des données.
-
-### Qualification des données (à faire avant tout développement)
-
-Les sources ci-dessus sont **nommées mais pas encore qualifiées** : vérifier pour chacune le format d'exploitation (CSV/API), la licence (ouverte Etalab attendue), la granularité et l'année de référence ; retenir la valeur chiffrée exacte pour chaque paramètre du référentiel.
+Le calibrage s'appuie sur **une métropole française ≈ 1 million d'habitants**. Proposition (phase 0.5) : moyenne des plus grandes communes hors Paris (Marseille, Lyon, Toulouse, Nice, Nantes) pour lisser les singularités locales — arbitre final au moment de l'extraction.
 
 ## 6. Interface
 
@@ -152,7 +150,7 @@ Les sources ci-dessus sont **nommées mais pas encore qualifiées** : vérifier 
 | Phase | Contenu | Critère d'acceptation | État |
 |---|---|---|---|
 | **0 — Cadrage** | Ce document + arbitrage des questions ouvertes | Toutes les questions §9 tranchées, v1.0 figée | ✅ Fait (2026-11-05) |
-| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles + choix de la ville de référence | Référentiel JSON initial avec chaque valeur + sa source | ▶ Prochaine |
+| **0.5 — Données** | Qualification des sources (§5) + extraction des valeurs réelles + choix de la ville de référence | Référentiel JSON initial avec chaque valeur + sa source | ▶ En cours — qualification FAITE (2026-11-05), extraction à suivre |
 | **1 — MVP** | Monde éditable (bâtiments + PNJ) + bouton « Passer un jour » + circuit court complet (impôts quotidiens, achats dans les commerces, salaires publics, fonctionnement) + journal | Une ville de ~10 bâtiments / ~40 PNJ : 30 jours passés, chaque jour impôts et achats sont réglés, les commerçants encaissent, le budget reste cohérent, le journal est lisible | |
 | **2 — Services** | Police, pompiers, incidents probabilistes (coeff. d'intensité), interventions | Une série de jours génère des incidents variés, chaque intervention mobilise les moyens disponibles et ses effets remontent dans le journal et l'état des bâtiments | |
 | **3 — Budget approfondi** | Investissement, dette, sinistres majeurs, arbitrages de taux d'imposition, objectifs optionnels | Un déficit force une décision visible : augmenter l'impôt, couper un service, ou emprunter | |
@@ -170,14 +168,26 @@ Les sources ci-dessus sont **nommées mais pas encore qualifiées** : vérifier 
 | 2026-11-05 | **Rémunération des commerçants par les achats** : un PNJ privé gagne de l'argent quand d'autres habitants achètent chez lui (ex. le vendeur de frites) |
 | 2026-11-05 | **Pas de taxe foncière pour l'instant** |
 | 2026-11-05 | **Échelle très réduite + coefficient d'intensité × 10 000** (éditable) sur les taux d'événements réels ; l'économie reste à l'échelle figurine (valeurs réelles par habitant) |
-| 2026-11-05 | **Ville de référence ≈ 1 million d'habitants** (métropole française — choix définitif en phase 0.5) ; la ville LEGO s'imagin(e) comme sa version réduite |
+| 2026-11-05 | **Ville de référence ≈ 1 million d'habitants** (métropole française — moyenne des plus grandes communes proposée en phase 0.5) ; la ville LEGO s'imagin(e) comme sa version réduite |
 | 2026-11-05 | **Objectifs** : bac à sable par défaut + objectifs optionnels activables (équilibre budgétaire, sécurité, incendie, secours) — alertes sans écran de défaite |
 | 2026-11-05 | **Nom du projet/ville : LEGO** (provisoire) |
 | 2026-11-05 | **Tonalité du journal : très légèrement romancé** |
 
-### Questions ouvertes
+### Questions ouvertes (rouvertes par la qualification — 2026-11-05)
 
-Aucune — le cadrage est figé (v1.0). De nouvelles questions seront rouvertes au fil du développement, datées ici.
+1. **Adéquation des moyens des services à l'échelle métropolitaine** : avec K = 10 000, la ville vit ~5,6 incendies/jour (rythme réel d'une métropole de 600 000 hab.) — mais ses pompiers sont quelques figurines. Options : **A.** effectifs des services « imaginés » (valeurs réelles d'une métropole, abstraction assumée), **B.** moyens figurine face au rythme métropole (crise permanente, gameplay héroïque), **C.** coefficient abaissé (ex. K = 1 000). Détail : docs/phase-0.5-qualification-sources.md §3.
+2. **Ville de référence** : proposition = moyenne des plus grandes communes hors Paris (Marseille, Lyon, Toulouse, Nice, Nantes) ; à valider.
+
+## 10. État de l'art et positionnement (veille 2026-11-05)
+
+**Le projet n'existe pas déjà sous cette forme.** Aucun outil trouvé ne combine un jumeau numérique de sa propre ville LEGO, des PNJ nommés avec comptes en banque en circuit fermé, et une calibration sur données publiques françaises réelles. Les plus proches :
+
+- **[MIT CityScope](https://www.media.mit.edu/projects/cityscope/)** — briques tangibles + simulation urbaine, mais pour ateliers de planification : pas de PNJ ni de ville personnelle ;
+- **[emergent-city](https://github.com/leatag/emergent-city), [manyworld](https://github.com/alinojoumi8/manyworld), [AgentSociety](https://deepwiki.com/tsinghua-fib-lab/AgentSociety/12.2-mobility-and-economic-simulations)** — simulations de société à agents individuels open source, mais villes fictives, sans données réelles ni LEGO ;
+- **Jeux commerciaux** — The Sims, Dwarf Fortress (individus profonds), Cities: Skylines/SimCity (économies agrégées) : aucun ne suit l'argent de chaque citoyen nommé d'une ville réelle du joueur ;
+- **LEGO officiel** — LEGO Tower, LEGO City Build and Protect : gestion fiction, sans jumeau numérique.
+
+Analyse complète : [docs/phase-0.5-qualification-sources.md](docs/phase-0.5-qualification-sources.md) §4.
 
 ---
 
