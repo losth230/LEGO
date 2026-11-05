@@ -4,8 +4,6 @@ import { useStore } from "../state/store.tsx";
 import type { JournalEntree, TypeJournal } from "../engine/types.ts";
 import { montantL } from "../engine/referentiel.ts";
 
-const TYPES_FLUX: TypeJournal[] = ["impots", "salaires", "fonctionnement", "achats"];
-
 function montant(jour: number, type: TypeJournal, journal: JournalEntree[]): number {
   const e = journal.find((x) => x.jour === jour && x.type === type);
   return e?.montant ?? 0;

@@ -111,10 +111,9 @@ test("taux d'imposition : plus de taux, plus de recettes", () => {
 
 test("ville pauvre : salaires et fonctionnement payés au prorata des caisses", () => {
   const m = createMondeDefaut();
-  m.budgetVille = 300; // 3,00 L
-  const j1 = passerJour(m);
   // les impôts du jour tombent d'abord : la ville n'est donc jamais à zéro
-  // avant les salaires — on force un monde vide pour tester le prorata.
+  // avant les salaires — on force un monde sans contribuables privés,
+  // aux caisses vides, pour tester le prorata.
   const vide: Etat = {
     ...m,
     pnjs: m.pnjs.filter((p) => p.statut === "agent_public"),

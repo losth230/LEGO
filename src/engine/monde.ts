@@ -52,15 +52,6 @@ const PRENOMS_F = "Adèle:Camille:Delphine:Émilie:Fantine:Gabrielle:Hélène:In
 const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:Ibrahim:Jules:Kévin:Léo:Marco:Nicolas:Oscar:Pierre:Quentin:Raphaël:Sacha:Tanguy:Ulysse:Victor:Xavier:Yann:Zaïd:Jean:Karim:Mario".split(":");
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
-interface Habitant {
-  prenom: string;
-  nom: string;
-  age: number;
-  genre: "F" | "M";
-  metier: string;
-  revenu: number; // en L
-}
-
 /** Le monde par défaut : ~10 bâtiments, 45 figurines (cahier des charges phase 1). */
 export function createMondeDefaut(): Etat {
   compteur = 0;
