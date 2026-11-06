@@ -1,9 +1,12 @@
 // Moteur économique quotidien — cahier des charges §4.1 et §4.3.
 // Pur et déterministe : aucun accès réseau, aucun stockage, pas de React.
 // Ordre du règlement (§4.1) : salaires publics (impôt à la source, arbitrage
-// 2026-11-06) -> fonctionnement (acheté sur place, rien sinon : monde fermé)
-// -> intérêts (banque locale) -> achats -> incidents de la journée (frais
-// d'hôpital, réparations du BTP local) -> redistribution du flux le soir.
+// 2026-11-06) -> frais de détention (phase 3.10, maison d'arrêt locale)
+// -> fonctionnement (acheté sur place, rien sinon : monde fermé)
+// -> intérêts (banque locale) -> achats (budget effectif modulé par les
+// traits, phase 3.10) -> incidents de la journée (frais d'hôpital,
+// réparations du BTP local, victimes pondérées par les traits)
+// -> libérations et rédemptions (phase 3.10) -> redistribution du flux le soir.
 // Monde 100 % fermé (2026-11-06) : aucune sortie documentée, tout reste
 // dans le circuit (la seule création monétaire : les emprunts, vers la
 // banque locale ; les seules pertes : le crime et l'usure non réparée).
@@ -16,7 +19,10 @@ import type {
   Vocation,
 } from "./types.ts";
 import {
+  CHANCE_REDEMPTION_ACTIF,
+  CHANCE_REDEMPTION_SANS,
   COUT_EMPLOYE_PRIVE_L,
+  FRAIS_DETENTION_L,
   PART_SALARIALE_FLUX,
   TAUX_EMPRUNT_PCT,
   TAUX_IMPOT_DEFAUT_BP,
@@ -144,9 +150,22 @@ export function coefficientRenfort(gravite: 1 | 2 | 3, militairesDispo: number):
   return gravite === 3 && militairesDispo >= 2 ? 0.5 : 1;
 }
 
-/** Budget d'achat quotidien d'un PNJ (centimes). */
+/**
+ * Budget d'achat quotidien EFFECTIF d'un PNJ (centimes) — phase 3.10, traits
+ * actifs : la personnalité module la consommation (±20 % max). Le sociable
+ * fait vivre les commerces (+20 %), le cupide dépense (+10 %), le
+ * travailleur (-10 %) et surtout le prudent (-20 %) gardent leur argent —
+ * et deviennent des cibles de choix pour les voleurs.
+ */
 export function budgetAchat(pnj: Pnj): number {
-  return pnj.budgetAchat;
+  const t = pnj.personnalite ?? [];
+  let coef = 1;
+  if (t.includes("sociable")) coef += 0.2;
+  if (t.includes("cupide")) coef += 0.1;
+  if (t.includes("travailleur")) coef -= 0.1;
+  if (t.includes("prudent")) coef -= 0.2;
+  coef = Math.min(1.2, Math.max(0.8, coef));
+  return Math.round(pnj.budgetAchat * coef);
 }
 
 interface Totaux {
@@ -171,6 +190,8 @@ interface Totaux {
   // --- phase 3.6 : modèle flux ---
   fonctionnementLocal: boolean;
   salairesPrivesPayes: number;
+  // --- phase 3.10 : service pénitentiaire ---
+  detentionPayee: number;
 }
 
 function etapeSalaires(etat: Etat, totaux: Totaux): void {
@@ -191,6 +212,26 @@ function etapeSalaires(etat: Etat, totaux: Totaux): void {
 }
 
 function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
+  // Service pénitentiaire (phase 3.10) : chaque détenu du jour coûte des
+  // frais à la ville, payés à la maison d'arrêt locale (recette du jour,
+  // redistribuée le soir — monde fermé). Se paie même sans boutique ouverte :
+  // on ne rationne pas les prisons par fantaisie commerciale.
+  const prison = serviceLocal(etat, "prison");
+  if (prison) {
+    const detenus = etat.pnjs.filter((p) => (p.arreteJusqua ?? 0) > etat.jour).length;
+    if (detenus > 0) {
+      const du = Math.round(FRAIS_DETENTION_L * 100) * detenus;
+      const paye = Math.min(du, etat.budgetVille);
+      etat.budgetVille -= paye;
+      prison.gerant.compte += paye;
+      totaux.fonctionnementPaye += paye;
+      totaux.detentionPayee += paye;
+      totaux.encaissements.set(
+        prison.bat.id,
+        (totaux.encaissements.get(prison.bat.id) ?? 0) + paye,
+      );
+    }
+  }
   // Phase 3.6 — la ville achète sur place : le fonctionnement des services
   // rejoint les recettes des boutiques et repart en salaires le soir.
   // Monde 100 % fermé (2026-11-06) : sans boutique ouverte, la ville ne
@@ -394,12 +435,52 @@ function fraisMedicaux(gravite: number, secoursJustes: boolean, plafondCompte: n
 }
 
 /**
+ * Rédemption (phase 3.10, arbitrage Thibaut 2026-11-06) : remplace le
+ * premier trait criminel de la figurine (cupide, puis opportuniste, puis
+ * téméraire) par « honnête ». Retourne le trait effacé, null s'il n'y
+ * avait rien à racheter. Le casier reste : la récidive reste possible.
+ */
+export function racheter(pnj: Pnj): string | null {
+  const traits = pnj.personnalite ?? [];
+  for (const criminel of ["cupide", "opportuniste", "téméraire"]) {
+    const i = traits.indexOf(criminel);
+    if (i >= 0) {
+      pnj.personnalite = traits.map((t, j) => (j === i ? "honnête" : t));
+      return criminel;
+    }
+  }
+  return null;
+}
+
+/**
  * Déroule les incidents du jour : chaque incident mobilise la garde du
  * service concerné (effectif requis = gravité), puis applique dégâts,
  * vols et frais, et raconte le tout pour le journal. Modifie e et totaux.
  */
 function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
   const entrees: JournalEntree[] = [];
+  // Libérations du jour (phase 3.10) : à sa sortie, un détenu peut se
+  // racheter — la qualité du service pénitentiaire décide des chances.
+  const prison = serviceLocal(etat, "prison");
+  const chance = prison ? CHANCE_REDEMPTION_ACTIF : CHANCE_REDEMPTION_SANS;
+  const aleaSortie = generateurPour(etat.jour * 11 + 7);
+  for (const libere of etat.pnjs.filter(
+    (p) => (p.arreteJusqua ?? 0) === etat.jour && (p.casier ?? 0) > 0,
+  )) {
+    if (aleaSortie() >= chance) continue;
+    const traitPerdu = racheter(libere);
+    if (traitPerdu === null) continue;
+    entrees.push({
+      jour: etat.jour,
+      type: "incident",
+      texte:
+        libere.prenom + " " + libere.nom + " sort de détention et se rachète : le trait « " +
+        traitPerdu + " » s'efface, remplacé par « honnête » — " +
+        (prison
+          ? "la maison d'arrêt a fait son œuvre (le casier reste : " + (libere.casier ?? 0) + " fait(s))."
+          : "même sans service pénitentiaire, contre toute attente."),
+    });
+  }
   const pompiers = gardePompiers(etat);
   const police = gardePolice(etat);
   const armee = gardeArmee(etat);
@@ -470,8 +551,8 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
         // le casier se remplit, l'assignation à résidence le neutralise
         // quelques jours (3 × gravité), le monde reste fermé.
         voleur.casier = (voleur.casier ?? 0) + 1;
-        const prison = 3 * inc.gravite;
-        voleur.arreteJusqua = etat.jour + prison;
+        const duree = 3 * inc.gravite;
+        voleur.arreteJusqua = etat.jour + duree;
         entrees.push({
           jour: etat.jour,
           type: "incident",
@@ -479,8 +560,9 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
             "Un cambrioleur rôde chez " + cible.prenom + " " + cible.nom +
             " : la patrouille le surprend à temps, rien de volé — " +
             voleur.prenom + " " + voleur.nom + " est arrêté sur le fait" + signature +
-            ", " + prison + " jour" + (prison > 1 ? "s" : "") +
-            " d'assignation à résidence.",
+            ", " + duree + " jour" + (duree > 1 ? "s" : "") +
+            (prison !== null ? " à " + prison.bat.nom : " d'assignation à résidence") +
+            ".",
         });
       } else {
         const volBrut = dispo > 0 ? Math.floor(butin / 2) : butin;
@@ -645,8 +727,15 @@ function journaliserJour(
     texte: totaux.fonctionnementLocal
       ? "Fournitures, énergie et entretien des services publics : " +
         fmt(totaux.fonctionnementPaye) +
-        " versés aux commerces locaux — la ville achète sur place, l'argent reste dans le circuit."
-      : "Fournitures, énergie et entretien des services publics : aucune boutique ouverte en ville, la ville ne s'équipe pas — rien ne quitte le circuit (monde fermé).",
+        " versés aux commerces locaux — la ville achète sur place, l'argent reste dans le circuit." +
+        (totaux.detentionPayee > 0
+          ? " Dont " + fmt(totaux.detentionPayee) + " de frais de détention facturés par la maison d'arrêt."
+          : "")
+      : totaux.detentionPayee > 0
+        ? "Aucune boutique ouverte : la ville ne s'équipe pas, mais la maison d'arrêt facture " +
+          fmt(totaux.detentionPayee) +
+          " de frais de détention — l'argent reste dans le circuit (monde fermé)."
+        : "Fournitures, énergie et entretien des services publics : aucune boutique ouverte en ville, la ville ne s'équipe pas — rien ne quitte le circuit (monde fermé).",
     montant: totaux.fonctionnementPaye,
   });
   if (totaux.achatsTotal > 0 || totaux.acheteursSansCommerce > 0) {
@@ -776,6 +865,7 @@ export function passerJour(etat: Etat): Etat {
     interetsCapitalises: 0,
     fonctionnementLocal: false,
     salairesPrivesPayes: 0,
+    detentionPayee: 0,
   };
   // Règlement quotidien (arbitrage 2026-11-06) : l'impôt n'est plus une étape
   // du matin — il est retenu à la source sur chaque gain versé dans la journée

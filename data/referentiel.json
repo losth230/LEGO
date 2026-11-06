@@ -1,5 +1,5 @@
 {
-  "version": "1.8",
+  "version": "1.9",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -527,6 +527,29 @@
         "source": "DGSCGC — Statistiques annuelles 2024",
         "url": "https://www.interieur.gouv.fr/documentation/etudes-et-statistiques/statistiques-2024-dgscgc.html"
       }
+    }
+  },
+  "penitentiaire": {
+    "frais_detention_par_detenu_jour": {
+      "valeur": 5,
+      "unite": "L/jour/détenu",
+      "annee": 2026,
+      "source": "Arbitrage Thibaut 2026-11-06 — service pénitentiaire",
+      "note": "Frais de détention payés par la ville à la maison d'arrêt locale pour chaque détenu du jour (recette redistribuée le soir comme tout commerce — monde fermé)."
+    },
+    "chance_redemption_service_actif": {
+      "valeur": 50,
+      "unite": "% à la libération",
+      "annee": 2026,
+      "source": "Arbitrage Thibaut 2026-11-06 — rédemption fonction de la qualité du service pénitentiaire",
+      "note": "Un détenu qui sort d'une maison d'arrêt tenue par son gérant a 50 % de chances de perdre un trait criminel (remplacé par honnête). Le casier reste : la récidive est possible, juste moins probable."
+    },
+    "chance_redemption_sans_service": {
+      "valeur": 10,
+      "unite": "% à la libération",
+      "annee": 2026,
+      "source": "Arbitrage Thibaut 2026-11-06",
+      "note": "Sans maison d'arrêt (ou sans gérant), la détention se joue en assignation à résidence et ne corrige presque personne."
     }
   }
 }

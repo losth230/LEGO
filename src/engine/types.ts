@@ -29,10 +29,13 @@ export type TypeBatiment = "habitation" | "commerce" | "service_public";
  * - null : boutique de consommation (achats des habitants, fonctionnement municipal) ;
  * - "sante" : hôpital/clinique — facture les soins des accidents ;
  * - "btp" : entreprise de construction — répare les dégâts d'incendie ;
- * - "banque" : banque locale — prête à la ville, encaisse intérêts et remboursements.
+ * - "banque" : banque locale — prête à la ville, encaisse intérêts et remboursements ;
+ * - "prison" : maison d'arrêt — encaisse les frais de détention, et la qualité
+ *   du service (gérant présent) décide des chances de rédemption à la
+ *   libération (phase 3.10, arbitrage Thibaut 2026-11-06).
  * Sans service à vocation en ville, aucune activité ni frais lié à ce service.
  */
-export type Vocation = "sante" | "btp" | "banque";
+export type Vocation = "sante" | "btp" | "banque" | "prison";
 
 export type EtatBatiment = "neuf" | "bon" | "degrade" | "sinistre";
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "../state/store.tsx";
 import type { Pnj, Statut } from "../engine/types.ts";
 import { montantL, salaireJourL } from "../engine/referentiel.ts";
-import { impotSur } from "../engine/moteur.ts";
+import { budgetAchat, impotSur } from "../engine/moteur.ts";
 import { gangDe } from "../engine/evenements.ts";
 
 const BADGES_STATUT: Record<Statut, { libelle: string; classe: string }> = {
@@ -72,7 +72,15 @@ function Fiche({ pnj }: { pnj: Pnj }) {
           <div>
             Revenu indicatif : {montantL(pnj.revenuIndicatif)} / jour
             <br />
-            Budget d'achat : {montantL(pnj.budgetAchat)} / jour
+            Budget d'achat : {montantL(budgetAchat(pnj))} / jour
+            {budgetAchat(pnj) !== pnj.budgetAchat ? (
+              <>
+                {" "}
+                <span className="mute">
+                  (modulé par la personnalité ; base {montantL(pnj.budgetAchat)})
+                </span>
+              </>
+            ) : null}
           </div>
           <div>
             Impôt à la source :{" "}

@@ -9,13 +9,16 @@ import { COUT_EMPLOYE_PRIVE_L, montantL, salaireJourL } from "../engine/referent
 import { effectifMax, employesDuCommerce } from "../engine/moteur.ts";
 import {
   ajouterBatiment,
+  ajouterGang,
   ajouterPnj,
   modifierBatiment,
   modifierPnj,
   modifierVille,
   nouveauBatiment,
+  nouveauGang,
   nouveauPnj,
   supprimerBatiment,
+  supprimerGang,
   supprimerPnj,
 } from "../engine/monde.ts";
 
@@ -31,12 +34,13 @@ const GRADES = GROUPES_GRADES.flatMap((g) => g.grades);
 const TYPES_BATIMENT: TypeBatiment[] = ["habitation", "commerce", "service_public"];
 const ETATS_BATIMENT: EtatBatiment[] = ["neuf", "bon", "degrade", "sinistre"];
 
-/** Vocations des commerces (monde 100 % fermé, 2026-11-06). */
+/** Vocations des commerces (monde 100 % fermé, 2026-11-06 ; prison en 3.10). */
 const VOCATIONS_BATIMENT: Array<{ valeur: Vocation | null; libelle: string }> = [
   { valeur: null, libelle: "Boutique (consommation)" },
   { valeur: "sante", libelle: "Santé (facture les soins)" },
   { valeur: "btp", libelle: "BTP (répare les bâtiments)" },
   { valeur: "banque", libelle: "Banque (prête à la ville)" },
+  { valeur: "prison", libelle: "Maison d'arrêt (détention et rédemption)" },
 ];
 
 // ---------- petits contrôles ----------
@@ -317,6 +321,81 @@ function CarteBatiments() {
   );
 }
 
+// ---------- gangs (phase 3.10 : le milieu criminel se crée ici) ----------
+
+function CarteGangs() {
+  const { etat, majEtat } = useStore();
+  const [nom, setNom] = useState("");
+  const [territoire, setTerritoire] = useState("");
+  const quartiers = [...new Set(etat.batiments.map((b) => b.quartier))];
+
+  const creer = () => {
+    if (nom.trim() === "" || territoire === "") return;
+    majEtat(
+      ajouterGang(etat, nouveauGang({ nom: nom.trim(), quartiers: [territoire] })),
+    );
+    setNom("");
+    setTerritoire("");
+  };
+
+  return (
+    <div className="carte">
+      <h2>🥷 Gangs ({(etat.gangs ?? []).length})</h2>
+      <p className="mute">
+        Un gang ne vole que sur son territoire (extensible par la guerre).
+        Pour recruter : ouvrir une figurine ci-dessous et choisir son gang.
+      </p>
+      {(etat.gangs ?? []).map((g) => {
+        const membres = etat.pnjs.filter((p) => p.gangId === g.id);
+        const detenus = membres.filter((p) => (p.arreteJusqua ?? 0) > etat.jour).length;
+        return (
+          <div className="ligne-edit" key={g.id}>
+            <div className="ligne-edit-tete">
+              <span>
+                <strong>{g.nom}</strong>{" "}
+                <span className="mute">
+                  · territoire : {g.quartiers.join(", ")} · {membres.length} membre(s)
+                  {detenus > 0 ? " · " + detenus + " détenu(s)" : ""}
+                </span>
+              </span>
+              <button
+                className="bouton-mini bouton-supprimer"
+                onClick={() => {
+                  if (window.confirm("Démanteler " + g.nom + " ? Les membres deviennent indépendants.")) {
+                    majEtat(supprimerGang(etat, g.id));
+                  }
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      <h3>+ Installer un gang</h3>
+      <div className="formulaire">
+        <Champ label="Nom du gang">
+          <input
+            className="input"
+            placeholder="Les Rats du Port"
+            value={nom}
+            onChange={(e) => setNom(e.target.value)}
+          />
+        </Champ>
+        <Champ label="Territoire initial">
+          <select className="input" value={territoire} onChange={(e) => setTerritoire(e.target.value)}>
+            <option value="">— quartier —</option>
+            {quartiers.map((q) => (
+              <option key={q} value={q}>{q}</option>
+            ))}
+          </select>
+        </Champ>
+        <button className="bouton" onClick={creer}>Installer</button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- figurines ----------
 
 function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
@@ -586,6 +665,7 @@ export function Editeur() {
     <div className="grille-editeur">
       <CarteVille />
       <CarteBatiments />
+      <CarteGangs />
       <CartePnjs />
     </div>
   );

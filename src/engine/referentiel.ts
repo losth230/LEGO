@@ -52,6 +52,15 @@ export const TAUX_IMPOT_DEFAUT_BP = Math.round(
 /** Coefficient d'intensité K par défaut : 1 000 (« animé », cahier §5). */
 export const COEFF_INTENSITE_DEFAUT = Math.max(1, Math.round(refNombre("meta.coeff_intensite.valeur", 1000)));
 
+/**
+ * Service pénitentiaire (phase 3.10, arbitrage Thibaut 2026-11-06) : frais de
+ * détention par détenu et par jour (L), et chances de rédemption à la
+ * libération selon la qualité du service (maison d'arrêt tenue ou pas).
+ */
+export const FRAIS_DETENTION_L = refNombre("penitentiaire.frais_detention_par_detenu_jour.valeur", 5);
+export const CHANCE_REDEMPTION_ACTIF = refNombre("penitentiaire.chance_redemption_service_actif.valeur", 50) / 100;
+export const CHANCE_REDEMPTION_SANS = refNombre("penitentiaire.chance_redemption_sans_service.valeur", 10) / 100;
+
 /** Taux d'emprunt annuel des collectivités en % (3,54 % en 2024). */
 export const TAUX_EMPRUNT_PCT = refNombre("economie.taux_emprunt_collectivites.valeur", 3.54);
 

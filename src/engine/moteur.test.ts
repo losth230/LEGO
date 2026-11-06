@@ -7,6 +7,8 @@
 // jour (salaires + primes), la marge patronale seule reste au patron.
 // Phase 3.9 : cartes d'identité & milieu criminel — profil criminel pondéré,
 // territoire de gang, arrestations, guerres de gangs, migration v8.
+// Phase 3.10 : traits actifs & maison d'arrêt — consommation modulée (±20 %),
+// ciblage pondéré par traits, frais de détention, rédemption, éditeur des gangs.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,16 +17,20 @@ import type { Etat, JournalEntree } from "./types.ts";
 import {
   ajouterPnj,
   ajouterBatiment,
+  ajouterGang,
   createMondeDefaut,
   emprunterVille,
   modifierVille,
   nouveauBatiment,
+  nouveauGang,
   nouveauPnj,
   rembourserVille,
   supprimerPnj,
+  supprimerGang,
 } from "./monde.ts";
 import { migrerEtat } from "./migrations.ts";
 import {
+  budgetAchat,
   chargesJournalieres,
   interetsDus,
   coefficientRenfort,
@@ -34,11 +40,28 @@ import {
   monnaieEnCircuit,
   PART_SALARIALE_FLUX,
   passerJour,
+  racheter,
   repartir,
   serviceLocal,
 } from "./moteur.ts";
-import { gardeArmee, gardePolice, gardePompiers, probaQuotidienne, profilCriminel } from "./evenements.ts";
-import { COEFF_INTENSITE_DEFAUT, salaireJourL, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
+import {
+  generateurPour,
+  gardeArmee,
+  gardePolice,
+  gardePompiers,
+  poidsAccident,
+  poidsVictime,
+  probaQuotidienne,
+  profilCriminel,
+} from "./evenements.ts";
+import {
+  CHANCE_REDEMPTION_ACTIF,
+  CHANCE_REDEMPTION_SANS,
+  COEFF_INTENSITE_DEFAUT,
+  FRAIS_DETENTION_L,
+  salaireJourL,
+  TAUX_IMPOT_DEFAUT_BP,
+} from "./referentiel.ts";
 
 function entrees(jour: number, type: string, j: JournalEntree[]): JournalEntree[] {
   return j.filter((e) => e.jour === jour && e.type === type);
@@ -55,24 +78,25 @@ function neutraliserCourses(etat: Etat, metier: string): void {
   if (i >= 0) etat.pnjs[i] = { ...etat.pnjs[i], budgetAchat: 0 };
 }
 
-test("monde par défaut : 14 bâtiments, 55 figurines (garnison et gang incluses), jour 0", () => {
+test("monde par défaut : 15 bâtiments, 56 figurines (garnison, gang et maison d'arrêt incluses), jour 0", () => {
   const m = createMondeDefaut();
-  assert.equal(m.batiments.length, 14);
-  assert.equal(m.pnjs.length, 55);
+  assert.equal(m.batiments.length, 15);
+  assert.equal(m.pnjs.length, 56);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
   assert.equal(services.length, 4);
   const agents = m.pnjs.filter((p) => p.statut === "agent_public");
   assert.equal(agents.length, 6);
-  // Monde 100 % fermé : 3 boutiques de consommation + 3 services à vocation
-  // (hôpital, BTP, banque), chacun tenu par son gérant.
+  // Monde 100 % fermé : 3 boutiques de consommation + 4 services à vocation
+  // (hôpital, BTP, banque, maison d'arrêt), chacun tenu par son gérant.
   const boutiques = m.batiments.filter((b) => b.type === "commerce" && !b.vocation);
   assert.equal(boutiques.length, 3);
   assert.ok(serviceLocal(m, "sante") !== null, "l'hôpital est en ville et tenu");
   assert.ok(serviceLocal(m, "btp") !== null, "le BTP est en ville et tenu");
   assert.ok(serviceLocal(m, "banque") !== null, "la banque est en ville et tenue");
-  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 6);
+  assert.ok(serviceLocal(m, "prison") !== null, "la maison d'arrêt est en ville et tenue");
+  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 7);
 });
 
 test("un jour : impôts retenus à la source, salaires versés, sorties tracées, achats encaissés", () => {
@@ -229,9 +253,9 @@ test("l'épargne n'est pas touchée par le moteur", () => {
 
 test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
   assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 55);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 56);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 55, "version future -> monde par défaut");
+  assert.equal(futur.pnjs.length, 56, "version future -> monde par défaut");
   const m = migrerEtat({ schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
@@ -841,7 +865,7 @@ test("flux : un commerce redistribue le jour même, seul le patron garde sa marg
       nouveauPnj({ prenom: "Jeanne", nom: "Test", statut: "commercant", batimentId: boutique.id, revenuIndicatif: 6000, compte: 0 }),
       nouveauPnj({ prenom: "Alban", nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
       nouveauPnj({ prenom: "Brune", nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
-      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5250, budgetAchat: 20000, compte: 200000 }),
+      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", personnalite: ["honnête", "discret"], revenuIndicatif: 5250, budgetAchat: 20000, compte: 200000 }),
     ],
   };
   const avant = monnaieEnCircuit(monde);
@@ -889,7 +913,7 @@ test("flux : sur-embauche et caisses vides — prorata, salaires impayés, faill
       ...[1, 2, 3, 4, 5].map((i) =>
         nouveauPnj({ prenom: "Employe" + i, nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
       ),
-      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5250, budgetAchat: 20000, compte: 200000 }),
+      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", personnalite: ["honnête", "discret"], revenuIndicatif: 5250, budgetAchat: 20000, compte: 200000 }),
     ],
   };
   const j1 = passerJour(monde);
@@ -949,4 +973,112 @@ test("flux : deux employés au Fournil Doré, la bascule stock vers flux en mond
   // Les deux autres commerces, sans employé, thésaurisent toujours (raconté).
   assert.equal(entrees(1, "flux", j1.journal).filter((e) => e.texte.includes("stock")).length, 2);
   assert.equal(j1.sortiesCumulees, 0, "rien ne sort du circuit quand les commerces sont ouverts");
+});
+
+// ---------- Phase 3.10 : traits actifs & maison d'arrêt ----------
+
+test("traits actifs : la personnalité module le budget d'achat (±20 % max)", () => {
+  const base = nouveauPnj({
+    prenom: "Marchande", nom: "Témoin", metier: "habitant",
+    personnalite: ["honnête", "discret"], revenuIndicatif: 10000, budgetAchat: 10000, compte: 0,
+  });
+  assert.equal(budgetAchat(base), 10000, "sans trait moteur, la base");
+  assert.equal(budgetAchat({ ...base, personnalite: ["sociable", "discret"] }), 12000, "le sociable fait vivre les commerces (+20 %)");
+  assert.equal(budgetAchat({ ...base, personnalite: ["cupide", "discret"] }), 11000, "le cupide dépense (+10 %)");
+  assert.equal(budgetAchat({ ...base, personnalite: ["travailleur", "discret"] }), 9000, "le travailleur économise (-10 %)");
+  assert.equal(budgetAchat({ ...base, personnalite: ["prudent", "discret"] }), 8000, "le prudent garde son argent (-20 %)");
+  assert.equal(budgetAchat({ ...base, personnalite: ["sociable", "cupide"] }), 12000, "clamp : sociable + cupide plafonne à +20 %");
+  assert.equal(budgetAchat({ ...base, personnalite: ["prudent", "travailleur"] }), 8000, "clamp : prudent + travailleur plafonne à -20 %");
+});
+
+test("traits actifs : le ciblage pèse la personnalité (victimes ×1,5/×0,5, téméraire ×2)", () => {
+  const temoin = nouveauPnj({
+    prenom: "Habitable", nom: "Témoin", metier: "habitant",
+    personnalite: ["honnête", "travailleur"], compte: 1000,
+  });
+  assert.equal(poidsVictime(temoin), 1000, "sans trait, le compte seul pèse");
+  assert.equal(poidsVictime({ ...temoin, personnalite: ["cupide", "honnête"] }), 1500, "le cupide étale son argent (×1,5)");
+  assert.equal(poidsVictime({ ...temoin, personnalite: ["sociable", "honnête"] }), 1500, "le sociable aussi (×1,5)");
+  assert.equal(poidsVictime({ ...temoin, personnalite: ["prudent", "discret"] }), 500, "le discret cache le sien (×0,5)");
+  assert.equal(poidsVictime({ ...temoin, compte: 0 }), 0, "sans le sou, pas de butin visé");
+  assert.equal(poidsAccident(temoin), 1, "poids d'accident normal");
+  assert.equal(poidsAccident({ ...temoin, personnalite: ["téméraire", "honnête"] }), 2, "le téméraire se fait plus souvent mal (×2)");
+});
+
+test("maison d'arrêt : la ville paie 5 L par détenu et par jour, l'argent reste en ville", () => {
+  const temoin = calme(createMondeDefaut());
+  const avec = structuredClone(temoin);
+  const detenu = avec.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
+  detenu.arreteJusqua = 5; // détenu les jours 1 à 4, libéré le jour 5
+  detenu.casier = 1;
+  const j1 = passerJour(avec);
+  const t1 = passerJour(temoin);
+  const fonct1 = entrees(1, "fonctionnement", j1.journal)[0];
+  const fonctT = entrees(1, "fonctionnement", t1.journal)[0];
+  assert.ok(fonct1.texte.includes("frais de détention"), "les frais de détention sont racontés");
+  assert.equal(fonct1.montant! - fonctT.montant!, FRAIS_DETENTION_L * 100, "5 L par détenu, payés en plus du fonctionnement");
+  // Coût net : les frais partent, mais la marge du gérant est imposée à la
+  // source — l'impôt revient aux caisses (monde fermé, rien ne se perd).
+  const net = FRAIS_DETENTION_L * 100 - impotSur(FRAIS_DETENTION_L * 100, avec.params.tauxImpotBp);
+  assert.equal(j1.budgetVille - t1.budgetVille, -net, "coût net des frais pour la ville : " + net);
+  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(avec), "conservation exacte : l'argent rejoint la maison d'arrêt");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé : les frais ne fuient pas vers l'extérieur");
+});
+
+test("racheter : le premier trait criminel s'efface (cupide, puis opportuniste, puis téméraire)", () => {
+  const p = nouveauPnj({ prenom: "Ancien", nom: "Détenu", metier: "habitant", personnalite: ["téméraire", "discret"] });
+  assert.equal(racheter(p), "téméraire", "le trait téméraire s'efface");
+  assert.deepEqual(p.personnalite, ["honnête", "discret"], "remplacé par honnête, l'autre trait reste");
+  assert.equal(racheter(p), null, "un honnête homme ne peut plus se racheter");
+});
+
+test("rédemption : à sa sortie, le détenu peut se racheter — la maison d'arrêt quintuple les chances", () => {
+  // Le tirage de libération du jour choisi tombe entre 10 % et 50 % : avec la
+  // maison d'arrêt le détenu se rachète, sans elle il ressort amer (10 % seul).
+  let jour = 1;
+  let tirage = generateurPour(jour * 11 + 7)();
+  while (!(tirage > CHANCE_REDEMPTION_SANS && tirage < CHANCE_REDEMPTION_ACTIF)) {
+    jour += 1;
+    tirage = generateurPour(jour * 11 + 7)();
+  }
+  const base = calme(createMondeDefaut());
+  const detenu = base.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
+  detenu.personnalite = ["cupide", "discret"];
+  detenu.casier = 1;
+  detenu.arreteJusqua = jour;
+  base.jour = jour - 1;
+  // Avec la maison d'arrêt (chance 50 %) : ce tirage-là rachète.
+  const avec = passerJour(structuredClone(base));
+  const pAvec = avec.pnjs.find((p) => p.id === detenu.id)!;
+  assert.ok(
+    avec.journal.some((e) => e.texte.includes("sort de détention et se rachète")),
+    "la rédemption est racontée (jour " + jour + ", tirage " + tirage.toFixed(3) + ")",
+  );
+  assert.ok(pAvec.personnalite!.includes("honnête") && !pAvec.personnalite!.includes("cupide"), "cupide s'est effacé au profit d'honnête");
+  assert.equal(pAvec.casier, 1, "le casier reste : la récidive reste possible");
+  assert.ok((pAvec.arreteJusqua ?? 0) <= jour, "le détenu est libre");
+  // Sans service pénitentiaire (chance 10 %) : mêmes tirages, pas de rédemption ce jour-là.
+  const nadia = base.pnjs.find((p) => p.nom === "Hoarau")!;
+  const sans = passerJour(supprimerPnj(structuredClone(base), nadia.id));
+  const pSans = sans.pnjs.find((p) => p.id === detenu.id)!;
+  assert.equal(serviceLocal(sans, "prison"), null, "plus de maison d'arrêt tenue");
+  assert.ok(!sans.journal.some((e) => e.texte.includes("se rachète")), "sans service, pas de rédemption ce jour-là");
+  assert.ok(pSans.personnalite!.includes("cupide"), "le trait criminel est resté");
+});
+
+test("éditeur des gangs : installer, recruter, démanteler — le journal raconte tout", () => {
+  const m = createMondeDefaut();
+  const gang = nouveauGang({ nom: "Les Rats du Port", quartiers: ["Port"] });
+  const m2 = ajouterGang(m, gang);
+  assert.equal(m2.gangs!.length, (m.gangs?.length ?? 0) + 1, "le gang est en ville");
+  assert.ok(m2.journal.some((e) => e.texte.includes("Les Rats du Port s'installe")), "l'installation est racontée");
+  // Recrutement (comme dans la fiche de la figurine) puis démantèlement.
+  const m3 = structuredClone(m2);
+  const i = m3.pnjs.findIndex((p) => p.statut === "prive" && !p.gangId);
+  m3.pnjs[i] = { ...m3.pnjs[i], gangId: gang.id };
+  const m4 = supprimerGang(m3, gang.id);
+  assert.ok(!m4.gangs!.some((g) => g.id === gang.id), "le gang a disparu");
+  assert.equal(m4.pnjs.find((p) => p.id === m3.pnjs[i].id)!.gangId, null, "le membre redevient indépendant");
+  assert.ok(m4.journal.some((e) => e.texte.includes("Les Rats du Port est démantelé")), "le démantèlement est raconté");
+  assert.equal(monnaieEnCircuit(m4), monnaieEnCircuit(m), "aucune monnaie n'a bougé");
 });

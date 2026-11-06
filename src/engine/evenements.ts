@@ -12,6 +12,9 @@
 // d'identité (traits, casier, gang) qui alimente un profil criminel ;
 // le tirage est pondéré par ce profil. Un membre de gang ne vole que sur
 // le territoire de son gang ; un indépendant opère partout.
+// Phase 3.10 (traits actifs) : la personnalité module aussi le ciblage —
+// victimes pondérées (cupide/sociable ×1,5, discret ×0,5), téméraire ×2
+// aux accidents.
 
 import type { Etat, Gang, Pnj } from "./types.ts";
 import { refNombre } from "./referentiel.ts";
@@ -127,6 +130,28 @@ export function forceCriminelle(etat: Etat, pnj: Pnj): number {
 export function quartierDe(etat: Etat, pnj: Pnj): string {
   const bat = etat.batiments.find((b) => b.id === pnj.batimentId);
   return bat?.quartier ?? "";
+}
+
+/**
+ * Poids d'une figurine comme victime de cambriolage (phase 3.10, traits
+ * actifs) : sa richesse, modulée par sa personnalité — le cupide et le
+ * sociable étalent leur argent (visés ×1,5), le discret cache le sien
+ * (×0,5). Un prudent qui économise finit juteux… sauf s'il est discret.
+ */
+export function poidsVictime(pnj: Pnj): number {
+  const t = pnj.personnalite ?? [];
+  let w = pnj.compte;
+  if (t.includes("cupide") || t.includes("sociable")) w *= 1.5;
+  if (t.includes("discret")) w *= 0.5;
+  return w;
+}
+
+/**
+ * Poids d'une figurine comme victime d'accident (phase 3.10) : le téméraire
+ * se fait plus souvent mal — poids doublé.
+ */
+export function poidsAccident(pnj: Pnj): number {
+  return (pnj.personnalite ?? []).includes("téméraire") ? 2 : 1;
 }
 
 /** Quartiers adjacents (expansion territoriale des gangs). */
@@ -247,14 +272,15 @@ export function tirerIncidents(etat: Etat, jour: number): Incident[] {
             x.id !== voleur.id &&
             (!gang || gang.quartiers.includes(quartierDe(etat, x))),
         );
-        const cible = tirerPondere(a, proies, (x) => x.compte);
+        const cible = tirerPondere(a, proies, poidsVictime);
         if (cible) {
           cibleId = cible.id;
           voleurId = voleur.id;
         }
       }
     } else if (type === "accident" && etat.pnjs.length > 0) {
-      cibleId = etat.pnjs[Math.floor(a() * etat.pnjs.length)].id;
+      // Phase 3.10 : le téméraire se blesse plus souvent (poids doublé).
+      cibleId = tirerPondere(a, etat.pnjs, poidsAccident)?.id ?? null;
     } else if (type === "guerre_gangs") {
       // Affrontement criminel (phase 3.9) : il faut au moins deux factions
       // rivales actives (gangs et/ou indépendants au profil positif).

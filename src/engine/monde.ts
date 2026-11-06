@@ -2,7 +2,7 @@
 // Monnaie en centimes ; budget d'achat par défaut = consommation de référence
 // (INSEE) pour un revenu médian ; comptes initiaux réalistes et modifiables.
 
-import type { Batiment, Etat, Pnj } from "./types.ts";
+import type { Batiment, Etat, Gang, Pnj } from "./types.ts";
 import {
   ACHAT_REFERENCE_L,
   COEFF_INTENSITE_DEFAUT,
@@ -61,6 +61,16 @@ export function nouveauPnj(p: Partial<Pnj> & { prenom: string; nom: string }): P
   };
 }
 
+/** Usine à gang (phase 3.10) : identifiant séquentiel, territoire initial. */
+export function nouveauGang(p: { nom: string; quartiers: string[] }): Gang {
+  compteur += 1;
+  return {
+    id: "gang-" + String(compteur).padStart(3, "0"),
+    nom: p.nom,
+    quartiers: [...p.quartiers],
+  };
+}
+
 export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Batiment["type"] }): Batiment {
   return {
     id: p.id ?? nouvelId("bat"),
@@ -96,6 +106,9 @@ export function createMondeDefaut(): Etat {
     nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacite: 4, vocation: "sante" }),
     nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacite: 4, vocation: "btp" }),
     nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacite: 2, vocation: "banque" }),
+    // Service pénitentiaire (phase 3.10, arbitrage Thibaut 2026-11-06) : la
+    // qualité de la détention (gérant présent) décide de la rédemption.
+    nouveauBatiment({ nom: "Maison d'arrêt de Bricke-en-Provence", type: "commerce", quartier: "Nord", valeur: 600000, capacite: 6, vocation: "prison" }),
     nouveauBatiment({ nom: "Les Terrasses (immeuble)", type: "habitation", quartier: "Centre", valeur: 1500000, capacite: 16 }),
     nouveauBatiment({ nom: "Maison des Dupont", type: "habitation", quartier: "Nord", valeur: 350000, capacite: 4 }),
     nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capacite: 20 }),
@@ -112,9 +125,10 @@ export function createMondeDefaut(): Etat {
   const idHopital = batiments[6].id;
   const idBtp = batiments[7].id;
   const idBanque = batiments[8].id;
-  const immeubles = [batiments[9].id, batiments[10].id, batiments[11].id, batiments[12].id];
+  const idPrison = batiments[9].id;
+  const immeubles = [batiments[10].id, batiments[11].id, batiments[12].id, batiments[13].id];
   const idStade = immeubles[2]; // Résidence du Stade (Sud) — fief des Corbeaux
-  const idCaserneMilitaire = batiments[13].id;
+  const idCaserneMilitaire = batiments[14].id;
 
   const pnjs: Pnj[] = [];
 
@@ -137,6 +151,7 @@ export function createMondeDefaut(): Etat {
   pnjs.push(nouveauPnj({ prenom: "Sofia", nom: "Marchand", age: 44, genre: "F", metier: "cheffe de l'hôpital", statut: "commercant", batimentId: idHopital, revenuIndicatif: 7500, compte: 750000 }));
   pnjs.push(nouveauPnj({ prenom: "Dario", nom: "Costa", age: 39, genre: "M", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: idBtp, revenuIndicatif: 5500, compte: 550000 }));
   pnjs.push(nouveauPnj({ prenom: "Émile", nom: "Verne", age: 51, genre: "M", metier: "banquier", statut: "commercant", batimentId: idBanque, revenuIndicatif: 8000, compte: 800000 }));
+  pnjs.push(nouveauPnj({ prenom: "Nadia", nom: "Hoarau", age: 41, genre: "F", metier: "cheffe de la maison d'arrêt", statut: "commercant", batimentId: idPrison, revenuIndicatif: 6500, compte: 650000 }));
 
   // 39 habitants privés : métiers narratifs, revenus variés autour du médian.
   const metiers: Array<[string, number]> = [
@@ -328,6 +343,43 @@ export function supprimerBatiment(etat: Etat, id: string): Etat {
       e,
       parti.nom + " ferme et s'efface du paysage." +
         (emploisPerdus > 0 ? " Ses " + emploisPerdus + " employé(s) se retrouvent sans emploi." : ""),
+    );
+  return e;
+}
+
+// ---------- Mutateurs de gangs (phase 3.10 : l'éditeur crée le milieu) ----------
+
+/** Crée un gang en ville : territoire initial à choisir parmi les quartiers bâtis. */
+export function ajouterGang(etat: Etat, gang: Gang): Etat {
+  const e = structuredClone(etat);
+  e.gangs = [...(e.gangs ?? []), gang];
+  raconter(
+    e,
+    gang.nom + " s'installe en ville et tient le quartier " + gang.quartiers.join(" et ") +
+      ". Les figurines qui le rejoignent (fiche de la figurine → Gang) ne voleront que sur son territoire.",
+  );
+  return e;
+}
+
+/**
+ * Démantele un gang : ses membres redeviennent indépendants (gangId null) —
+ * personne ne quitte la ville, le milieu se réorganise.
+ */
+export function supprimerGang(etat: Etat, id: string): Etat {
+  const e = structuredClone(etat);
+  const gang = (e.gangs ?? []).find((g) => g.id === id);
+  const membres = e.pnjs.filter((p) => p.gangId === id);
+  for (const p of e.pnjs) {
+    if (p.gangId === id) p.gangId = null;
+  }
+  e.gangs = (e.gangs ?? []).filter((g) => g.id !== id);
+  if (gang)
+    raconter(
+      e,
+      gang.nom + " est démantelé" +
+        (membres.length > 0
+          ? " : " + membres.length + " figurine(s) repartent en indépendant(e)s — le milieu ne meurt jamais."
+          : " : plus personne ne tenait la baraque."),
     );
   return e;
 }

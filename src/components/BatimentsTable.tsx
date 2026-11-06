@@ -22,6 +22,7 @@ const ETIQUETTES_VOCATION = {
   sante: "Santé",
   btp: "BTP",
   banque: "Banque",
+  prison: "Maison d'arrêt",
 } as const;
 
 export function BatimentsTable() {
