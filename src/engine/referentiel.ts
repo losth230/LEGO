@@ -55,6 +55,38 @@ export const TAUX_IMPOT_DEFAUT_BP = Math.round(
   refNombre("economie.taux_impot_defaut.valeur", 10) * 100,
 );
 
+/**
+ * Grades proposés par l'éditeur, groupés par corps — GÉNÉRÉS depuis le
+ * référentiel (v1.14 : chaque grade porte son « corps ») : plus une seule
+ * liste à maintenir en parallèle, l'éditeur ne peut plus dériver du
+ * référentiel. L'ordre suit le JSON (Mairie, Police, Pompiers, Armée).
+ */
+export type GroupeGrades = { corps: string; grades: string[] };
+
+export const GROUPES_GRADES: GroupeGrades[] = Object.entries(
+  (refChemin("economie.salaires_publics_nets_par_jour") as Noeud | undefined) ?? {},
+).reduce<GroupeGrades[]>((acc, [cle, def]) => {
+  const corps = typeof (def as Noeud)?.corps === "string" ? (def as Noeud).corps : "";
+  if (!corps) return acc;
+  const groupe = acc.find((g) => g.corps === corps);
+  if (groupe) groupe.grades.push(cle);
+  else acc.push({ corps, grades: [cle] });
+  return acc;
+}, []);
+
+/** Tous les grades connus du référentiel, dans l'ordre d'apparition. */
+export const GRADES: string[] = GROUPES_GRADES.flatMap((g) => g.grades);
+
+/**
+ * Un grade est-il défini dans le référentiel ? Sinon le moteur paie le
+ * salaire de secours (50 L/jour) en silence — les tests d'exhaustivité
+ * s'appuient dessus pour que plus aucun grade ne soit orphelin.
+ */
+export function gradeConnu(grade: string): boolean {
+  const v = refChemin("economie.salaires_publics_nets_par_jour." + grade + ".valeur");
+  return typeof v === "number" || (typeof v === "string" && v !== "" && !Number.isNaN(Number(v)));
+}
+
 /** Coefficient d'intensité K par défaut : 1 000 (« animé », cahier §5). */
 export const COEFF_INTENSITE_DEFAUT = Math.max(1, Math.round(refNombre("meta.coeff_intensite.valeur", 1000)));
 

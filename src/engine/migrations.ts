@@ -4,7 +4,7 @@
 // d'une version à l'autre se contentent de compléter, jamais de jeter
 // une ville en cours (sauf état irrécupérable).
 
-import type { Etat, Vocation } from "./types.ts";
+import type { Etat, Pnj, Vocation } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
@@ -81,6 +81,27 @@ const GRADES_RETIRES: Record<string, string> = {
   // commerces (santé, BTP, banque) — complétée à null (boutique) si absente.
   const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p, i) => ({
     ...p,
+    // Contrat de formes (découpe des tests du 2026-11-06) : une sauvegarde
+    // incomplète ou hostile ne doit jamais produire un PNJ mal formé —
+    // les champs scalaires de base sont complétés comme nouveauPnj le fait.
+    id:
+      typeof (p as Partial<Pnj>).id === "string" && (p as Partial<Pnj>).id !== ""
+        ? (p as Partial<Pnj>).id!
+        : "pnj-mig-" + i + "-" + version,
+    prenom:
+      typeof (p as Partial<Pnj>).prenom === "string" ? (p as Partial<Pnj>).prenom! : "",
+    nom: typeof (p as Partial<Pnj>).nom === "string" ? (p as Partial<Pnj>).nom! : "",
+    age: typeof (p as Partial<Pnj>).age === "number" ? (p as Partial<Pnj>).age! : 40,
+    genre: (p as Partial<Pnj>).genre === "M" ? "M" : "F",
+    metier: typeof (p as Partial<Pnj>).metier === "string" ? (p as Partial<Pnj>).metier! : "sans profession",
+    batimentId:
+      typeof (p as Partial<Pnj>).batimentId === "string" ? (p as Partial<Pnj>).batimentId! : null,
+    revenuIndicatif:
+      typeof (p as Partial<Pnj>).revenuIndicatif === "number" ? (p as Partial<Pnj>).revenuIndicatif! : 0,
+    budgetAchat:
+      typeof (p as Partial<Pnj>).budgetAchat === "number" ? (p as Partial<Pnj>).budgetAchat! : 0,
+    compte: typeof (p as Partial<Pnj>).compte === "number" ? (p as Partial<Pnj>).compte! : 0,
+    epargne: typeof (p as Partial<Pnj>).epargne === "number" ? (p as Partial<Pnj>).epargne! : 0,
     // Grades retirés (v1.12) : conversion vers le grade conservé au salaire
     // le plus proche, pour que l'ancienne figurine reste payée et de garde.
     grade:
@@ -88,6 +109,10 @@ const GRADES_RETIRES: Record<string, string> = {
         ? (GRADES_RETIRES[(p as Partial<{ grade?: string | null }>).grade!] ??
           (p as Partial<{ grade?: string | null }>).grade!)
         : undefined,
+    statut:
+      (p as Partial<Pnj>).statut === "agent_public" || (p as Partial<Pnj>).statut === "commercant"
+        ? (p as Partial<Pnj>).statut!
+        : "prive",
     travailBatimentId:
       (p as Partial<{ travailBatimentId?: string | null }>).travailBatimentId ?? null,
     // Migration v7 -> v8 (phase 3.9, milieu criminel) : carte d'identité —

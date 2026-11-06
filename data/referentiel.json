@@ -1,5 +1,5 @@
 {
-  "version": "1.13",
+  "version": "1.14",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -109,31 +109,35 @@
     },
     "salaires_publics_nets_par_jour": {
       "adjoint_technique": {
+        "corps": "Mairie",
         "valeur": 48.3,
         "mensuel_net": "~1450",
         "unite": "euro/agent/jour",
         "annee": 2025,
-        "source": "Grilles FPT 2025 (à valider)",
+        "source": "Grilles indiciaires FPT 2025 (cat C) — point d\u2019indice 4,92278 EUR ; FIGÉ 2026-11-06 (grilles vérifiées emploi-collectivites / juristique)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
       },
       "policier_municipal": {
+        "corps": "Police municipale",
         "valeur": 56.7,
         "mensuel_net": "~1700",
         "unite": "euro/agent/jour",
         "annee": 2025,
-        "source": "Grilles indiciaires FPT 2025 (à valider contre décret JORFTEXT000051724928)",
+        "source": "Grille FPT 2025 du cadre d\u2019emplois de police municipale (cat B) + ISFVP — FIGÉ 2026-11-06 (point d\u2019indice 4,92278 EUR, ordre de grandeur confirmé)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
       },
       "major_pm": {
+        "corps": "Police municipale",
         "valeur": 71.7,
         "mensuel_net": "1950-2300",
         "unite": "euro/agent/jour",
         "annee": 2025,
-        "source": "Grilles FPT 2025 — police municipale (à valider)",
-        "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/",
+        "source": "Grille FPT 2025 du cadre d\u2019emplois de police municipale (cat B) + ISFVP — FIGÉ 2026-11-06 (point d\u2019indice 4,92278 EUR, ordre de grandeur confirmé)",
+        "url": "https://www.juristique.org/salaires-fonction-publique-territoriale/salaires-fpt-00056",
         "note": "net mensuel médian (primes incluses) / 30"
       },
       "commissaire_pm": {
+        "corps": "Police municipale",
         "valeur": 95.0,
         "mensuel_net": "2500-3200",
         "unite": "euro/agent/jour",
@@ -143,14 +147,16 @@
         "note": "net mensuel médian (primes incluses) / 30"
       },
       "sapeur_pompier_debutant": {
+        "corps": "Sapeurs-pompiers",
         "valeur": 62.5,
         "mensuel_net": "1806-1944",
         "unite": "euro/agent/jour",
         "annee": 2025,
-        "source": "Grilles FPT 2025 — sapeur-pompier professionnel 2e classe (à valider)",
+        "source": "Grilles indiciaires SPP 2025 (FPT) — 2e classe, indemnité de feu 25 % — FIGÉ 2026-11-06",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
       },
       "sergent_spp": {
+        "corps": "Sapeurs-pompiers",
         "valeur": 78.0,
         "mensuel_net": "2080-2500",
         "unite": "euro/agent/jour",
@@ -160,6 +166,7 @@
         "note": "net mensuel médian (primes incluses) / 30"
       },
       "colonel_spp": {
+        "corps": "Sapeurs-pompiers",
         "valeur": 165.0,
         "mensuel_net": "3800-5500",
         "unite": "euro/agent/jour",
@@ -169,6 +176,7 @@
         "note": "net mensuel médian (primes incluses) / 30"
       },
       "soldat_armee": {
+        "corps": "Armée",
         "valeur": 43.3,
         "mensuel_net": "1300-1550",
         "unite": "euro/agent/jour",
@@ -178,6 +186,7 @@
         "note": "net mensuel médian (primes incluses) / 30"
       },
       "caporal_armee": {
+        "corps": "Armée",
         "valeur": 51.7,
         "mensuel_net": "1450-1750",
         "unite": "euro/agent/jour",
@@ -187,6 +196,7 @@
         "note": "net mensuel médian (primes incluses) / 30"
       },
       "capitaine_armee": {
+        "corps": "Armée",
         "valeur": 96.7,
         "mensuel_net": "2600-3000",
         "unite": "euro/agent/jour",
