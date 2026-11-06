@@ -34,6 +34,12 @@ export const IMPOT_REFERENCE_L = refNombre("economie.impot_quotidien_reference.v
 
 /** Consommation quotidienne moyenne ≈ 52,5 L/PNJ/jour (INSEE 2023). */
 export const ACHAT_REFERENCE_L = refNombre("economie.budget_achat_quotidien_reference.valeur");
+/**
+ * Budgets d'achat aléatoires au départ (arbitrage Thibaut 2026-11-06) :
+ * loi log-uniforme entre facteur_min × et facteur_max × le revenu indicatif.
+ */
+export const BUDGET_FACTEUR_MIN = refNombre("economie.budget_achat_aleatoire.facteur_min.valeur", 0.5);
+export const BUDGET_FACTEUR_MAX = refNombre("economie.budget_achat_aleatoire.facteur_max.valeur", 10);
 
 /** Salaires publics nets par jour (grilles FPT 2025) — en L. */
 export function salaireJourL(grade: string): number {

@@ -19,6 +19,7 @@ import {
   ajouterPnj,
   ajouterBatiment,
   ajouterGang,
+  budgetAleatoire,
   createMondeDefaut,
   emprunterVille,
   modifierVille,
@@ -1069,6 +1070,46 @@ test("racheter : le premier trait criminel s'efface (cupide, puis opportuniste, 
   assert.equal(racheter(p), "téméraire", "le trait téméraire s'efface");
   assert.deepEqual(p.personnalite, ["honnête", "discret"], "remplacé par honnête, l'autre trait reste");
   assert.equal(racheter(p), null, "un honnête homme ne peut plus se racheter");
+});
+
+test("budget aléatoire : loi log-uniforme entre ×0,5 et ×10 le revenu indicatif", () => {
+  // Fonction pure (arbitrage Thibaut 2026-11-06) : u ∈ [0, 1] parcourt la
+  // loi uniformément en log — beaucoup de budgets modestes, quelques très
+  // gros, médiane géométrique √(0,5 × 10) ≈ ×2,24 le revenu.
+  assert.equal(budgetAleatoire(5000, 0), 2500, "u = 0 : ×0,5 le revenu");
+  assert.equal(budgetAleatoire(5000, 1), 50000, "u = 1 : ×10 le revenu");
+  assert.ok(budgetAleatoire(5250, 0.5) > 5250, "u = 0,5 : médiane ≈ ×2,24, au-dessus du revenu");
+  let precedent = -1;
+  for (let i = 0; i <= 100; i++) {
+    const u = i / 100;
+    const b = budgetAleatoire(5250, u);
+    assert.ok(b >= Math.max(1, Math.round(5250 * 0.5)), "borne basse respectée");
+    assert.ok(b <= Math.round(5250 * 10), "borne haute respectée");
+    assert.ok(b >= precedent, "le budget croît (faiblement) avec u");
+    precedent = b;
+  }
+});
+
+test("budget aléatoire : le monde par défaut tire le budget de chaque figurine, une fois pour toutes", () => {
+  // Arbitrage Thibaut : tous les PNJ, total non recalé, aléatoire à chaque
+  // partie (Math.random). La simulation journalière, elle, reste déterministe.
+  const e = createMondeDefaut();
+  assert.equal(e.pnjs.length, 55, "55 figurines");
+  const tires = e.pnjs.filter((p) => p.budgetAchat !== p.revenuIndicatif);
+  assert.ok(tires.length > 0, "au moins un budget tiré hors du revenu indicatif");
+  for (const p of e.pnjs) {
+    assert.ok(
+      p.budgetAchat >= Math.max(1, Math.round(p.revenuIndicatif * 0.5)),
+      "borne basse du tirage",
+    );
+    assert.ok(p.budgetAchat <= Math.round(p.revenuIndicatif * 10), "borne haute du tirage");
+  }
+  // Pas de nouveau tirage au chargement : la sauvegarde conserve ses budgets.
+  const rel = migrerEtat(JSON.parse(JSON.stringify(e)));
+  for (const p of e.pnjs) {
+    const q = rel.pnjs.find((x) => x.id === p.id)!;
+    assert.equal(q.budgetAchat, p.budgetAchat, "le budget tiré au départ survit au rechargement");
+  }
 });
 
 test("rédemption : à sa sortie, le détenu peut se racheter — l'effectif du commissariat décide", () => {

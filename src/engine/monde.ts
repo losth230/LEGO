@@ -5,6 +5,8 @@
 import type { Batiment, Etat, Gang, Pnj } from "./types.ts";
 import {
   ACHAT_REFERENCE_L,
+  BUDGET_FACTEUR_MAX,
+  BUDGET_FACTEUR_MIN,
   COEFF_INTENSITE_DEFAUT,
   TAUX_IMPOT_DEFAUT_BP,
   montantL,
@@ -59,6 +61,20 @@ export function nouveauPnj(p: Partial<Pnj> & { prenom: string; nom: string }): P
     gangId: p.gangId ?? null,
     arreteJusqua: p.arreteJusqua ?? 0,
   };
+}
+
+/**
+ * Budget d'achat aléatoire au départ (arbitrage Thibaut 2026-11-06) :
+ * loi log-uniforme entre ×0,5 et ×10 le revenu indicatif — beaucoup de
+ * budgets modestes, quelques très gros, total non recalé. Tiré une seule
+ * fois à la création du monde (Math.random : chaque partie démarre
+ * différemment) ; la simulation journalière reste déterministe, reseedée
+ * par numéro de jour. u ∈ [0, 1] parcourt la loi uniformément en log.
+ */
+export function budgetAleatoire(revenu: number, u: number = Math.random()): number {
+  const min = Math.log(BUDGET_FACTEUR_MIN);
+  const max = Math.log(BUDGET_FACTEUR_MAX);
+  return Math.max(1, Math.round(revenu * Math.exp(min + u * (max - min))));
 }
 
 /** Usine à gang (phase 3.10) : identifiant séquentiel, territoire initial. */
@@ -221,6 +237,15 @@ export function createMondeDefaut(): Etat {
       p.personnalite = traits;
       p.compte = 45000; // la faucille : 450 L en tout et pour tout
     }
+  }
+
+  // Budgets d'achat aléatoires au départ (arbitrage Thibaut 2026-11-06) :
+  // chaque figurine tire une loi log-uniforme entre ×0,5 et ×10 son revenu
+  // indicatif — total non recalé, chaque partie démarre différemment.
+  // Les figurines ajoutées ensuite dans l'éditeur gardent le défaut
+  // (budget = revenu indicatif) et les sauvegardes existantes aussi.
+  for (const p of pnjs) {
+    p.budgetAchat = budgetAleatoire(p.revenuIndicatif);
   }
 
   return {

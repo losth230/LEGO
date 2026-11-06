@@ -1,5 +1,5 @@
 {
-  "version": "1.10",
+  "version": "1.11",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -74,6 +74,22 @@
       "source": "INSEE — La consommation des ménages en 2023 (Insee Première n° 2002)",
       "url": "https://www.insee.fr/fr/statistiques/8210847",
       "note": "Réparti chaque jour entre les commerces de la ville ; part modulable par l'application."
+    },
+    "budget_achat_aleatoire": {
+      "facteur_min": {
+        "valeur": 0.5,
+        "unite": "× le revenu indicatif",
+        "annee": 2026,
+        "source": "Arbitrage Thibaut 2026-11-06 — budgets de départ aléatoires",
+        "note": "Borne basse de la loi log-uniforme du budget d'achat de départ : budget = revenu × exp(ln(facteur_min) + u × (ln(facteur_max) − ln(facteur_min))), u tiré uniformément dans [0, 1[. Beaucoup de budgets modestes, quelques très gros (médiane ≈ ×2,24, moyenne ≈ ×3,17) ; le total n'est pas recalé (arbitrage Thibaut : laisser dériver)."
+      },
+      "facteur_max": {
+        "valeur": 10,
+        "unite": "× le revenu indicatif",
+        "annee": 2026,
+        "source": "Arbitrage Thibaut 2026-11-06 — budgets de départ aléatoires",
+        "note": "Borne haute de la loi log-uniforme. Le tirage se fait une seule fois, à la création du monde (Math.random : chaque partie démarre différemment) ; la simulation journalière reste déterministe, reseedée par numéro de jour. Une figurine créée ensuite dans l'éditeur garde le défaut (budget = revenu indicatif) ; les sauvegardes existantes conservent leurs budgets."
+      }
     },
     "part_salariale_flux": {
       "valeur": 0.88,
