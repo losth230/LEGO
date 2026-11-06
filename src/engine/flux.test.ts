@@ -16,7 +16,6 @@ import {
 } from "./monde.ts";
 
 import {
-  budgetAchat,
   effectifMax,
   impotSur,
   monnaieEnCircuit,

@@ -24,7 +24,6 @@ import {
 } from "./migrations.ts";
 
 import {
-  budgetAchat,
   monnaieEnCircuit,
   passerJour
 } from "./moteur.ts";

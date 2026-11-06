@@ -66,7 +66,10 @@ export type GroupeGrades = { corps: string; grades: string[] };
 export const GROUPES_GRADES: GroupeGrades[] = Object.entries(
   (refChemin("economie.salaires_publics_nets_par_jour") as Noeud | undefined) ?? {},
 ).reduce<GroupeGrades[]>((acc, [cle, def]) => {
-  const corps = typeof (def as Noeud)?.corps === "string" ? (def as Noeud).corps : "";
+  // Rétrécissement via une variable intermédiaire : le typeof ne traverse
+  // pas deux expressions de cast distinctes (leçon de la CI du 2026-11-06).
+  const corpsBrut: unknown = (def as Noeud | undefined)?.corps;
+  const corps = typeof corpsBrut === "string" ? corpsBrut : "";
   if (!corps) return acc;
   const groupe = acc.find((g) => g.corps === corps);
   if (groupe) groupe.grades.push(cle);

@@ -17,7 +17,6 @@ import type {
   Etat,
   JournalEntree,
   Pnj,
-  Vocation,
 } from "./types.ts";
 import {
   CHANCE_REDEMPTION_ACTIF,

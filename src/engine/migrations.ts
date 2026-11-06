@@ -79,7 +79,10 @@ const GRADES_RETIRES: Record<string, string> = {
   // employés privés et recettes du dernier jour par commerce.
   // Migration v5 -> v6 (monde 100 % fermé, 2026-11-06) : vocation des
   // commerces (santé, BTP, banque) — complétée à null (boutique) si absente.
-  const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p, i) => ({
+  // Le callback est typé « : Pnj » : le type contextuel empêche les
+  // littéraux ("M"/"F") de s'élargir en string — leçon de la CI du
+  // 2026-11-06, la normalisation des scalaires doit rester typée.
+  const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p, i): Pnj => ({
     ...p,
     // Contrat de formes (découpe des tests du 2026-11-06) : une sauvegarde
     // incomplète ou hostile ne doit jamais produire un PNJ mal formé —
