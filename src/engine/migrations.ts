@@ -6,9 +6,9 @@
 
 import type { Etat } from "./types.ts";
 import { createMondeDefaut } from "./monde.ts";
-import { COEFF_INTENSITE_DEFAUT } from "./referentiel.ts";
+import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 4;
+export const SCHEMA_VERSION_ETAT = 5;
 
 /** Normalise un état inconnu (localStorage corrompu, version future, import). */
 export function migrerEtat(brut: unknown): Etat {
@@ -38,12 +38,15 @@ export function migrerEtat(brut: unknown): Etat {
       : {};
 
   // Migration v1 -> v2 : K éditable (params.coeffIntensite) et pertes cumulées.
+  // Migration v4 -> v5 (arbitrage 2026-11-06) : l'impôt change de base
+  // (revenu indicatif -> gains réels du jour, prélevés à la source) ; un taux
+  // réglé sous l'ancienne base n'a plus de sens, retour au défaut (10 %).
+  // À partir de v5, le taux choisi par le joueur est conservé tel quel.
   const paramsBrut = (b.params ?? defaut.params) as Partial<Etat["params"]>;
+  const tauxImpotConserve =
+    typeof paramsBrut.tauxImpotBp === "number" ? paramsBrut.tauxImpotBp : defaut.params.tauxImpotBp;
   const params: Etat["params"] = {
-    tauxImpotBp:
-      typeof paramsBrut.tauxImpotBp === "number"
-        ? paramsBrut.tauxImpotBp
-        : defaut.params.tauxImpotBp,
+    tauxImpotBp: version >= 5 ? tauxImpotConserve : TAUX_IMPOT_DEFAUT_BP,
     coeffIntensite:
       typeof paramsBrut.coeffIntensite === "number" && paramsBrut.coeffIntensite >= 1
         ? Math.round(paramsBrut.coeffIntensite)

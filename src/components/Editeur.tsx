@@ -93,8 +93,10 @@ function CarteVille() {
         </button>
       </div>
       <p className="mute">
-        Impôt payé par une figurine au revenu médian (52,50 L) :{" "}
-        {montantL(Math.round((5250 * etat.params.tauxImpotBp) / 10000))} / jour.
+        Impôt unique prélevé à la source :{" "}
+        {(etat.params.tauxImpotBp / 100).toLocaleString("fr-FR")} % des gains du jour de
+        chacun (solde des agents, salaires et primes des employés privés, marge des
+        patrons). Une figurine sans gain ne paie rien.
       </p>
       <p className="mute">
         K règle le rythme des incidents (proba = taux réel × figurines × K ÷ 10 000 ÷ 365) :{" "}

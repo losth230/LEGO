@@ -27,11 +27,12 @@ import {
   interetsDus,
   coefficientRenfort,
   effectifMax,
+  impotSur,
   joursDeMarge,
-  impotDu,
   monnaieEnCircuit,
   PART_SALARIALE_FLUX,
   passerJour,
+  repartir,
 } from "./moteur.ts";
 import { gardeArmee, gardePolice, gardePompiers, probaQuotidienne } from "./evenements.ts";
 import { COEFF_INTENSITE_DEFAUT, salaireJourL, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
@@ -59,18 +60,28 @@ test("monde par défaut : 11 bâtiments, 48 figurines (garnison incluse), jour 0
   assert.equal(boutiques.length, 3);
 });
 
-test("un jour : impôts prélevés, salaires versés, sorties tracées, achats encaissés", () => {
+test("un jour : impôts retenus à la source, salaires versés, sorties tracées, achats encaissés", () => {
   const m = calme(createMondeDefaut());
-  const attenduImpots = m.pnjs.reduce((s, p) => s + impotDu(p, m.params.tauxImpotBp), 0);
+  const taux = m.params.tauxImpotBp;
   const attenduSalaires = m.pnjs
     .filter((p) => p.statut === "agent_public")
     .reduce((s, p) => s + Math.round(salaireJourL(p.grade ?? "") * 100), 0);
   const j1 = passerJour(m);
   assert.equal(j1.jour, 1);
   assert.equal(m.jour, 0, "l'état source n'est pas muté");
+  // Impôt à la source (arbitrage 2026-11-06) : X % des soldes versées
+  // + X % des marges ; sans employé, la marge du patron = ses recettes.
+  const attenduAgents = m.pnjs
+    .filter((p) => p.statut === "agent_public")
+    .reduce((s, p) => s + impotSur(Math.round(salaireJourL(p.grade ?? "") * 100), taux), 0);
+  const attenduPatrons = Object.values(j1.recettesCommerce!).reduce(
+    (s, v) => s + impotSur(v, taux),
+    0,
+  );
   const impots = entrees(1, "impots", j1.journal);
   assert.equal(impots.length, 1);
-  assert.equal(impots[0].montant, attenduImpots);
+  assert.equal(impots[0].montant, attenduAgents + attenduPatrons);
+  assert.ok(impots[0].texte.includes("à la source"), "la retenue à la source est racontée");
   const salaires = entrees(1, "salaires", j1.journal);
   assert.equal(salaires[0].montant, attenduSalaires);
   const fonct = entrees(1, "fonctionnement", j1.journal);
@@ -131,18 +142,23 @@ test("le vendeur de frites encaisse les achats des habitants", () => {
   assert.ok(mario.compte - avant > 50000, "encaissement journalier > 500 L");
 });
 
-test("un PNJ sans le sou paie ce qu'il peut ; le journal le raconte", () => {
+test("impôt à la source : sans gain, pas d'impôt — même à sec", () => {
   const m = calme(createMondeDefaut());
-  const pauvre = m.pnjs[10];
-  m.pnjs[10] = { ...pauvre, compte: 100 }; // 1,00 L
+  const taux = m.params.tauxImpotBp;
+  m.pnjs[10] = { ...m.pnjs[10], compte: 100 }; // 1,00 L, aucun gain à venir
   const j1 = passerJour(m);
-  const rupture = j1.journal.find((e) => e.type === "impots" && e.jour === 1);
-  assert.ok(rupture !== undefined && rupture.texte.includes("à sec"));
-  assert.equal(j1.pnjs[10].compte, 0);
-  // la ville n'a encaissé que 1,00 L de sa part
-  const attenduAutres = m.pnjs.reduce((s, p, i) => (i === 10 ? s : s + impotDu(p, m.params.tauxImpotBp)), 0);
   const impots = entrees(1, "impots", j1.journal);
-  assert.equal(impots[0].montant, attenduAutres + 100);
+  // Le PNJ à sec n'a rien gagné dans la journée : il n'est pas imposé du tout.
+  const attenduAgents = m.pnjs
+    .filter((p) => p.statut === "agent_public")
+    .reduce((s, p) => s + impotSur(Math.round(salaireJourL(p.grade ?? "") * 100), taux), 0);
+  const attenduPatrons = Object.values(j1.recettesCommerce!).reduce(
+    (s, v) => s + impotSur(v, taux),
+    0,
+  );
+  assert.equal(impots[0].montant, attenduAgents + attenduPatrons);
+  // Son unique L a servi ses achats, pas l'impôt.
+  assert.equal(j1.pnjs[10].compte, 0);
 });
 
 test("taux d'imposition : plus de taux, plus de recettes", () => {
@@ -157,9 +173,9 @@ test("taux d'imposition : plus de taux, plus de recettes", () => {
 
 test("ville pauvre : salaires et fonctionnement payés au prorata des caisses", () => {
   const m = createMondeDefaut();
-  // les impôts du jour tombent d'abord : la ville n'est donc jamais à zéro
-  // avant les salaires — on force un monde sans contribuables privés,
-  // aux caisses vides, pour tester le prorata.
+  // L'impôt est retenu à la source sur les soldes : une part des caisses
+  // revient immédiatement, mais avec 3,00 L le prorata reste total — on
+  // force un monde sans contribuables privés, aux caisses vides.
   const vide: Etat = {
     ...calme(m),
     pnjs: m.pnjs.filter((p) => p.statut === "agent_public"),
@@ -204,11 +220,25 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
-  assert.equal(m.schemaVersion, 4, "v1 -> v4 : schema à jour");
+  assert.equal(m.schemaVersion, 5, "v1 -> v5 : schema à jour");
+  assert.equal(
+    m.params.tauxImpotBp,
+    TAUX_IMPOT_DEFAUT_BP,
+    "v4 et moins : la base fiscale change, retour au taux par défaut",
+  );
   assert.equal(m.dette, 0, "v2 -> v3 : dette initialisée");
   assert.equal(m.mouvementsBanqueCumules, 0, "v2 -> v3 : mouvements banque initialisés");
   assert.ok(m.pnjs.every((p) => p.travailBatimentId === null), "v3 -> v4 : lieu de travail initialisé");
   assert.deepEqual(m.recettesCommerce, {}, "v3 -> v4 : recettes des commerces initialisées");
+  // v5 : le taux réglé par le joueur est conservé tel quel.
+  const v5 = migrerEtat({
+    schemaVersion: 5,
+    jour: 3,
+    params: { tauxImpotBp: 555, coeffIntensite: 2 },
+  });
+  assert.equal(v5.jour, 3, "v5 : le jour est conservé");
+  assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
+  assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
 });
 
 // ---------- Phase 2 : incidents, garde des services ----------
@@ -339,7 +369,14 @@ test("sans le sou : les intérêts se capitalisent, la dette grossit", () => {
   m = modifierVille(m, { budgetVille: 0 });
   const j1 = passerJour(m);
   const du = interetsDus(10000000);
-  assert.equal(j1.budgetVille, 0);
+  // Les intérêts tombent avant les achats : au moment de payer, les caisses
+  // sont vides et tout est capitalisé. Seule la retenue à la source du soir
+  // (marges des commerces) relance les caisses en fin de journée.
+  const attenduImpot = Object.values(j1.recettesCommerce!).reduce(
+    (s, v) => s + impotSur(v, j1.params.tauxImpotBp),
+    0,
+  );
+  assert.equal(j1.budgetVille, attenduImpot, "seule la retenue du soir entre en caisse");
   assert.equal(j1.dette, 10000000 + du, "les intérêts impayés s'ajoutent à l'encours");
   assert.ok(j1.journal.some((x) => x.texte.includes("capitalisés")), "la capitalisation est racontée");
 });
@@ -482,12 +519,24 @@ test("flux : un commerce redistribue le jour même, seul le patron garde sa marg
   assert.equal(flux.length, 1);
   assert.equal(flux[0].montant, plafond, "le commerce ne garde que 12 % du flux");
   assert.ok(flux[0].texte.includes("redistribue") && flux[0].texte.includes("primes"), "la redistribution est racontée");
+  assert.ok(flux[0].texte.includes("à la source"), "la retenue à la source est racontée");
   const employes = j1.pnjs.filter((p) => p.travailBatimentId === boutique.id);
-  // 115,50 L de salaires dus + 60,50 L de primes partagées à parts égales.
-  assert.equal(employes[0].compte, 5775 + Math.round((plafond - 11550) / 2));
-  assert.equal(employes[1].compte, 5775 + (plafond - 11550 - Math.round((plafond - 11550) / 2)));
-  // Le patron ne garde que sa marge patronale (12 %).
-  assert.equal(j1.pnjs[0].compte, recettes - plafond);
+  // 115,50 L de salaires dus + primes partagées à parts égales ; l'impôt à la
+  // source (10 %) est retenu sur chaque versement (arbitrage 2026-11-06).
+  const taux = monde.params.tauxImpotBp;
+  const prime1 = Math.round((plafond - 11550) / 2);
+  const prime2 = plafond - 11550 - prime1;
+  assert.equal(
+    employes[0].compte,
+    (5775 - impotSur(5775, taux)) + prime1 - impotSur(prime1, taux),
+  );
+  assert.equal(
+    employes[1].compte,
+    (5775 - impotSur(5775, taux)) + prime2 - impotSur(prime2, taux),
+  );
+  // Le patron ne garde que sa marge patronale (12 %), moins l'impôt à la source.
+  const marge = recettes - plafond;
+  assert.equal(j1.pnjs[0].compte, marge - impotSur(marge, taux));
   assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte : l'argent a seulement circulé");
 });
 
@@ -512,10 +561,15 @@ test("flux : sur-embauche et caisses vides — prorata, salaires impayés, faill
   const flux = entrees(1, "flux", j1.journal);
   assert.equal(flux.length, 1);
   assert.ok(flux[0].texte.includes("impayés") && flux[0].texte.includes("faillite"), "la faillite est racontée");
-  // Prorata exact : les employés se partagent tout ce que le patron possédait.
+  // Prorata exact : les employés se partagent tout ce que le patron possédait,
+  // moins l'impôt à la source retenu sur chaque part — la retenue rejoint
+  // les caisses de la ville, rien ne se perd.
+  const parts = repartir(recettes, [5775, 5775, 5775, 5775, 5775]);
+  const taxe = parts.reduce((s, part) => s + impotSur(part, monde.params.tauxImpotBp), 0);
   const paye = j1.pnjs.filter((p) => p.travailBatimentId === boutique.id).reduce((s, p) => s + p.compte, 0);
-  assert.equal(paye, recettes, "prorata au centime : tout est versé, rien de caché");
-  assert.ok(salairesDus - paye > 0, "une partie des salaires reste due : " + (salairesDus - paye));
+  assert.equal(paye, recettes - taxe, "prorata au centime : tout est versé, rien de caché");
+  assert.equal(j1.budgetVille, monde.budgetVille + taxe, "l'impôt retenu rejoint les caisses de la ville");
+  assert.ok(salairesDus - paye - taxe > 0, "une partie des salaires reste due : " + (salairesDus - paye - taxe));
   assert.equal(j1.pnjs[0].compte, 0, "le patron a vidé ses caisses jusqu'au dernier centime");
 });
 

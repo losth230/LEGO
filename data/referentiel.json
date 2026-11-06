@@ -1,5 +1,5 @@
 {
-  "version": "1.5",
+  "version": "1.6",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -57,7 +57,14 @@
       "source": "IFRAP — Fiche finances Marseille 2024 (dépenses de fonctionnement, budget principal)",
       "url": "https://www.ifrap.org/sites/default/files/documents/2026-03/marseille.pdf",
       "fiabilite": "proxy",
-      "note": "PROXY à affiner : l'API OFGL (comptes consolidés) bloque l'accès automatisé ; valeur = dépenses de fonctionnement BP par habitant. Le compte administratif marseille.fr n'est pas lisible par robot."
+      "note": "PROXY à affiner : l'API OFGL (comptes consolidés) bloque l'accès automatisé ; valeur = dépenses de fonctionnement BP par habitant. Le compte administratif marseille.fr n'est pas lisible par robot. Retiré du calcul depuis la v1.6 (impôt à la source sur les gains, arbitrage 2026-11-06) : conservé à titre documentaire."
+    },
+    "taux_impot_defaut": {
+      "valeur": 10,
+      "unite": "pourcent des gains journaliers",
+      "source": "Arbitrage Thibaut (2026-11-06) — il n'y a qu'une forme d'impôt dans le jeu",
+      "annee": 2026,
+      "note": "Impôt unique prélevé à la source sur les gains réels du jour de chacun : solde des agents publics, salaires et primes des employés privés, marge du jour des patrons (recettes entières pour un commerce sans employé). Un habitant sans gain ne paie rien. Remplace l'impôt sur le revenu indicatif (7,62 %) depuis la v1.6 ; taux réglable dans l'éditeur, migration schéma v5."
     },
     "budget_achat_quotidien_reference": {
       "valeur": 52.4,

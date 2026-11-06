@@ -41,11 +41,13 @@ export function salaireJourL(grade: string): number {
 }
 
 /**
- * Taux d'imposition par défaut : un PNJ au revenu indicatif médian
- * (= consommation de référence) paie l'impôt de référence.
- * 4,0 L sur 52,5 L → 762 points de base (7,62 %).
+ * Taux d'imposition par défaut (arbitrage 2026-11-06) : une seule forme
+ * d'impôt, prélevée à la source sur les gains réels du jour de chacun
+ * (soldes, salaires et primes privés, marges) — 10 % par défaut.
  */
-export const TAUX_IMPOT_DEFAUT_BP = Math.round((IMPOT_REFERENCE_L / ACHAT_REFERENCE_L) * 10000);
+export const TAUX_IMPOT_DEFAUT_BP = Math.round(
+  refNombre("economie.taux_impot_defaut.valeur", 10) * 100,
+);
 
 /** Coefficient d'intensité K par défaut : 1 000 (« animé », cahier §5). */
 export const COEFF_INTENSITE_DEFAUT = Math.max(1, Math.round(refNombre("meta.coeff_intensite.valeur", 1000)));

@@ -1,9 +1,9 @@
 // Moteur économique quotidien — cahier des charges §4.1 et §4.3.
 // Pur et déterministe : aucun accès réseau, aucun stockage, pas de React.
-// Ordre du règlement (§4.1) : impôts -> salaires publics -> fonctionnement
-// (acheté sur place si un commerce est ouvert, phase 3.6) -> intérêts ->
-// achats -> redistribution du flux (salaires privés + primes, phase 3.6)
-// -> incidents.
+// Ordre du règlement (§4.1) : salaires publics (impôt retenu à la source,
+// arbitrage 2026-11-06) -> fonctionnement (acheté sur place si un commerce
+// est ouvert, phase 3.6) -> intérêts -> achats -> redistribution du flux
+// (salaires privés + primes, impôt à la source, phase 3.6) -> incidents.
 
 import type {
   Batiment,
@@ -81,7 +81,7 @@ export function effectifMax(recettesCentimes: number, salaireJourCentimes: numbe
 }
 
 /** Répartit un montant en centimes proportionnellement aux poids (sans en perdre). */
-function repartir(montant: number, poids: number[]): number[] {
+export function repartir(montant: number, poids: number[]): number[] {
   const total = poids.reduce((s, v) => s + v, 0);
   if (total <= 0 || montant <= 0) return poids.map(() => 0);
   const parts = poids.map((v) => Math.floor((montant * v) / total));
@@ -93,9 +93,14 @@ function repartir(montant: number, poids: number[]): number[] {
   return parts;
 }
 
-/** Impôt dû par un PNJ pour une journée (centimes), arrondi à l'entier. */
-export function impotDu(pnj: Pnj, tauxImpotBp: number): number {
-  return Math.round((pnj.revenuIndicatif * tauxImpotBp) / 10000);
+/**
+ * Impôt prélevé à la source sur un gain du jour (centimes), arrondi à l'entier.
+ * Arbitrage 2026-11-06 : une seule forme d'impôt, X % des gains réels de
+ * chacun (solde des agents, salaires et primes des employés privés, marge
+ * des patrons) — un habitant sans gain ne paie rien.
+ */
+export function impotSur(gainCentimes: number, tauxImpotBp: number): number {
+  return Math.round((gainCentimes * tauxImpotBp) / 10000);
 }
 
 /**
@@ -114,8 +119,6 @@ export function budgetAchat(pnj: Pnj): number {
 
 interface Totaux {
   impotsPayes: number;
-  impotsDus: number;
-  ruptures: number;
   salairesPayes: number;
   salairesDus: number;
   villeSansLeSou: boolean;
@@ -138,27 +141,19 @@ interface Totaux {
   salairesPrivesPayes: number;
 }
 
-function etapeImpots(etat: Etat, totaux: Totaux): void {
-  for (const pnj of etat.pnjs) {
-    const du = impotDu(pnj, etat.params.tauxImpotBp);
-    const paye = Math.min(du, pnj.compte);
-    pnj.compte -= paye;
-    etat.budgetVille += paye;
-    totaux.impotsPayes += paye;
-    totaux.impotsDus += du;
-    if (paye < du) totaux.ruptures += 1;
-  }
-}
-
 function etapeSalaires(etat: Etat, totaux: Totaux): void {
   for (const pnj of etat.pnjs) {
     if (pnj.statut !== "agent_public") continue;
     const du = Math.round(salaireJourL(pnj.grade ?? "") * 100);
     const paye = Math.min(du, etat.budgetVille);
-    etat.budgetVille -= paye;
-    pnj.compte += paye;
+    // Impôt à la source (arbitrage 2026-11-06) : la ville retient sa part
+    // de la solde au moment du versement — pas de rupture d'impôt possible.
+    const impot = Math.min(impotSur(paye, etat.params.tauxImpotBp), paye);
+    etat.budgetVille -= paye - impot;
+    pnj.compte += paye - impot;
     totaux.salairesPayes += paye;
     totaux.salairesDus += du;
+    totaux.impotsPayes += impot;
   }
   totaux.villeSansLeSou = etat.budgetVille === 0;
 }
@@ -246,6 +241,7 @@ function etapeAchats(etat: Etat, totaux: Totaux): void {
  */
 function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
   const entrees: JournalEntree[] = [];
+  const taux = etat.params.tauxImpotBp;
   if (etat.recettesCommerce === undefined) etat.recettesCommerce = {};
   for (const bat of etat.batiments) {
     if (bat.type !== "commerce") continue;
@@ -258,6 +254,7 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
     const employes = employesDuCommerce(etat, bat.id);
     if (recettes === 0 && employes.length === 0) continue;
 
+    let impotCommerce = 0; // retenue à la source du jour pour ce commerce
     const salairesDus = employes.reduce((s, p) => s + p.revenuIndicatif, 0);
     const plafond = Math.round(PART_SALARIALE_FLUX * recettes);
     let payeSalaires = 0;
@@ -266,27 +263,43 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
 
     if (employes.length > 0) {
       // 1) Salaires contractuels : d'abord les recettes du jour, puis la réserve du patron.
+      //    Impôt à la source (2026-11-06) : retenu sur chaque salaire versé.
       const disponibles = proprio.compte;
       if (disponibles >= salairesDus) {
-        for (const p of employes) p.compte += p.revenuIndicatif;
+        for (const p of employes) {
+          const impot = Math.min(impotSur(p.revenuIndicatif, taux), p.revenuIndicatif);
+          p.compte += p.revenuIndicatif - impot;
+          etat.budgetVille += impot;
+          totaux.impotsPayes += impot;
+          impotCommerce += impot;
+        }
         proprio.compte -= salairesDus;
         payeSalaires = salairesDus;
       } else {
         const parts = repartir(disponibles, employes.map((p) => p.revenuIndicatif));
         for (let i = 0; i < employes.length; i++) {
-          employes[i].compte += parts[i];
+          const impot = Math.min(impotSur(parts[i], taux), parts[i]);
+          employes[i].compte += parts[i] - impot;
+          etat.budgetVille += impot;
+          totaux.impotsPayes += impot;
+          impotCommerce += impot;
           payeSalaires += parts[i];
         }
         proprio.compte = 0;
         impayes = salairesDus - payeSalaires;
       }
       // 2) Primes : l'excédent au-delà des salaires, jusqu'à 88 % des recettes,
-      //    repart aux employés — jamais au stock.
+      //    repart aux employés — jamais au stock. Impôt à la source idem.
       const poolPrimes = Math.max(0, plafond - salairesDus);
       if (poolPrimes > 0 && proprio.compte > 0) {
-        const parts = repartir(Math.min(poolPrimes, proprio.compte), employes.map((p) => p.revenuIndicatif));
+        const pool = Math.min(poolPrimes, proprio.compte);
+        const parts = repartir(pool, employes.map((p) => p.revenuIndicatif));
         for (let i = 0; i < employes.length; i++) {
-          employes[i].compte += parts[i];
+          const impot = Math.min(impotSur(parts[i], taux), parts[i]);
+          employes[i].compte += parts[i] - impot;
+          etat.budgetVille += impot;
+          totaux.impotsPayes += impot;
+          impotCommerce += impot;
           primesPayees += parts[i];
         }
         proprio.compte -= primesPayees;
@@ -296,6 +309,16 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
     const redistribute = payeSalaires + primesPayees;
     totaux.salairesPrivesPayes += redistribute;
     const marge = recettes - redistribute;
+    // 3) Impôt à la source sur le gain du patron : la marge du jour (quand il
+    //    n'y a pas d'employé, toute la recette encaissée est son gain).
+    const gainPatron = Math.max(0, marge);
+    const impotPatron = Math.min(impotSur(gainPatron, taux), proprio.compte);
+    if (impotPatron > 0) {
+      proprio.compte -= impotPatron;
+      etat.budgetVille += impotPatron;
+      totaux.impotsPayes += impotPatron;
+      impotCommerce += impotPatron;
+    }
     let texte: string;
     if (employes.length === 0) {
       texte =
@@ -315,6 +338,9 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
           ? "garde sa marge : " + fmt(marge)
           : "puise dans sa réserve pour " + fmt(-marge)) +
         ".";
+    }
+    if (impotCommerce > 0) {
+      texte += " Le percepteur retient " + fmt(impotCommerce) + " à la source.";
     }
     entrees.push({ jour: etat.jour, type: "flux", texte, montant: redistribute });
   }
@@ -457,19 +483,14 @@ function journaliserJour(
   incidents: JournalEntree[],
 ): void {
   const j: JournalEntree[] = [];
-  const contrib = etat.pnjs.length;
   j.push({
     jour: etat.jour,
     type: "impots",
     texte:
-      "Le percepteur fait sa tournée : " +
-      contrib +
-      " foyers contribuables, " +
+      "Le percepteur prélève à la source : " +
       fmt(totaux.impotsPayes) +
-      " versés à la ville" +
-      (totaux.ruptures > 0
-        ? " — " + totaux.ruptures + " foyer(s) à sec n'ont pu payer qu'une partie"
-        : "") +
+      " retenus sur les gains du jour (soldes, salaires privés, marges des commerces)" +
+      (totaux.impotsPayes === 0 ? " — personne n'a rien gagné aujourd'hui" : "") +
       ".",
     montant: totaux.impotsPayes,
   });
@@ -608,8 +629,6 @@ export function passerJour(etat: Etat): Etat {
   e.jour += 1;
   const totaux: Totaux = {
     impotsPayes: 0,
-    impotsDus: 0,
-    ruptures: 0,
     salairesPayes: 0,
     salairesDus: 0,
     villeSansLeSou: false,
@@ -628,7 +647,9 @@ export function passerJour(etat: Etat): Etat {
     fonctionnementLocal: false,
     salairesPrivesPayes: 0,
   };
-  etapeImpots(e, totaux);
+  // Règlement quotidien (arbitrage 2026-11-06) : l'impôt n'est plus une étape
+  // du matin — il est retenu à la source sur chaque gain versé dans la journée
+  // (soldes publiques, salaires et primes privés, marges des patrons).
   etapeSalaires(e, totaux);
   etapeFonctionnement(e, totaux);
   etapeInterets(e, totaux);

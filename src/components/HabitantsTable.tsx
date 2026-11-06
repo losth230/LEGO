@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "../state/store.tsx";
 import type { Pnj, Statut } from "../engine/types.ts";
 import { montantL, salaireJourL } from "../engine/referentiel.ts";
-import { impotDu } from "../engine/moteur.ts";
+import { impotSur } from "../engine/moteur.ts";
 
 const BADGES_STATUT: Record<Statut, { libelle: string; classe: string }> = {
   agent_public: { libelle: "Agent public", classe: "badge-agent" },
@@ -22,7 +22,7 @@ function Fiche({ pnj }: { pnj: Pnj }) {
   const travail = pnj.travailBatimentId
     ? etat.batiments.find((b) => b.id === pnj.travailBatimentId)
     : null;
-  const impot = impotDu(pnj, etat.params.tauxImpotBp);
+  const taux = etat.params.tauxImpotBp;
   return (
     <tr className="fiche-pnj">
       <td colSpan={6}>
@@ -44,7 +44,21 @@ function Fiche({ pnj }: { pnj: Pnj }) {
             Budget d'achat : {montantL(pnj.budgetAchat)} / jour
           </div>
           <div>
-            Impôt quotidien dû : {montantL(impot)}
+            Impôt à la source :{" "}
+            {pnj.statut === "agent_public" ? (
+              <>
+                {montantL(impotSur(Math.round(salaireJourL(pnj.grade ?? "") * 100), taux))} retenus
+                sur la solde
+              </>
+            ) : travail ? (
+              <>
+                {montantL(impotSur(pnj.revenuIndicatif, taux))} retenus sur le salaire du jour
+              </>
+            ) : pnj.statut === "commercant" ? (
+              <>{(taux / 100).toLocaleString("fr-FR")} % de la marge du jour</>
+            ) : (
+              <>aucun gain, aucun impôt</>
+            )}
             <br />
             {pnj.statut === "agent_public" ? (
               <>Salaire : {montantL(Math.round(salaireJourL(pnj.grade ?? "") * 100))} / jour</>
