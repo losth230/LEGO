@@ -799,17 +799,12 @@ test("conservation avec la banque : 30 jours, un emprunt en route", () => {
 // ---------- phase 3.5 : corps, grades hiérarchisés, branche militaire ----------
 
 test("grilles de salaires strictement croissantes dans chaque corps", () => {
-  const pompiers = [
-    "sapeur_pompier_debutant", "sapeur_1re_classe_spp", "caporal_spp", "caporal_chef_spp",
-    "sergent_spp", "adjudant_spp", "adjudant_chef_spp", "lieutenant_spp", "capitaine_spp",
-    "commandant_spp", "lieutenant_colonel_spp", "colonel_spp",
-  ];
-  const police = ["policier_municipal", "brigadier_pm", "brigadier_chef_pm", "major_pm", "inspecteur_pm"];
-  const armee = [
-    "soldat_armee", "caporal_armee", "caporal_chef_armee", "sergent_armee", "sergent_chef_armee",
-    "sous_lieutenant_armee", "adjudant_armee", "adjudant_chef_armee", "major_armee", "lieutenant_armee",
-    "capitaine_armee", "commandant_armee", "lieutenant_colonel_armee", "colonel_armee", "general_armee",
-  ];
+  // Référentiel v1.12 : trois grades par corps, du plus modeste au plus
+  // élevé (arbitrage Thibaut 2026-11-06). La garnison du monde par défaut
+  // (soldat, caporal, capitaine) tient entière dans la grille conservée.
+  const pompiers = ["sapeur_pompier_debutant", "sergent_spp", "colonel_spp"];
+  const police = ["policier_municipal", "major_pm", "inspecteur_pm"];
+  const armee = ["soldat_armee", "caporal_armee", "capitaine_armee"];
   for (const grades of [pompiers, police, armee]) {
     for (let i = 1; i < grades.length; i++) {
       assert.ok(
@@ -819,10 +814,44 @@ test("grilles de salaires strictement croissantes dans chaque corps", () => {
       );
     }
   }
-  // Bas de tableau modeste, haut de tableau confortable (référentiel v1.4).
+  // Bas de tableau modeste, haut de tableau confortable (référentiel v1.12).
   assert.ok(salaireJourL("soldat_armee") < 50);
-  assert.ok(salaireJourL("general_armee") > 180);
+  assert.ok(salaireJourL("capitaine_armee") > 90);
   assert.ok(salaireJourL("colonel_spp") > 160);
+});
+
+test("grades retirés : une sauvegarde v1.11 est convertie vers le grade conservé au salaire le plus proche", () => {
+  // Arbitrage Thibaut 2026-11-06 : trois grades par corps. Au chargement,
+  // chaque grade retiré devient le grade conservé le plus proche en solde.
+  const e = createMondeDefaut();
+  e.pnjs[0].grade = "general_armee";
+  e.pnjs[1].grade = "brigadier_pm";
+  e.pnjs[2].grade = "commandant_spp";
+  const rel = migrerEtat(JSON.parse(JSON.stringify(e)));
+  assert.equal(rel.pnjs[0].grade, "capitaine_armee", "général → capitaine (sommet conservé)");
+  assert.equal(rel.pnjs[1].grade, "policier_municipal", "brigadier → policier municipal");
+  assert.equal(rel.pnjs[2].grade, "sergent_spp", "commandant → sergent");
+  assert.equal(salaireJourL(rel.pnjs[0].grade ?? ""), 96.7, "la figurine garde une solde lue dans la grille conservée");
+  // Un grade inconnu (éditeur libre) reste tel quel : pas d'invention.
+  e.pnjs[3].grade = "grade_fantaisie";
+  const rel2 = migrerEtat(JSON.parse(JSON.stringify(e)));
+  assert.equal(rel2.pnjs[3].grade, "grade_fantaisie", "un grade hors référentiel n'est pas réécrit");
+});
+
+test("gardes : les grades conservés suffisent à repérer police et pompiers (suffixes de corps)", () => {
+  // v1.12 : major_pm et colonel_spp ne commencent ni par « policier » ni par
+  // « sapeur » — la détection passe aussi par le suffixe du corps.
+  const m = createMondeDefaut();
+  const avecMajor = ajouterPnj(
+    m,
+    nouveauPnj({ prenom: "Test", nom: "Major", metier: "agent", statut: "agent_public", grade: "major_pm" }),
+  );
+  assert.equal(gardePolice(avecMajor).length, 2, "major_pm détecté comme policier");
+  const avecColonel = ajouterPnj(
+    m,
+    nouveauPnj({ prenom: "Test", nom: "Colonel", metier: "agent", statut: "agent_public", grade: "colonel_spp" }),
+  );
+  assert.equal(gardePompiers(avecColonel).length, 3, "colonel_spp détecté comme pompier");
 });
 
 test("gardeArmee : la garnison est détectée par grade et par métier", () => {

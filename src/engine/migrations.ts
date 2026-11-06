@@ -37,12 +37,54 @@ export function migrerEtat(brut: unknown): Etat {
   }
 
   const defaut = createMondeDefaut();
+
+// Correction 2026-11-06 (référentiel v1.12) : grilles resserrées à trois
+// grades par corps (arbitrage Thibaut). Une figurine sauvegardée avec un
+// grade retiré est convertie vers le grade conservé au salaire le plus
+// proche — elle garde sa solde et sa fonction de garde (le suffixe du
+// corps est préservé par construction).
+const GRADES_RETIRES: Record<string, string> = {
+  // Police : brigadier et brigadier chef disparaissent.
+  brigadier_pm: "policier_municipal",
+  brigadier_chef_pm: "major_pm",
+  // Pompiers : 9 grades intermédiaires disparaissent.
+  sapeur_1re_classe_spp: "sapeur_pompier_debutant",
+  caporal_spp: "sapeur_pompier_debutant",
+  caporal_chef_spp: "sergent_spp",
+  adjudant_spp: "sergent_spp",
+  adjudant_chef_spp: "sergent_spp",
+  lieutenant_spp: "sergent_spp",
+  capitaine_spp: "sergent_spp",
+  commandant_spp: "sergent_spp",
+  lieutenant_colonel_spp: "colonel_spp",
+  // Armée : 12 grades disparaissent, la garnison (soldat, caporal,
+  // capitaine) tient entière dans la grille conservée.
+  caporal_chef_armee: "caporal_armee",
+  sergent_armee: "caporal_armee",
+  sergent_chef_armee: "caporal_armee",
+  sous_lieutenant_armee: "caporal_armee",
+  adjudant_armee: "caporal_armee",
+  adjudant_chef_armee: "caporal_armee",
+  major_armee: "caporal_armee",
+  lieutenant_armee: "caporal_armee",
+  commandant_armee: "capitaine_armee",
+  lieutenant_colonel_armee: "capitaine_armee",
+  colonel_armee: "capitaine_armee",
+  general_armee: "capitaine_armee",
+};
   // Migration v3 -> v4 : modèle flux (phase 3.6) — lieu de travail des
   // employés privés et recettes du dernier jour par commerce.
   // Migration v5 -> v6 (monde 100 % fermé, 2026-11-06) : vocation des
   // commerces (santé, BTP, banque) — complétée à null (boutique) si absente.
   const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p, i) => ({
     ...p,
+    // Grades retirés (v1.12) : conversion vers le grade conservé au salaire
+    // le plus proche, pour que l'ancienne figurine reste payée et de garde.
+    grade:
+      typeof (p as Partial<{ grade?: string | null }>).grade === "string"
+        ? (GRADES_RETIRES[(p as Partial<{ grade?: string }>).grade!] ??
+          (p as Partial<{ grade?: string }>).grade)
+        : null,
     travailBatimentId:
       (p as Partial<{ travailBatimentId?: string | null }>).travailBatimentId ?? null,
     // Migration v7 -> v8 (phase 3.9, milieu criminel) : carte d'identité —

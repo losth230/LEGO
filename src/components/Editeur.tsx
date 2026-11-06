@@ -22,11 +22,14 @@ import {
   supprimerPnj,
 } from "../engine/monde.ts";
 
+// Grilles resserrées à trois grades par corps (arbitrage Thibaut
+// 2026-11-06, référentiel v1.12) : du plus modeste au plus élevé. La garnison
+// du monde par défaut (soldat, caporal, capitaine) tient entière dedans.
 const GROUPES_GRADES: Array<{ corps: string; grades: string[] }> = [
   { corps: "Mairie", grades: ["adjoint_technique"] },
-  { corps: "Police municipale", grades: ["policier_municipal", "brigadier_pm", "brigadier_chef_pm", "major_pm", "inspecteur_pm"] },
-  { corps: "Sapeurs-pompiers", grades: ["sapeur_pompier_debutant", "sapeur_1re_classe_spp", "caporal_spp", "caporal_chef_spp", "sergent_spp", "adjudant_spp", "adjudant_chef_spp", "lieutenant_spp", "capitaine_spp", "commandant_spp", "lieutenant_colonel_spp", "colonel_spp"] },
-  { corps: "Armée", grades: ["soldat_armee", "caporal_armee", "caporal_chef_armee", "sergent_armee", "sergent_chef_armee", "sous_lieutenant_armee", "adjudant_armee", "adjudant_chef_armee", "major_armee", "lieutenant_armee", "capitaine_armee", "commandant_armee", "lieutenant_colonel_armee", "colonel_armee", "general_armee"] },
+  { corps: "Police municipale", grades: ["policier_municipal", "major_pm", "inspecteur_pm"] },
+  { corps: "Sapeurs-pompiers", grades: ["sapeur_pompier_debutant", "sergent_spp", "colonel_spp"] },
+  { corps: "Armée", grades: ["soldat_armee", "caporal_armee", "capitaine_armee"] },
 ];
 
 const GRADES = GROUPES_GRADES.flatMap((g) => g.grades);

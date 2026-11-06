@@ -180,7 +180,10 @@ export function quartierAdjacent(gang: Gang, quartiersVille: string[]): string |
 export function gardePompiers(etat: Etat): Pnj[] {
   return etat.pnjs.filter(
     (p) =>
+      // Grades conservés (v1.12) : seuls sapeur_* commencent par « sapeur »,
+      // les sergents et colonels sont repérés par leur suffixe de corps.
       (p.grade ?? "").startsWith("sapeur_pompier") ||
+      (p.grade ?? "").endsWith("_spp") ||
       p.metier.toLowerCase().includes("pompi"),
   );
 }
@@ -189,7 +192,10 @@ export function gardePompiers(etat: Etat): Pnj[] {
 export function gardePolice(etat: Etat): Pnj[] {
   return etat.pnjs.filter(
     (p) =>
+      // Grades conservés (v1.12) : seuls les policiers municipaux commencent
+      // par « policier », majors et inspecteurs par leur suffixe de corps.
       (p.grade ?? "").startsWith("policier") ||
+      (p.grade ?? "").endsWith("_pm") ||
       p.metier
         .toLowerCase()
         .normalize("NFD")
