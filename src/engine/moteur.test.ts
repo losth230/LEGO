@@ -128,11 +128,13 @@ test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
   let e: Etat = m;
   for (let i = 0; i < 30; i++) e = passerJour(e);
   assert.equal(e.sortiesCumulees, 0, "monde 100 % fermé : aucune sortie documentée");
+  assert.equal(e.pertesCumulees, 0, "le crime ne détruit plus la monnaie");
   const restant = monnaieEnCircuit(e);
   assert.equal(
     restant,
     initial + e.mouvementsBanqueCumules - e.sortiesCumulees - e.pertesCumulees,
   );
+  assert.equal(restant, initial, "rien n'a disparu : même les butins restent en ville");
   // chaque figurine a un compte positif ou nul, aucun NaN
   for (const p of e.pnjs) {
     assert.ok(Number.isFinite(p.compte) && p.compte >= 0, p.prenom);
@@ -234,7 +236,8 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
-  assert.equal(m.schemaVersion, 6, "v1 -> v6 : schema à jour");
+  assert.equal(m.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
+  assert.equal(m.schemaVersion, 7, "v1 -> v7 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -253,7 +256,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
-  assert.equal(v5.schemaVersion, 6, "v5 -> v6 : schema à jour");
+  assert.equal(v5.schemaVersion, 7, "v5 -> v7 : schema à jour");
   // v5 -> v6 : la vocation des bâtiments existants est complétée à null
   // (boutique de consommation par défaut), jamais devinée.
   const v5bat = migrerEtat({
@@ -265,12 +268,21 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
       { id: "b2", nom: "Mairie", type: "service_public" },
     ],
   });
-  assert.equal(v5bat.schemaVersion, 6, "v5 -> v6 : schema à jour");
+  assert.equal(v5bat.schemaVersion, 7, "v5 -> v7 : schema à jour");
   assert.ok(
     v5bat.batiments.every((b) => b.vocation === null),
     "v5 -> v6 : vocation des bâtiments complétée (boutique par défaut)",
   );
   assert.equal(v5bat.batiments.length, 2, "les bâtiments du joueur sont conservés");
+  // v6 -> v7 : le crime ne détruit plus la monnaie (volsCumules) ; le taux
+  // par défaut passe de 10 % à 30 % — une ville restée à l'ancien défaut
+  // monte au nouveau taux, un taux choisi reste le sien.
+  const v6defaut = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 1000, coeffIntensite: 2 } });
+  assert.equal(v6defaut.schemaVersion, 7, "v6 -> v7 : schema à jour");
+  assert.equal(v6defaut.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
+  assert.equal(v6defaut.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP, "v6 -> v7 : l'ancien défaut 10 % devient 30 %");
+  const v6choisi = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 555, coeffIntensite: 2 } });
+  assert.equal(v6choisi.params.tauxImpotBp, 555, "v6 -> v7 : le taux choisi par le joueur est conservé");
 });
 
 // ---------- Phase 2 : incidents, garde des services ----------
@@ -458,7 +470,7 @@ test("garde au complet : l'incendie est maîtrisé, dégâts légers", () => {
   assert.ok(Math.abs(feu.montant ?? 0) <= Math.round(maxValeur * 0.06));
 });
 
-test("cambriolage sans police : la perte sort du circuit", () => {
+test("cambriolage sans police : le butin change de poche, rien ne disparaît", () => {
   let m = createMondeDefaut();
   for (const p of gardePolice(m)) m = supprimerPnj(m, p.id);
   const avant = monnaieEnCircuit(m);
@@ -466,9 +478,16 @@ test("cambriolage sans police : la perte sort du circuit", () => {
   const j1 = passerJour(m2);
   const vols = j1.journal.filter((e) => e.texte.includes("Cambriolage"));
   assert.ok(vols.length >= 1, "le cambriolage est raconté");
-  assert.ok(j1.pertesCumulees > 0, "pertes tracées : " + j1.pertesCumulees);
+  assert.ok(j1.volsCumules > 0, "butins tracés : " + j1.volsCumules);
+  assert.equal(j1.pertesCumulees, 0, "plus aucune perte : le monde est fermé");
   const apres = monnaieEnCircuit(j1);
-  assert.equal(apres, avant - j1.sortiesCumulees - j1.pertesCumulees, "conservation exacte");
+  assert.equal(apres, avant, "conservation exacte, vols compris : l'argent reste en ville");
+  // Le butin est dans la poche d'un figurant nommé par le journal.
+  const texteVol = vols.find((e) => e.texte.includes("poche de"))!;
+  const nom = /poche de (.+) : le butin/.exec(texteVol.texte)![1];
+  const voleur = j1.pnjs.find((p) => p.prenom + " " + p.nom === nom);
+  assert.ok(voleur !== undefined, "le voleur est un figurant de la ville : " + nom);
+  assert.ok(voleur.compte > 0, "le voleur a bien encaissé son butin");
 });
 
 test("déterminisme : même jour, mêmes événements, toujours", () => {

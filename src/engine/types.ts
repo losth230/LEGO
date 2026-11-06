@@ -101,17 +101,14 @@ export interface Etat {
   nomVille: string;
   /** Budget municipal en centimes. */
   budgetVille: number;
-  /** Cumul des sorties vers les fournisseurs extérieurs en centimes. */
+  /** Sorties vers l'extérieur en centimes : plus alimentée depuis le monde 100 % fermé (2026-11-06), reste à 0 à jamais. */
   sortiesCumulees: number;
-  /** Cumul des pertes disparues du circuit (vols non recouvrés) en centimes. */
+  /** Pertes disparues du circuit en centimes — uniquement les vols d'avant la réforme du monde fermé ; les butins vont désormais aux voleurs (volsCumules). */
   pertesCumulees: number;
+  /** Cumul des butins remis aux voleurs en centimes — transferts internes entre figurants : la monnaie ne disparaît plus (monde fermé, 2026-11-06). */
+  volsCumules: number;
   /** Encours de dette bancaire en centimes (intérêts réels : référentiel). */
   dette: number;
-  /**
-   * Cumul net des mouvements de capitaux avec la banque en centimes
-   * (emprunts +, remboursements -) — la banque est hors du circuit :
-   * la conservation de la monnaie en tient compte (§4.3).
-   */
   /** Création monétaire cumulée : somme des emprunts contractés. Les remboursements vont à la banque locale et ne détruisent plus de monnaie (monde fermé, 2026-11-06). */
   mouvementsBanqueCumules: number;
   params: ParamsVille;

@@ -151,7 +151,8 @@ interface Totaux {
   acheteursSansCommerce: number;
   // --- phase 2 : incidents ---
   incidentsJour: number;
-  pertesVolJour: number;
+  pertesVolJour: number; // historique : plus alimenté depuis le monde fermé
+  volsJour: number; // butins du jour remis aux voleurs (transferts internes)
   degatsJour: number;
   fraisMedicauxJour: number;
   // --- phase 3 : dette bancaire ---
@@ -461,9 +462,15 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       } else {
         const volBrut = dispo > 0 ? Math.floor(butin / 2) : butin;
         const vol = Math.round(volBrut * coefficientRenfort(inc.gravite, armee.length));
+        // Monde 100 % fermé (arbitrage 2026-11-06) : le crime ne détruit plus
+        // la monnaie — le butin change de poche, il rejoint le voleur,
+        // un figurant de la ville. Aucune perte, aucune disparition.
+        const voleur = etat.pnjs.find((p) => p.id === inc.voleurId);
+        if (!voleur) continue; // pas de voleur en ville : pas de vol
         cible.compte -= vol;
-        etat.pertesCumulees += vol;
-        totaux.pertesVolJour += vol;
+        voleur.compte += vol;
+        etat.volsCumules += vol;
+        totaux.volsJour += vol;
         entrees.push({
           jour: etat.jour,
           type: "incident",
@@ -473,7 +480,8 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
               ? "la patrouille arrive trop tard, le voleur s'envole avec la moitié du butin"
               : "aucune patrouille pour lui couper la route") +
             (renfort ? " — patrouille Vigipirate de la garnison en renfort, une partie du butin est récupérée" : "") +
-            " — " + fmt(vol) + " disparus.",
+            " — " + fmt(vol) + " passés dans la poche de " + voleur.prenom + " " + voleur.nom +
+            " : le butin reste en ville (monde fermé).",
           montant: -vol,
         });
       }
@@ -684,6 +692,7 @@ export function passerJour(etat: Etat): Etat {
     acheteursSansCommerce: 0,
     incidentsJour: 0,
     pertesVolJour: 0,
+    volsJour: 0,
     degatsJour: 0,
     fraisMedicauxJour: 0,
     interetsPayes: 0,

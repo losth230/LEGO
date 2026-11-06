@@ -54,17 +54,23 @@ export function BudgetView() {
         <p className="grand-nombre">{montantL(etat.sortiesCumulees)}</p>
         <p className="mute">
           Sorties documentées depuis le jour 1 : rien. Réparations, frais médicaux,
-          intérêts et fonctionnement sont payés aux services de la ville
-          (santé, BTP, banque, commerces) — seul le crime fait perdre de la monnaie (§4.3).
+          intérêts, fonctionnement et butins restent chez les figurants de la ville
+          (santé, BTP, banque, commerces, voleurs) — plus rien ne quitte le circuit (§4.3).
         </p>
       </div>
       <div className="carte carte-indicateur">
-        <h2>🥷 Pertes disparues</h2>
-        <p className="grand-nombre">{montantL(etat.pertesCumulees)}</p>
+        <h2>🥷 Vols en ville</h2>
+        <p className="grand-nombre">{montantL(etat.volsCumules)}</p>
         <p className="mute">
-          Cumul des vols non recouvrés depuis le jour 1 : l'argent qui quitte le circuit
-          dans la poche d'un voleur (§4.3).
+          Butin remis au voleur depuis le jour 1 : l'argent change de poche mais
+          reste dans le circuit (monde fermé).
         </p>
+        {etat.pertesCumulees > 0 ? (
+          <p className="mute">
+            Avant la réforme : {montantL(etat.pertesCumulees)} disparus avec les voleurs
+            d'avant le monde fermé.
+          </p>
+        ) : null}
       </div>
       <div className="carte carte-indicateur">
         <h2>💳 Dette bancaire</h2>

@@ -153,6 +153,7 @@ export function createMondeDefaut(): Etat {
     budgetVille: 500000,
     sortiesCumulees: 0,
     pertesCumulees: 0,
+    volsCumules: 0,
     dette: 0,
     mouvementsBanqueCumules: 0,
     params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP, coeffIntensite: COEFF_INTENSITE_DEFAUT },

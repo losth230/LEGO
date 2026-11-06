@@ -17,6 +17,11 @@ export interface Incident {
   gravite: 1 | 2 | 3;
   /** Bâtiment visé (incendie) ou figurine visée (cambriolage, accident). */
   cibleId: string;
+  /**
+   * Auteur du cambriolage (monde 100 % fermé, arbitrage 2026-11-06) : le
+   * butin ne disparaît plus, il rejoint la poche de ce figurant de la ville.
+   */
+  voleurId?: string;
 }
 
 // ---------- PRNG déterministe (mulberry32) ----------
@@ -109,15 +114,28 @@ export function tirerIncidents(etat: Etat, jour: number): Incident[] {
     if (a() >= probaQuotidienne(taux, p, k)) continue;
     const gravite = tirerGravite(a);
     let cibleId: string | null = null;
+    let voleurId: string | null = null;
     if (type === "incendie" && etat.batiments.length > 0) {
       cibleId = etat.batiments[Math.floor(a() * etat.batiments.length)].id;
     } else if (type === "cambriolage") {
       const proies = etat.pnjs.filter((x) => x.compte > 0 && x.statut !== "agent_public");
       if (proies.length > 0) cibleId = proies[Math.floor(a() * proies.length)].id;
+      if (cibleId !== null) {
+        // Monde 100 % fermé : un cambriolage a un auteur figurant en ville,
+        // le butin lui revient. Pas de candidat (ville d'agents publics) :
+        // pas de cambriolage — rien ne peut disparaître du circuit.
+        const voleurs = etat.pnjs.filter(
+          (x) => x.id !== cibleId && x.statut !== "agent_public",
+        );
+        if (voleurs.length > 0) voleurId = voleurs[Math.floor(a() * voleurs.length)].id;
+        else cibleId = null;
+      }
     } else if (type === "accident" && etat.pnjs.length > 0) {
       cibleId = etat.pnjs[Math.floor(a() * etat.pnjs.length)].id;
     }
-    if (cibleId !== null) incidents.push({ type, gravite, cibleId });
+    if (cibleId !== null) {
+      incidents.push({ type, gravite, cibleId, voleurId: voleurId ?? undefined });
+    }
   }
   return incidents;
 }

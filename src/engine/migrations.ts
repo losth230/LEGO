@@ -8,7 +8,10 @@ import type { Etat, Vocation } from "./types.ts";
 import { createMondeDefaut } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 6;
+export const SCHEMA_VERSION_ETAT = 7;
+
+/** Ancien taux d'impôt par défaut (v6 : 10 % des gains du jour). */
+const ANCIEN_TAUX_IMPOT_DEFAUT_BP = 1000;
 
 /** Normalise un état inconnu (localStorage corrompu, version future, import). */
 export function migrerEtat(brut: unknown): Etat {
@@ -50,8 +53,16 @@ export function migrerEtat(brut: unknown): Etat {
   const paramsBrut = (b.params ?? defaut.params) as Partial<Etat["params"]>;
   const tauxImpotConserve =
     typeof paramsBrut.tauxImpotBp === "number" ? paramsBrut.tauxImpotBp : defaut.params.tauxImpotBp;
+  // Migration v6 -> v7 : le défaut passe à 30 % (arbitrage Thibaut
+  // 2026-11-06) — une ville restée à l'ancien défaut de 10 % monte au
+  // nouveau taux ; un taux réellement choisi reste le sien.
+  const tauxBrut = version >= 5 ? tauxImpotConserve : TAUX_IMPOT_DEFAUT_BP;
+  const tauxImpotBp =
+    version < 7 && tauxBrut === ANCIEN_TAUX_IMPOT_DEFAUT_BP
+      ? TAUX_IMPOT_DEFAUT_BP
+      : tauxBrut;
   const params: Etat["params"] = {
-    tauxImpotBp: version >= 5 ? tauxImpotConserve : TAUX_IMPOT_DEFAUT_BP,
+    tauxImpotBp,
     coeffIntensite:
       typeof paramsBrut.coeffIntensite === "number" && paramsBrut.coeffIntensite >= 1
         ? Math.round(paramsBrut.coeffIntensite)
@@ -59,6 +70,10 @@ export function migrerEtat(brut: unknown): Etat {
   };
   const pertesCumulees =
     typeof b.pertesCumulees === "number" ? b.pertesCumulees : 0;
+  // Migration v6 -> v7 (monde fermé, arbitrage 2026-11-06) : le crime ne
+  // détruit plus la monnaie — les butins vont aux voleurs, volsCumules
+  // compte les transferts depuis la réforme.
+  const volsCumules = typeof b.volsCumules === "number" ? b.volsCumules : 0;
   // Migration v2 -> v3 : dette bancaire et mouvements de capitaux (phase 3).
   const dette = typeof b.dette === "number" ? b.dette : 0;
   const mouvementsBanqueCumules =
@@ -71,6 +86,7 @@ export function migrerEtat(brut: unknown): Etat {
     budgetVille: typeof b.budgetVille === "number" ? b.budgetVille : 0,
     sortiesCumulees: typeof b.sortiesCumulees === "number" ? b.sortiesCumulees : 0,
     pertesCumulees,
+    volsCumules,
     dette,
     mouvementsBanqueCumules,
     params,
