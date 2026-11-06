@@ -81,9 +81,23 @@ export const GROUPES_GRADES: GroupeGrades[] = Object.entries(
 export const GRADES: string[] = GROUPES_GRADES.flatMap((g) => g.grades);
 
 /**
+ * Corps de chaque grade (champ `corps` du référentiel v1.14) — la source de
+ * vérité de la détection des gardes depuis la v1.20 : plus de suffixe de clé.
+ */
+export const CORPS_PAR_GRADE: Record<string, string> = Object.fromEntries(
+  GROUPES_GRADES.flatMap((g) => g.grades.map((gr) => [gr, g.corps])),
+);
+
+/** Corps d'un grade — "" si le grade est inconnu du référentiel. */
+export function corpsDuGrade(grade: string): string {
+  return CORPS_PAR_GRADE[grade] ?? "";
+}
+
+/**
  * Un grade est-il défini dans le référentiel ? Sinon le moteur paie le
- * salaire de secours (50 L/jour) en silence — les tests d'exhaustivité
- * s'appuient dessus pour que plus aucun grade ne soit orphelin.
+ * salaire de secours (50 L/jour) — journalisé depuis la v1.20 (plus de
+ * paiement silencieux) — les tests d'exhaustivité s'appuient dessus pour
+ * que plus aucun grade ne soit orphelin.
  */
 export function gradeConnu(grade: string): boolean {
   const v = refChemin("economie.salaires_publics_nets_par_jour." + grade + ".valeur");

@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.19 — cadrage figé (v1.0, 2026-11-05) ; phases 1 → 3.10 poussées ; **60 tests moteur PASS** ; référentiel v1.14 ; schéma de sauvegarde v8 ; monnaie du jeu : **le LEGO (L)** ; site : https://losth230.github.io/LEGO/
+> **Statut :** v1.20 — cadrage figé (v1.0, 2026-11-05) ; phases 1 → 3.10 poussées ; **62 tests moteur PASS** ; référentiel v1.14 ; schéma de sauvegarde v8 ; monnaie du jeu : **le LEGO (L)** ; site : https://losth230.github.io/LEGO/
 >
 > **Fil des versions** (feuille de route en §8, décisions datées en §9) :
 >
@@ -12,6 +12,7 @@
 > | 2026-11-06 | **v1.17** : grilles resserrées à trois grades par corps (référentiel v1.12) |
 > | 2026-11-06 | **v1.18** : le commissaire remplace l'inspecteur au sommet de la police (référentiel v1.13) |
 > | 2026-11-06 | **v1.19** : découpe moteur/éditeur/tests, contrats de formes au runtime, grades générés depuis le référentiel (v1.14), grilles FPT figées |
+| 2026-11-06 | **v1.20** : la garde lit le corps du référentiel (plus de suffixe de clé), salaire de secours journalisé |
 >
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
@@ -224,6 +225,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | 2026-11-06 | **Grilles resserrées à trois grades par corps** (arbitrage Thibaut : « 3 grades à chaque fois sont très largement suffisants ») — police, pompiers et armée passent de 33 grades cumulés (grilles complètes v1.4) à **10 grades** (mairie inchangée à son grade unique d'adjoint technique) : conservés du bas au haut de chaque corps (policier municipal 56,70, major 71,70, inspecteur 80 ; sapeur débutant 62,50, sergent 78, colonel 165 ; soldat 43,30, caporal 51,70, capitaine 96,70 L/jour) ; la garnison du monde par défaut et l'économie sont inchangées ; **les sauvegardes sont converties au chargement** : un grade retiré devient le grade conservé au salaire le plus proche (une figurine garde sa solde et sa fonction de garde) ; la détection des gardes passe par le suffixe du corps (`_pm`, `_spp`) pour que major et colonel restent comptés ; référentiel v1.12 |
 | 2026-11-06 | **Le commissaire remplace l'inspecteur au sommet de la police** (arbitrage Thibaut : « inspecteur est un métier à part ») — le corps de police devient policier municipal (56,70), major (71,70) et **commissaire** (95 L/jour ; grille indiciaire FPE 2025, point d'indice 4,9228 €, échelons médians, primes incluses) ; `inspecteur_pm` est retiré du référentiel et une sauvegarde qui en contient un le convertit en **major** (grade conservé au salaire le plus proche) ; la détection de garde par suffixe `_pm` couvre le commissaire sans changement ; le monde par défaut n'a pas d'inspecteur : l'économie est inchangée ; référentiel v1.13 |
 | 2026-11-06 | **Qualité de code (v1.19)** : le statut du README est raccourci (fil des versions en tête) ; gros fichiers découpés — moteur (economie.ts extrait), éditeur (5 panneaux), tests (9 fichiers, 60 PASS) ; **contrats de formes au runtime** (contrats.test.ts valide les formes Pnj/état sur monde par défaut, sauvegarde hostile migrée et après passerJour — compense l'absence de type-check local, la CI reste stricte) ; **grades générés depuis le référentiel** (champ `corps`, GROUPES_GRADES/GRADES dérivés du JSON : plus de grille dupliquée en 3 endroits) ; **grilles de salaires publics figées** (valeurs inchangées, sources vérifiées le 2026-11-06 — référentiel v1.14) |
+| 2026-11-06 | **v1.20 : la garde lit le corps du référentiel, le salaire de secours est journalisé** — la détection des gardes pompiers/police/armée passe par le champ `corps` (v1.14) au lieu des suffixes de clés (`_pm`, `_spp`, `_armee`) : renommer un grade ne casse plus la garde en silence, et un grade inconnu au suffixe plausible ne garde plus ; un agent public dont le grade n'existe pas dans le référentiel (typo de sauvegarde, grade futur) est payé au salaire de secours (50 L/jour) **et le journal le raconte chaque jour** — plus de paiement silencieux, la figurine est à corriger dans l'éditeur ; 62 tests moteur PASS |
 
 ### Questions ouvertes
 

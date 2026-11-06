@@ -18,7 +18,8 @@ import {
 
 import {
   chargesJournalieres,
-  coefficientRenfort
+  coefficientRenfort,
+  passerJour
 } from "./moteur.ts";
 
 import {
@@ -31,6 +32,7 @@ import {
   salaireJourL,
   GROUPES_GRADES,
   GRADES,
+  corpsDuGrade,
   gradeConnu
 } from "./referentiel.ts";
 
@@ -76,7 +78,7 @@ test("gardeArmee : la garnison est détectée par grade et par métier", () => {
   const m = createMondeDefaut();
   const g = gardeArmee(m);
   assert.equal(g.length, 3);
-  assert.ok(g.every((p) => p.grade?.endsWith("_armee")));
+  assert.ok(g.every((p) => corpsDuGrade(p.grade ?? "") === "Armée"));
 
   // Un figurant promu par métier seul (grade non renseigné) compte aussi.
   const avecVolontaire = ajouterPnj(
@@ -91,7 +93,7 @@ test("charges : la garnison pèse sur les charges journalières", () => {
   const avec = chargesJournalieres(m);
   const sansGarnison = chargesJournalieres({
     ...m,
-    pnjs: m.pnjs.filter((p) => !(p.grade ?? "").endsWith("_armee")),
+    pnjs: m.pnjs.filter((p) => corpsDuGrade(p.grade ?? "") !== "Armée"),
     batiments: m.batiments.filter((b) => !b.nom.includes("militaire")),
   });
   const soldes = salaireJourL("soldat_armee") + salaireJourL("caporal_armee") + salaireJourL("capitaine_armee");
@@ -139,7 +141,7 @@ test("grilles strictement croissantes dans chaque corps (le référentiel est la
   assert.ok(salaireJourL("colonel_spp") > 160);
 });
 
-test("gardes : chaque grade du référentiel est repéré par la garde de son corps (suffixe toujours vivant)", () => {
+test("gardes : chaque grade du référentiel est repéré par la garde de son corps (corps du référentiel, v1.20)", () => {
   const base = createMondeDefaut();
   for (const g of GROUPES_GRADES) {
     const garde =
@@ -163,4 +165,40 @@ test("gardes : chaque grade du référentiel est repéré par la garde de son co
       }
     }
   }
+});
+
+test("v1.20 : la garde lit le corps du référentiel — un suffixe plausible sur un grade inconnu ne garde plus", () => {
+  // « faux_pm » ressemble à une clé de police par son suffixe, mais il
+  // n'existe pas dans le référentiel : plus de garde fantôme. La figurine
+  // sera journalisée au salaire de secours (test suivant), à corriger.
+  const monde = ajouterPnj(
+    createMondeDefaut(),
+    nouveauPnj({ prenom: "Faux", nom: "Suffixe", metier: "agent", statut: "agent_public", grade: "faux_pm" }),
+  );
+  assert.ok(
+    gardePolice(monde).every((p) => p.grade !== "faux_pm"),
+    "faux_pm ne doit plus être compté comme police (détection par corps)",
+  );
+  assert.ok(
+    gardePompiers(monde).every((p) => p.grade !== "faux_pm"),
+    "faux_pm ne doit pas être compté comme pompier",
+  );
+  assert.ok(
+    gardeArmee(monde).every((p) => p.grade !== "faux_pm"),
+    "faux_pm ne doit pas être compté comme armée",
+  );
+});
+
+test("v1.20 : salaire de secours journalisé — un grade inconnu paie 50 L/jour et le journal le raconte", () => {
+  let e = ajouterPnj(
+    createMondeDefaut(),
+    nouveauPnj({ prenom: "Cas", nom: "Inconnu", metier: "agent", statut: "agent_public", grade: "commisaire_pm" }),
+  );
+  e = passerJour(e);
+  const entree = e.journal.find(
+    (j) => j.type === "salaires" && j.texte.includes("salaire de secours") && j.texte.includes("Cas Inconnu"),
+  );
+  assert.ok(entree, "le salaire de secours doit être journalisé (plus de paiement silencieux)");
+  assert.match(entree.texte, /commisaire_pm/);
+  assert.equal(entree.montant, 5000); // 50,00 L bruts, retenus à la source
 });

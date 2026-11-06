@@ -25,6 +25,7 @@ import {
   FRAIS_DETENTION_L,
   PART_SALARIALE_FLUX,
   TAUX_IMPOT_DEFAUT_BP,
+  gradeConnu,
   salaireJourL
 } from "./referentiel.ts";
 import {
@@ -95,10 +96,12 @@ interface Totaux {
   detentionPayee: number;
 }
 
-function etapeSalaires(etat: Etat, totaux: Totaux): void {
+function etapeSalaires(etat: Etat, totaux: Totaux): JournalEntree[] {
+  const secours: JournalEntree[] = [];
   for (const pnj of etat.pnjs) {
     if (pnj.statut !== "agent_public") continue;
-    const du = Math.round(salaireJourL(pnj.grade ?? "") * 100);
+    const grade = pnj.grade ?? "";
+    const du = Math.round(salaireJourL(grade) * 100);
     const paye = Math.min(du, etat.budgetVille);
     // Impôt à la source (arbitrage 2026-11-06) : la ville retient sa part
     // de la solde au moment du versement — pas de rupture d'impôt possible.
@@ -108,8 +111,25 @@ function etapeSalaires(etat: Etat, totaux: Totaux): void {
     totaux.salairesPayes += paye;
     totaux.salairesDus += du;
     totaux.impotsPayes += impot;
+    // v1.20 : plus de salaire de secours silencieux — un grade absent du
+    // référentiel (typo d'une sauvegarde, grade futur) est journalisé chaque
+    // jour, jusqu'à ce que la figurine soit corrigée dans l'éditeur.
+    if (!gradeConnu(grade)) {
+      secours.push({
+        jour: etat.jour,
+        type: "salaires",
+        texte:
+          pnj.prenom + " " + pnj.nom + " est payé au salaire de secours (" + fmt(du) + "/jour)" +
+          (grade === ""
+            ? " : aucun grade n'est défini pour cette figurine."
+            : " : le grade « " + grade + " » est inconnu du référentiel.") +
+          " À corriger dans l'éditeur.",
+        montant: du,
+      });
+    }
   }
   totaux.villeSansLeSou = etat.budgetVille === 0;
+  return secours;
 }
 
 // Le poste de police de la ville (bâtiment public) : c'est là que les
@@ -615,6 +635,7 @@ function journaliserJour(
   totaux: Totaux,
   flux: JournalEntree[],
   incidents: JournalEntree[],
+  secours: JournalEntree[],
 ): void {
   const j: JournalEntree[] = [];
   j.push({
@@ -643,6 +664,8 @@ function journaliserJour(
       ".",
     montant: totaux.salairesPayes,
   });
+  // v1.20 : salaires de secours journalisés à la suite du résumé des soldes.
+  j.push(...secours);
   j.push({
     jour: etat.jour,
     type: "fonctionnement",
@@ -793,7 +816,7 @@ export function passerJour(etat: Etat): Etat {
   // Règlement quotidien (arbitrage 2026-11-06) : l'impôt n'est plus une étape
   // du matin — il est retenu à la source sur chaque gain versé dans la journée
   // (soldes publiques, salaires et primes privés, marges des patrons).
-  etapeSalaires(e, totaux);
+  const entreesSecours = etapeSalaires(e, totaux);
   etapeFonctionnement(e, totaux);
   etapeInterets(e, totaux);
   etapeAchats(e, totaux);
@@ -802,7 +825,7 @@ export function passerJour(etat: Etat): Etat {
   // du jour — monde fermé, l'argent ne fait que circuler.
   const entreesIncidents = etapeIncidents(e, totaux);
   const entreesFlux = etapeSalariesPrives(e, totaux);
-  journaliserJour(e, totaux, entreesFlux, entreesIncidents);
+  journaliserJour(e, totaux, entreesFlux, entreesIncidents, entreesSecours);
   return e;
 }
 

@@ -17,7 +17,7 @@
 // aux accidents.
 
 import type { Etat, Gang, Pnj } from "./types.ts";
-import { refNombre } from "./referentiel.ts";
+import { corpsDuGrade, refNombre } from "./referentiel.ts";
 
 export type TypeIncident = "incendie" | "cambriolage" | "accident" | "guerre_gangs";
 
@@ -180,10 +180,9 @@ export function quartierAdjacent(gang: Gang, quartiersVille: string[]): string |
 export function gardePompiers(etat: Etat): Pnj[] {
   return etat.pnjs.filter(
     (p) =>
-      // Grades conservés (v1.12) : seuls sapeur_* commencent par « sapeur »,
-      // les sergents et colonels sont repérés par leur suffixe de corps.
-      (p.grade ?? "").startsWith("sapeur_pompier") ||
-      (p.grade ?? "").endsWith("_spp") ||
+      // v1.20 : le corps est lu dans le référentiel (champ `corps` v1.14),
+      // plus de détection par suffixe de clé — un grade inconnu ne garde plus.
+      corpsDuGrade(p.grade ?? "") === "Sapeurs-pompiers" ||
       p.metier.toLowerCase().includes("pompi"),
   );
 }
@@ -192,10 +191,7 @@ export function gardePompiers(etat: Etat): Pnj[] {
 export function gardePolice(etat: Etat): Pnj[] {
   return etat.pnjs.filter(
     (p) =>
-      // Grades conservés (v1.12) : seuls les policiers municipaux commencent
-      // par « policier », majors et commissaires par leur suffixe de corps.
-      (p.grade ?? "").startsWith("policier") ||
-      (p.grade ?? "").endsWith("_pm") ||
+      corpsDuGrade(p.grade ?? "") === "Police municipale" ||
       p.metier
         .toLowerCase()
         .normalize("NFD")
@@ -209,7 +205,7 @@ export function gardeArmee(etat: Etat): Pnj[] {
   const sansAccents = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return etat.pnjs.filter(
     (p) =>
-      (p.grade ?? "").endsWith("_armee") ||
+      corpsDuGrade(p.grade ?? "") === "Armée" ||
       ["milita", "soldat", "general", "armee"].some((m) =>
         sansAccents(p.metier).includes(m),
       ),
