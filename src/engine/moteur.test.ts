@@ -799,11 +799,12 @@ test("conservation avec la banque : 30 jours, un emprunt en route", () => {
 // ---------- phase 3.5 : corps, grades hiérarchisés, branche militaire ----------
 
 test("grilles de salaires strictement croissantes dans chaque corps", () => {
-  // Référentiel v1.12 : trois grades par corps, du plus modeste au plus
-  // élevé (arbitrage Thibaut 2026-11-06). La garnison du monde par défaut
+  // Référentiel v1.13 : trois grades par corps, du plus modeste au plus
+  // élevé (arbitrage Thibaut 2026-11-06 ; v1.13 : l'inspecteur, métier à
+  // part, cède sa place au commissaire). La garnison du monde par défaut
   // (soldat, caporal, capitaine) tient entière dans la grille conservée.
   const pompiers = ["sapeur_pompier_debutant", "sergent_spp", "colonel_spp"];
-  const police = ["policier_municipal", "major_pm", "inspecteur_pm"];
+  const police = ["policier_municipal", "major_pm", "commissaire_pm"];
   const armee = ["soldat_armee", "caporal_armee", "capitaine_armee"];
   for (const grades of [pompiers, police, armee]) {
     for (let i = 1; i < grades.length; i++) {
@@ -817,6 +818,7 @@ test("grilles de salaires strictement croissantes dans chaque corps", () => {
   // Bas de tableau modeste, haut de tableau confortable (référentiel v1.12).
   assert.ok(salaireJourL("soldat_armee") < 50);
   assert.ok(salaireJourL("capitaine_armee") > 90);
+  assert.ok(salaireJourL("commissaire_pm") > 90, "le commissaire, sommet de la police, est bien payé");
   assert.ok(salaireJourL("colonel_spp") > 160);
 });
 
@@ -827,10 +829,12 @@ test("grades retirés : une sauvegarde v1.11 est convertie vers le grade conserv
   e.pnjs[0].grade = "general_armee";
   e.pnjs[1].grade = "brigadier_pm";
   e.pnjs[2].grade = "commandant_spp";
+  e.pnjs[4].grade = "inspecteur_pm"; // v1.13 : métier à part, retiré du corps
   const rel = migrerEtat(JSON.parse(JSON.stringify(e)));
   assert.equal(rel.pnjs[0].grade, "capitaine_armee", "général → capitaine (sommet conservé)");
   assert.equal(rel.pnjs[1].grade, "policier_municipal", "brigadier → policier municipal");
   assert.equal(rel.pnjs[2].grade, "sergent_spp", "commandant → sergent");
+  assert.equal(rel.pnjs[4].grade, "major_pm", "inspecteur (retiré en v1.13) → major, salaire le plus proche");
   assert.equal(salaireJourL(rel.pnjs[0].grade ?? ""), 96.7, "la figurine garde une solde lue dans la grille conservée");
   // Un grade inconnu (éditeur libre) reste tel quel : pas d'invention.
   e.pnjs[3].grade = "grade_fantaisie";

@@ -193,7 +193,7 @@ export function gardePolice(etat: Etat): Pnj[] {
   return etat.pnjs.filter(
     (p) =>
       // Grades conservés (v1.12) : seuls les policiers municipaux commencent
-      // par « policier », majors et inspecteurs par leur suffixe de corps.
+      // par « policier », majors et commissaires par leur suffixe de corps.
       (p.grade ?? "").startsWith("policier") ||
       (p.grade ?? "").endsWith("_pm") ||
       p.metier

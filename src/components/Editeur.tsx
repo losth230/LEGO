@@ -27,7 +27,7 @@ import {
 // du monde par défaut (soldat, caporal, capitaine) tient entière dedans.
 const GROUPES_GRADES: Array<{ corps: string; grades: string[] }> = [
   { corps: "Mairie", grades: ["adjoint_technique"] },
-  { corps: "Police municipale", grades: ["policier_municipal", "major_pm", "inspecteur_pm"] },
+  { corps: "Police municipale", grades: ["policier_municipal", "major_pm", "commissaire_pm"] },
   { corps: "Sapeurs-pompiers", grades: ["sapeur_pompier_debutant", "sergent_spp", "colonel_spp"] },
   { corps: "Armée", grades: ["soldat_armee", "caporal_armee", "capitaine_armee"] },
 ];

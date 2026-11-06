@@ -38,15 +38,18 @@ export function migrerEtat(brut: unknown): Etat {
 
   const defaut = createMondeDefaut();
 
-// Correction 2026-11-06 (référentiel v1.12) : grilles resserrées à trois
+// Corrections 2026-11-06 (référentiels v1.12 puis v1.13) : grilles resserrées à trois
 // grades par corps (arbitrage Thibaut). Une figurine sauvegardée avec un
 // grade retiré est convertie vers le grade conservé au salaire le plus
 // proche — elle garde sa solde et sa fonction de garde (le suffixe du
 // corps est préservé par construction).
 const GRADES_RETIRES: Record<string, string> = {
-  // Police : brigadier et brigadier chef disparaissent.
+  // Police : brigadier et brigadier chef disparaissent ; l'inspecteur
+  // disparaît aussi (v1.13 : métier à part, remplacé par le commissaire
+  // au sommet du corps) — converti au salaire le plus proche, le major.
   brigadier_pm: "policier_municipal",
   brigadier_chef_pm: "major_pm",
+  inspecteur_pm: "major_pm",
   // Pompiers : 9 grades intermédiaires disparaissent.
   sapeur_1re_classe_spp: "sapeur_pompier_debutant",
   caporal_spp: "sapeur_pompier_debutant",
