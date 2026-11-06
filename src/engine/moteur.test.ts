@@ -762,7 +762,11 @@ test("flux : sans boutique ouverte, la ville ne s'équipe pas — rien ne sort (
   // sur ces soldes y revient) : le reste n'a pas bougé.
   const impots = entrees(1, "impots", j1.journal)[0];
   const salaires = entrees(1, "salaires", j1.journal)[0];
-  assert.equal(j1.budgetVille, m.budgetVille + impots.montant - salaires.montant, "les caisses n'ont bougé que des salaires publics");
+  assert.equal(
+    j1.budgetVille,
+    m.budgetVille + (impots.montant ?? 0) - (salaires.montant ?? 0),
+    "les caisses n'ont bougé que des salaires publics",
+  );
   assert.equal(Object.keys(j1.recettesCommerce ?? {}).length, 0, "aucune recette de commerce");
 });
 
