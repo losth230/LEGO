@@ -82,9 +82,9 @@ const GRADES_RETIRES: Record<string, string> = {
     // le plus proche, pour que l'ancienne figurine reste payée et de garde.
     grade:
       typeof (p as Partial<{ grade?: string | null }>).grade === "string"
-        ? (GRADES_RETIRES[(p as Partial<{ grade?: string }>).grade!] ??
-          (p as Partial<{ grade?: string }>).grade)
-        : null,
+        ? (GRADES_RETIRES[(p as Partial<{ grade?: string | null }>).grade!] ??
+          (p as Partial<{ grade?: string | null }>).grade!)
+        : undefined,
     travailBatimentId:
       (p as Partial<{ travailBatimentId?: string | null }>).travailBatimentId ?? null,
     // Migration v7 -> v8 (phase 3.9, milieu criminel) : carte d'identité —
