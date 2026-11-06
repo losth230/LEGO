@@ -17,6 +17,13 @@ const ETIQUETTES_ETAT: Record<EtatBatiment, string> = {
   sinistre: "sinistré",
 };
 
+/** Vocations des commerces (monde 100 % fermé, 2026-11-06). */
+const ETIQUETTES_VOCATION = {
+  sante: "Santé",
+  btp: "BTP",
+  banque: "Banque",
+} as const;
+
 export function BatimentsTable() {
   const { etat } = useStore();
   return (
@@ -57,6 +64,12 @@ function LigneBatiment({ batiment: b }: { batiment: Batiment }) {
       </td>
       <td>
         <span className={"badge " + t.classe}>{t.libelle}</span>
+        {b.type === "commerce" && b.vocation ? (
+          <>
+            {" "}
+            <span className="badge badge-vocation">{ETIQUETTES_VOCATION[b.vocation]}</span>
+          </>
+        ) : null}
       </td>
       <td>{b.quartier}</td>
       <td className="col-nombre">{montantL(b.valeur)}</td>

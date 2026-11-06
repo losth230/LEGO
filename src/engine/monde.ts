@@ -9,6 +9,7 @@ import {
   TAUX_IMPOT_DEFAUT_BP,
   montantL,
 } from "./referentiel.ts";
+import { serviceLocal } from "./moteur.ts";
 
 const REF_ACHAT = Math.round(ACHAT_REFERENCE_L * 100); // 5250 centimes = 52,50 L
 
@@ -48,6 +49,7 @@ export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Bati
     etat: p.etat ?? "bon",
     coutFonctionnement: p.coutFonctionnement ?? 0,
     capacite: p.capacite ?? 0,
+    vocation: p.vocation ?? null,
   };
 }
 
@@ -56,7 +58,7 @@ const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:I
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
 
-/** Le monde par défaut : ~10 bâtiments, 45 figurines (cahier des charges phase 1). */
+/** Le monde par défaut : 14 bâtiments, 51 figurines (cahier des charges, monde fermé 2026-11-06). */
 export function createMondeDefaut(): Etat {
   compteur = 0;
 
@@ -67,6 +69,11 @@ export function createMondeDefaut(): Etat {
     nouveauBatiment({ nom: "Le Fournil Doré (boulangerie)", type: "commerce", quartier: "Centre", valeur: 400000, capacite: 2 }),
     nouveauBatiment({ nom: "Chez Mario (friterie)", type: "commerce", quartier: "Port", valeur: 250000, capacite: 2 }),
     nouveauBatiment({ nom: "Quincaillerie du Port", type: "commerce", quartier: "Port", valeur: 300000, capacite: 2 }),
+    // Services locaux à vocation (monde 100 % fermé, arbitrage 2026-11-06) :
+    // sans eux, aucune mécanique liée (soins, réparations, emprunts).
+    nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacite: 4, vocation: "sante" }),
+    nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacite: 4, vocation: "btp" }),
+    nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacite: 2, vocation: "banque" }),
     nouveauBatiment({ nom: "Les Terrasses (immeuble)", type: "habitation", quartier: "Centre", valeur: 1500000, capacite: 16 }),
     nouveauBatiment({ nom: "Maison des Dupont", type: "habitation", quartier: "Nord", valeur: 350000, capacite: 4 }),
     nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capacite: 20 }),
@@ -80,8 +87,11 @@ export function createMondeDefaut(): Etat {
   const idBoulangerie = batiments[3].id;
   const idFriterie = batiments[4].id;
   const idQuincaillerie = batiments[5].id;
-  const immeubles = [batiments[6].id, batiments[7].id, batiments[8].id, batiments[9].id];
-  const idCaserneMilitaire = batiments[10].id;
+  const idHopital = batiments[6].id;
+  const idBtp = batiments[7].id;
+  const idBanque = batiments[8].id;
+  const immeubles = [batiments[9].id, batiments[10].id, batiments[11].id, batiments[12].id];
+  const idCaserneMilitaire = batiments[13].id;
 
   const pnjs: Pnj[] = [];
 
@@ -98,6 +108,12 @@ export function createMondeDefaut(): Etat {
   pnjs.push(nouveauPnj({ prenom: "Jean", nom: "Castella", age: 47, genre: "M", metier: "boulanger", statut: "commercant", batimentId: idBoulangerie, revenuIndicatif: 6000, compte: 600000 }));
   pnjs.push(nouveauPnj({ prenom: "Mario", nom: "Rossi", age: 41, genre: "M", metier: "vendeur de frites", statut: "commercant", batimentId: idFriterie, revenuIndicatif: 5000, compte: 500000 }));
   pnjs.push(nouveauPnj({ prenom: "Léa", nom: "Kaczmarek", age: 38, genre: "F", metier: "quincaillière", statut: "commercant", batimentId: idQuincaillerie, revenuIndicatif: 5500, compte: 550000 }));
+
+  // Services locaux à vocation (monde 100 % fermé, 2026-11-06) : santé,
+  // BTP, banque. Sans gérant, le service est fermé et sa mécanique dort.
+  pnjs.push(nouveauPnj({ prenom: "Sofia", nom: "Marchand", age: 44, genre: "F", metier: "cheffe de l'hôpital", statut: "commercant", batimentId: idHopital, revenuIndicatif: 7500, compte: 750000 }));
+  pnjs.push(nouveauPnj({ prenom: "Dario", nom: "Costa", age: 39, genre: "M", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: idBtp, revenuIndicatif: 5500, compte: 550000 }));
+  pnjs.push(nouveauPnj({ prenom: "Émile", nom: "Verne", age: 51, genre: "M", metier: "banquier", statut: "commercant", batimentId: idBanque, revenuIndicatif: 8000, compte: 800000 }));
 
   // 39 habitants privés : métiers narratifs, revenus variés autour du médian.
   const metiers: Array<[string, number]> = [
@@ -256,11 +272,21 @@ export function modifierVille(
   return e;
 }
 
-/** Emprunter à la banque (phase 3) : les caisses respirent, la dette grimpe. */
+/** Emprunter à la banque locale (phase 3) : les caisses respirent, la dette grimpe. Sans banque en ville, pas de crédit (monde fermé). */
 export function emprunterVille(etat: Etat, montantCentimes: number): Etat {
   const e = structuredClone(etat);
   const m = Math.max(0, Math.round(montantCentimes));
   if (m === 0) return e;
+  const banque = serviceLocal(e, "banque");
+  if (!banque) {
+    raconter(
+      e,
+      "La ville voudrait emprunter " +
+        montantL(m) +
+        ", mais aucune banque n'est installée en ville : pas de banque, pas de crédit (monde fermé).",
+    );
+    return e;
+  }
   e.budgetVille += m;
   e.dette += m;
   e.mouvementsBanqueCumules += m;
@@ -268,26 +294,43 @@ export function emprunterVille(etat: Etat, montantCentimes: number): Etat {
     e,
     "La ville emprunte " +
       montantL(m) +
-      " à la banque : les caisses respirent, la dette grimpe à " +
+      " à " +
+      banque.bat.nom +
+      " : les caisses respirent, la dette grimpe à " +
       montantL(e.dette) +
       " d'encours.",
   );
   return e;
 }
 
-/** Rembourser la banque (phase 3) : la dette fond, l'argent quitte le circuit. */
+/**
+ * Rembourser la banque locale (phase 3) : la dette fond. Monde 100 % fermé
+ * (2026-11-06) : l'argent rejoint la banque de la ville, il ne quitte plus
+ * le circuit — mouvementsBanqueCumules (création monétaire) ne baisse plus.
+ */
 export function rembourserVille(etat: Etat, montantCentimes: number): Etat {
   const e = structuredClone(etat);
   const r = Math.min(Math.max(0, Math.round(montantCentimes)), etat.budgetVille, etat.dette);
   if (r === 0) return e;
+  const banque = serviceLocal(e, "banque");
+  if (!banque) {
+    raconter(
+      e,
+      "La ville voudrait rembourser " +
+        montantL(r) +
+        ", mais la banque n'est plus en ville : personne à rembourser (monde fermé).",
+    );
+    return e;
+  }
   e.budgetVille -= r;
   e.dette -= r;
-  e.mouvementsBanqueCumules -= r;
+  banque.gerant.compte += r; // circuit fermé : la banque locale encaisse
   raconter(
     e,
     "La ville rembourse " +
       montantL(r) +
-      " de sa dette" +
+      " de sa dette à " +
+      banque.bat.nom +
       (e.dette === 0 ? " : plus un centime de dette, la ville respire !" : " — encours restant : " + montantL(e.dette) + "."),
   );
   return e;

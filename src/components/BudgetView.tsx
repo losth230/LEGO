@@ -50,12 +50,12 @@ export function BudgetView() {
         </p>
       </div>
       <div className="carte carte-indicateur">
-        <h2>💸 Sorties vers l'extérieur</h2>
+        <h2>🔒 Circuit fermé</h2>
         <p className="grand-nombre">{montantL(etat.sortiesCumulees)}</p>
         <p className="mute">
-          Cumul des réparations, du carburant d'intervention et des frais médicaux, plus le
-          fonctionnement quand aucun commerce n'est ouvert pour acheter sur place
-          (sorties documentées du circuit, §4.3).
+          Sorties documentées depuis le jour 1 : rien. Réparations, frais médicaux,
+          intérêts et fonctionnement sont payés aux services de la ville
+          (santé, BTP, banque, commerces) — seul le crime fait perdre de la monnaie (§4.3).
         </p>
       </div>
       <div className="carte carte-indicateur">
@@ -74,7 +74,7 @@ export function BudgetView() {
           collectivités : 3,54 %/an, capitalisés si la caisse ne peut pas payer).
         </p>
         <p className="mute">
-          Emprunts remboursés : {montantL(etat.mouvementsBanqueCumules)} en net depuis le jour 1.
+          Création monétaire : {montantL(etat.mouvementsBanqueCumules)} d'emprunts contractés depuis le jour 1 (les remboursements et intérêts restent chez le banquier local — monde fermé).
         </p>
         <div className="formulaire">
           <input

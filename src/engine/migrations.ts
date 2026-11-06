@@ -4,11 +4,11 @@
 // d'une version à l'autre se contentent de compléter, jamais de jeter
 // une ville en cours (sauf état irrécupérable).
 
-import type { Etat } from "./types.ts";
+import type { Etat, Vocation } from "./types.ts";
 import { createMondeDefaut } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 5;
+export const SCHEMA_VERSION_ETAT = 6;
 
 /** Normalise un état inconnu (localStorage corrompu, version future, import). */
 export function migrerEtat(brut: unknown): Etat {
@@ -25,12 +25,17 @@ export function migrerEtat(brut: unknown): Etat {
   const defaut = createMondeDefaut();
   // Migration v3 -> v4 : modèle flux (phase 3.6) — lieu de travail des
   // employés privés et recettes du dernier jour par commerce.
+  // Migration v5 -> v6 (monde 100 % fermé, 2026-11-06) : vocation des
+  // commerces (santé, BTP, banque) — complétée à null (boutique) si absente.
   const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p) => ({
     ...p,
     travailBatimentId:
       (p as Partial<{ travailBatimentId?: string | null }>).travailBatimentId ?? null,
   }));
-  const batiments = Array.isArray(b.batiments) ? b.batiments : defaut.batiments;
+  const batiments = (Array.isArray(b.batiments) ? b.batiments : defaut.batiments).map((x) => ({
+    ...x,
+    vocation: (x as Partial<{ vocation?: Vocation | null }>).vocation ?? null,
+  }));
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;
   const recettesCommerce =
     b.recettesCommerce !== null && typeof b.recettesCommerce === "object"

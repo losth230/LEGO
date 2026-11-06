@@ -12,6 +12,7 @@
   --rouge: #e03131;
   --bleu: #4dabf7;
   --vert: #51cf6e;
+  --violet: #b197fc;
   color-scheme: dark;
 }
 
@@ -29,6 +30,7 @@
   --rouge: #d93838;
   --bleu: #1f7ac2;
   --vert: #2f9e49;
+  --violet: #6741d9;
   color-scheme: light;
 }
 
@@ -252,6 +254,10 @@ tr:hover td {
 .badge-habitation {
   border-color: var(--vert);
   color: var(--vert);
+}
+.badge-vocation {
+  border-color: var(--violet);
+  color: var(--violet);
 }
 .badge-impots {
   border-color: var(--jaune);

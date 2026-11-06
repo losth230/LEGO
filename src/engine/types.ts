@@ -7,6 +7,16 @@ export type Statut = "agent_public" | "commercant" | "prive";
 
 export type TypeBatiment = "habitation" | "commerce" | "service_public";
 
+/**
+ * Vocation d'un commerce (monde 100 % fermé, arbitrage 2026-11-06) :
+ * - null : boutique de consommation (achats des habitants, fonctionnement municipal) ;
+ * - "sante" : hôpital/clinique — facture les soins des accidents ;
+ * - "btp" : entreprise de construction — répare les dégâts d'incendie ;
+ * - "banque" : banque locale — prête à la ville, encaisse intérêts et remboursements.
+ * Sans service à vocation en ville, aucune activité ni frais lié à ce service.
+ */
+export type Vocation = "sante" | "btp" | "banque";
+
 export type EtatBatiment = "neuf" | "bon" | "degrade" | "sinistre";
 
 export interface Pnj {
@@ -28,7 +38,7 @@ export interface Pnj {
    * habite dans batimentId et travaille ici.
    */
   travailBatimentId?: string | null;
-  /** Revenu indicatif quotidien en centimes — assiette fiscale (cahier des charges §3.2). */
+  /** Revenu indicatif quotidien en centimes — salaire contractuel des employés privés (modèle flux) et base du budget d'achat. */
   revenuIndicatif: number;
   /** Budget d'achat quotidien en centimes (dépense dans les commerces). */
   budgetAchat: number;
@@ -46,10 +56,12 @@ export interface Batiment {
   /** Valeur en centimes (dépréciée par les sinistres en phase 2). */
   valeur: number;
   etat: EtatBatiment;
-  /** Coût de fonctionnement quotidien en centimes (services publics) — sortie du circuit. */
+  /** Coût de fonctionnement quotidien en centimes (services publics) — acheté sur place si une boutique est ouverte, sinon non dépensé (circuit fermé). */
   coutFonctionnement: number;
   /** Capacité : logements (habitation) ou postes de travail (commerce, service). */
   capacite: number;
+  /** Vocation du commerce (2026-11-06) : null = boutique de consommation ; sinon service local (santé, BTP, banque). */
+  vocation?: Vocation | null;
 }
 
 export type TypeJournal =
@@ -100,6 +112,7 @@ export interface Etat {
    * (emprunts +, remboursements -) — la banque est hors du circuit :
    * la conservation de la monnaie en tient compte (§4.3).
    */
+  /** Création monétaire cumulée : somme des emprunts contractés. Les remboursements vont à la banque locale et ne détruisent plus de monnaie (monde fermé, 2026-11-06). */
   mouvementsBanqueCumules: number;
   params: ParamsVille;
   pnjs: Pnj[];

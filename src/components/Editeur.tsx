@@ -3,7 +3,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useStore } from "../state/store.tsx";
-import type { Batiment, EtatBatiment, Pnj, Statut, TypeBatiment } from "../engine/types.ts";
+import type { Batiment, EtatBatiment, Pnj, Statut, TypeBatiment, Vocation } from "../engine/types.ts";
 import { COUT_EMPLOYE_PRIVE_L, montantL, salaireJourL } from "../engine/referentiel.ts";
 import { effectifMax, employesDuCommerce } from "../engine/moteur.ts";
 import {
@@ -29,6 +29,14 @@ const GRADES = GROUPES_GRADES.flatMap((g) => g.grades);
 
 const TYPES_BATIMENT: TypeBatiment[] = ["habitation", "commerce", "service_public"];
 const ETATS_BATIMENT: EtatBatiment[] = ["neuf", "bon", "degrade", "sinistre"];
+
+/** Vocations des commerces (monde 100 % fermé, 2026-11-06). */
+const VOCATIONS_BATIMENT: Array<{ valeur: Vocation | null; libelle: string }> = [
+  { valeur: null, libelle: "Boutique (consommation)" },
+  { valeur: "sante", libelle: "Santé (facture les soins)" },
+  { valeur: "btp", libelle: "BTP (répare les bâtiments)" },
+  { valeur: "banque", libelle: "Banque (prête à la ville)" },
+];
 
 // ---------- petits contrôles ----------
 
@@ -138,6 +146,7 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
   const [type, setType] = useState<TypeBatiment>(b.type);
   const [etatBat, setEtatBat] = useState<EtatBatiment>(b.etat);
   const [capacite, setCapacite] = useState(b.capacite.toString());
+  const [vocation, setVocation] = useState<Vocation | null>(b.vocation ?? null);
 
   const enregistrer = () => {
     majEtat(
@@ -149,6 +158,7 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
         valeur: nombreL(valeur),
         coutFonctionnement: nombreL(fonctionnement),
         capacite: Number.isFinite(Number(capacite)) ? Number(capacite) : 0,
+        vocation: type === "commerce" ? vocation : null,
       }),
     );
     setOuvert(false);
@@ -192,6 +202,19 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
           <Champ label="Quartier">
             <input className="input" value={quartier} onChange={(e) => setQuartier(e.target.value)} />
           </Champ>
+          {type === "commerce" ? (
+            <Champ label="Vocation (monde fermé)">
+              <select
+                className="input"
+                value={vocation ?? ""}
+                onChange={(e) => setVocation((e.target.value || null) as Vocation | null)}
+              >
+                {VOCATIONS_BATIMENT.map((v) => (
+                  <option key={String(v.valeur)} value={v.valeur ?? ""}>{v.libelle}</option>
+                ))}
+              </select>
+            </Champ>
+          ) : null}
           <Champ label="Valeur (L)">
             <input className="input" value={valeur} onChange={(e) => setValeur(e.target.value)} />
           </Champ>
@@ -223,6 +246,7 @@ function CarteBatiments() {
   const [valeur, setValeur] = useState("3000");
   const [fonctionnement, setFonctionnement] = useState("0");
   const [capacite, setCapacite] = useState("4");
+  const [vocation, setVocation] = useState<Vocation | null>(null);
 
   const ajouter = () => {
     if (nom.trim() === "") return;
@@ -236,6 +260,7 @@ function CarteBatiments() {
           valeur: nombreL(valeur),
           coutFonctionnement: nombreL(fonctionnement),
           capacite: Number.isFinite(Number(capacite)) ? Number(capacite) : 0,
+          vocation: type === "commerce" ? vocation : null,
         }),
       ),
     );
@@ -260,6 +285,19 @@ function CarteBatiments() {
             ))}
           </select>
         </Champ>
+        {type === "commerce" ? (
+          <Champ label="Vocation (monde fermé)">
+            <select
+              className="input"
+              value={vocation ?? ""}
+              onChange={(e) => setVocation((e.target.value || null) as Vocation | null)}
+            >
+              {VOCATIONS_BATIMENT.map((v) => (
+                <option key={String(v.valeur)} value={v.valeur ?? ""}>{v.libelle}</option>
+              ))}
+            </select>
+          </Champ>
+        ) : null}
         <Champ label="Quartier">
           <input className="input" value={quartier} onChange={(e) => setQuartier(e.target.value)} />
         </Champ>

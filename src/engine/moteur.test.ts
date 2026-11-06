@@ -33,6 +33,7 @@ import {
   PART_SALARIALE_FLUX,
   passerJour,
   repartir,
+  serviceLocal,
 } from "./moteur.ts";
 import { gardeArmee, gardePolice, gardePompiers, probaQuotidienne } from "./evenements.ts";
 import { COEFF_INTENSITE_DEFAUT, salaireJourL, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
@@ -46,18 +47,30 @@ function calme(etat: Etat): Etat {
   return modifierVille(etat, { coeffIntensite: 1 });
 }
 
-test("monde par défaut : 11 bâtiments, 48 figurines (garnison incluse), jour 0", () => {
+/** Neutralise le budget courses d'un PNJ pour suivre son compte au centime. */
+function neutraliserCourses(etat: Etat, metier: string): void {
+  const i = etat.pnjs.findIndex((p) => p.metier === metier);
+  if (i >= 0) etat.pnjs[i] = { ...etat.pnjs[i], budgetAchat: 0 };
+}
+
+test("monde par défaut : 14 bâtiments, 51 figurines (garnison incluse), jour 0", () => {
   const m = createMondeDefaut();
-  assert.equal(m.batiments.length, 11);
-  assert.equal(m.pnjs.length, 48);
+  assert.equal(m.batiments.length, 14);
+  assert.equal(m.pnjs.length, 51);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
   assert.equal(services.length, 4);
   const agents = m.pnjs.filter((p) => p.statut === "agent_public");
   assert.equal(agents.length, 6);
-  const boutiques = m.batiments.filter((b) => b.type === "commerce");
+  // Monde 100 % fermé : 3 boutiques de consommation + 3 services à vocation
+  // (hôpital, BTP, banque), chacun tenu par son gérant.
+  const boutiques = m.batiments.filter((b) => b.type === "commerce" && !b.vocation);
   assert.equal(boutiques.length, 3);
+  assert.ok(serviceLocal(m, "sante") !== null, "l'hôpital est en ville et tenu");
+  assert.ok(serviceLocal(m, "btp") !== null, "le BTP est en ville et tenu");
+  assert.ok(serviceLocal(m, "banque") !== null, "la banque est en ville et tenue");
+  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 6);
 });
 
 test("un jour : impôts retenus à la source, salaires versés, sorties tracées, achats encaissés", () => {
@@ -114,6 +127,7 @@ test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
   const initial = monnaieEnCircuit(m);
   let e: Etat = m;
   for (let i = 0; i < 30; i++) e = passerJour(e);
+  assert.equal(e.sortiesCumulees, 0, "monde 100 % fermé : aucune sortie documentée");
   const restant = monnaieEnCircuit(e);
   assert.equal(
     restant,
@@ -211,16 +225,16 @@ test("l'épargne n'est pas touchée par le moteur", () => {
 
 test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
   assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 48);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 51);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 48, "version future -> monde par défaut");
+  assert.equal(futur.pnjs.length, 51, "version future -> monde par défaut");
   const m = migrerEtat({ schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
-  assert.equal(m.schemaVersion, 5, "v1 -> v5 : schema à jour");
+  assert.equal(m.schemaVersion, 6, "v1 -> v6 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -230,7 +244,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(m.mouvementsBanqueCumules, 0, "v2 -> v3 : mouvements banque initialisés");
   assert.ok(m.pnjs.every((p) => p.travailBatimentId === null), "v3 -> v4 : lieu de travail initialisé");
   assert.deepEqual(m.recettesCommerce, {}, "v3 -> v4 : recettes des commerces initialisées");
-  // v5 : le taux réglé par le joueur est conservé tel quel.
+  // v5 : le taux réglé par le joueur est conservé, la vocation est complétée.
   const v5 = migrerEtat({
     schemaVersion: 5,
     jour: 3,
@@ -239,6 +253,24 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
+  assert.equal(v5.schemaVersion, 6, "v5 -> v6 : schema à jour");
+  // v5 -> v6 : la vocation des bâtiments existants est complétée à null
+  // (boutique de consommation par défaut), jamais devinée.
+  const v5bat = migrerEtat({
+    schemaVersion: 5,
+    jour: 3,
+    params: { tauxImpotBp: 555, coeffIntensite: 2 },
+    batiments: [
+      { id: "b1", nom: "Vieille boutique", type: "commerce" },
+      { id: "b2", nom: "Mairie", type: "service_public" },
+    ],
+  });
+  assert.equal(v5bat.schemaVersion, 6, "v5 -> v6 : schema à jour");
+  assert.ok(
+    v5bat.batiments.every((b) => b.vocation === null),
+    "v5 -> v6 : vocation des bâtiments complétée (boutique par défaut)",
+  );
+  assert.equal(v5bat.batiments.length, 2, "les bâtiments du joueur sont conservés");
 });
 
 // ---------- Phase 2 : incidents, garde des services ----------
@@ -264,11 +296,13 @@ test("K géant : le jour 1 déborde d'incidents", () => {
   assert.ok(j1.journal.some((e) => e.texte.includes("s'embrase")), "l'incendie est raconté");
 });
 
-test("incendie sans pompiers ni budget : le bâtiment reste sinistré", () => {
+test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caisses vides ne réparent rien", () => {
   let m = createMondeDefaut();
   for (const p of gardePompiers(m)) m = supprimerPnj(m, p.id);
   // ville pauvre : la réparation ne pourra pas suivre, le sinistre marque le bâtiment
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 100 });
+  neutraliserCourses(m, "chef d'entreprise BTP");
+  const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
   const j1 = passerJour(m);
   assert.ok(
     j1.journal.some((e) => e.texte.includes("aucun pompier")),
@@ -276,8 +310,126 @@ test("incendie sans pompiers ni budget : le bâtiment reste sinistré", () => {
   );
   const touches = j1.batiments.filter((b) => b.etat === "sinistre");
   assert.ok(touches.length >= 1, "un bâtiment sinistré");
-  assert.ok(j1.batiments.some((b) => b.valeur < 300000 && b.etat === "sinistre"), "valeur dépréciée");
+  assert.ok(
+    j1.journal.some((e) => e.texte.includes("les caisses sont vides") && e.texte.includes("reste marqué")),
+    "le BTP ne répare pas sans être payé",
+  );
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé : rien ne part vers l'extérieur");
+  const dario = j1.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!;
+  const retenuDario = j1.journal
+    .filter(
+      (e) =>
+        e.type === "incident" &&
+        e.texte.includes("Dario Costa") &&
+        (e.texte.includes("Cambriolage") || e.texte.includes("Accident")),
+    )
+    .reduce((s, e) => s + (e.montant ?? 0), 0);
+  assert.equal(
+    dario.compte,
+    darioAvant + retenuDario,
+    "aucune réparation payée : les caisses étaient vides",
+  );
+  const base = new Map(m.batiments.map((b) => [b.id, b.valeur]));
+  assert.ok(
+    touches.every((b) => b.valeur < base.get(b.id)!),
+    "les sinistrés ont perdu de la valeur",
+  );
   assert.equal(gardePompiers(j1).length, 0);
+});
+
+test("incendie avec budget : les réparations encaissées par le BTP local restent en ville", () => {
+  let m = createMondeDefaut();
+  m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 50000000 });
+  neutraliserCourses(m, "chef d'entreprise BTP");
+  const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
+  const j1 = passerJour(m);
+  const degatsFeux = j1.journal
+    .filter((e) => e.type === "incident" && e.texte.includes("s'embrase"))
+    .reduce((s, e) => s - (e.montant ?? 0), 0);
+  assert.ok(degatsFeux > 0, "au moins un incendie");
+  const retenuDario = j1.journal
+    .filter(
+      (e) =>
+        e.type === "incident" &&
+        e.texte.includes("Dario Costa") &&
+        (e.texte.includes("Cambriolage") || e.texte.includes("Accident")),
+    )
+    .reduce((s, e) => s + (e.montant ?? 0), 0);
+  const dario = j1.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!;
+  assert.equal(
+    dario.compte,
+    darioAvant + degatsFeux - impotSur(degatsFeux, j1.params.tauxImpotBp) + retenuDario,
+    "le BTP de la ville encaisse les réparations, moins l'impôt sur sa marge",
+  );
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé");
+  assert.ok(
+    entrees(1, "flux", j1.journal).some((e) => e.texte.includes("Bâtisseurs")),
+    "le BTP raconte sa recette du soir",
+  );
+});
+
+test("accident : les soins sont facturés à l'hôpital local, l'argent reste en ville", () => {
+  let m = createMondeDefaut();
+  m = modifierVille(m, { coeffIntensite: 100000 });
+  neutraliserCourses(m, "cheffe de l'hôpital");
+  const sofiaAvant = m.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!.compte;
+  const j1 = passerJour(m);
+  const accident = j1.journal.find((e) => e.type === "incident" && e.texte.includes("Accident"));
+  assert.ok(accident !== undefined, "un accident est arrivé");
+  assert.ok(
+    accident.texte.includes("soins facturés à Hôpital Sainte-Brique"),
+    "l'hôpital local facture les soins",
+  );
+  const frais = -(accident.montant ?? 0);
+  assert.ok(frais > 0, "des frais ont bien été facturés");
+  const retenuSofia = j1.journal
+    .filter(
+      (e) =>
+        e.type === "incident" &&
+        e.texte.includes("Sofia Marchand") &&
+        (e.texte.includes("Cambriolage") || e.texte.includes("Accident")),
+    )
+    .reduce((s, e) => s + (e.montant ?? 0), 0);
+  const sofia = j1.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!;
+  assert.equal(
+    sofia.compte,
+    sofiaAvant + frais - impotSur(frais, j1.params.tauxImpotBp) + retenuSofia,
+    "l'hôpital encaisse les soins, moins l'impôt sur sa marge du jour",
+  );
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé");
+});
+
+test("sans hôpital : aucun service de santé, aucun frais", () => {
+  let m = createMondeDefaut();
+  m = modifierVille(m, { coeffIntensite: 100000 });
+  const sofia = m.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!;
+  m = supprimerPnj(m, sofia.id); // l'hôpital reste, sans gérant il est fermé
+  const j1 = passerJour(m);
+  assert.ok(serviceLocal(j1, "sante") === null, "plus de service de santé tenu");
+  const accident = j1.journal.find((e) => e.type === "incident" && e.texte.includes("Accident"));
+  assert.ok(accident !== undefined, "un accident est arrivé");
+  assert.ok(
+    accident.texte.includes("aucun service de santé en ville"),
+    "l'absence de service de santé est racontée",
+  );
+  assert.equal(accident.montant ?? 0, 0, "personne ne paie, personne n'est payé");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé");
+});
+
+test("emprunter sans banque : pas de crédit ; la dette dort sans banquier", () => {
+  let m = calme(createMondeDefaut());
+  m = emprunterVille(m, 10000000);
+  const emile = m.pnjs.find((p) => p.metier === "banquier")!;
+  m = supprimerPnj(m, emile.id); // la banque reste, sans gérant elle est fermée
+  assert.ok(serviceLocal(m, "banque") === null, "plus de banque tenue");
+  const refuse = emprunterVille(m, 100000);
+  assert.equal(refuse.dette, 10000000, "pas de nouvel emprunt");
+  assert.equal(refuse.budgetVille, m.budgetVille, "les caisses ne bougent pas");
+  assert.ok(refuse.journal.some((e) => e.texte.includes("aucune banque")), "le refus est raconté");
+  const j1 = passerJour(m);
+  assert.equal(j1.dette, 10000000, "sans banque, la dette dort : aucun intérêt prélevé ni capitalisé");
+  assert.equal(entrees(1, "dette", j1.journal).length, 0, "aucune écriture d'intérêts");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé");
 });
 
 test("garde au complet : l'incendie est maîtrisé, dégâts légers", () => {
@@ -351,16 +503,30 @@ test("emprunter : les caisses respirent, la dette grimpe, le journal raconte", (
   assert.ok(e.journal.some((x) => x.texte.includes("emprunte")), "l'emprunt est raconté");
 });
 
-test("les intérêts coulent chaque jour vers la banque (3,54 %/an réel)", () => {
+test("les intérêts coulent chaque jour vers la banque locale (3,54 %/an réel)", () => {
   let m = calme(createMondeDefaut());
   m = emprunterVille(m, 10000000); // 100 000 L
   const interets = interetsDus(10000000);
   assert.ok(interets > 900 && interets < 1000, "≈ 9,70 L/jour : " + interets);
+  neutraliserCourses(m, "banquier");
+  const banquierAvant = m.pnjs.find((p) => p.metier === "banquier")!.compte;
   const j1 = passerJour(m);
   const dette = entrees(1, "dette", j1.journal);
   assert.equal(dette.length, 1);
   assert.equal(dette[0].montant, -interets);
-  assert.ok(j1.sortiesCumulees >= interets, "les intérêts sont une sortie documentée");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé : plus aucune sortie");
+  // Monde fermé : les intérêts restent en ville — la banque locale les
+  // encaisse comme recette du jour, imposée à la source sur sa marge.
+  const banquier = j1.pnjs.find((p) => p.metier === "banquier")!;
+  assert.equal(
+    banquier.compte,
+    banquierAvant + interets - impotSur(interets, j1.params.tauxImpotBp),
+    "la banque de la ville encaisse les intérêts, moins l'impôt sur son gain",
+  );
+  assert.ok(
+    entrees(1, "flux", j1.journal).some((e) => e.texte.includes("Banque")),
+    "la banque raconte sa recette du soir",
+  );
 });
 
 test("sans le sou : les intérêts se capitalisent, la dette grossit", () => {
@@ -383,10 +549,18 @@ test("sans le sou : les intérêts se capitalisent, la dette grossit", () => {
 
 test("rembourser : la dette fond ; à zéro, la ville est libre", () => {
   let m = calme(createMondeDefaut());
+  const banquierAvant = m.pnjs.find((p) => p.metier === "banquier")!.compte;
   m = emprunterVille(m, 300000);
   m = rembourserVille(m, 100000);
   assert.equal(m.dette, 200000);
-  assert.equal(m.mouvementsBanqueCumules, 200000);
+  // Monde fermé : mouvementsBanqueCumules ne mesure plus que la création
+  // monétaire (les emprunts) — il ne baisse plus au remboursement.
+  assert.equal(m.mouvementsBanqueCumules, 300000, "création monétaire cumulée");
+  assert.equal(
+    m.pnjs.find((p) => p.metier === "banquier")!.compte,
+    banquierAvant + 100000,
+    "le remboursement rejoint la banque de la ville, pas l'extérieur",
+  );
   const libre = rembourserVille(m, 999999999);
   assert.equal(libre.dette, 0, "pas de remboursement au-delà de l'encours");
   assert.ok(libre.journal.some((x) => x.texte.includes("plus un centime de dette")), "la délivrance est racontée");
@@ -573,22 +747,32 @@ test("flux : sur-embauche et caisses vides — prorata, salaires impayés, faill
   assert.equal(j1.pnjs[0].compte, 0, "le patron a vidé ses caisses jusqu'au dernier centime");
 });
 
-test("flux : sans commerce ouvert, la ville se fournit à l'extérieur (sortie tracée)", () => {
+test("flux : sans boutique ouverte, la ville ne s'équipe pas — rien ne sort (monde fermé)", () => {
   let m = calme(createMondeDefaut());
+  // Tous les commerçants partis : plus aucune boutique, plus aucun service
+  // à vocation ouvert (hôpital, BTP, banque inclus) — cohérent : un service
+  // sans gérant est un service fermé.
   for (const p of m.pnjs.filter((p) => p.statut === "commercant")) m = supprimerPnj(m, p.id);
   const j1 = passerJour(m);
   const fonct = entrees(1, "fonctionnement", j1.journal)[0];
-  assert.ok(fonct.texte.includes("extérieurs"), "l'approvisionnement extérieur est raconté");
-  assert.equal(fonct.montant, 8000, "le fonctionnement reste dû");
-  assert.equal(j1.sortiesCumulees, 8000, "la sortie est tracée");
-  assert.equal(Object.keys(j1.recettesCommerce ?? {}).length, 0, "aucune recettes de commerce");
+  assert.ok(fonct.texte.includes("aucune boutique ouverte"), "l'inaction est racontée");
+  assert.equal(fonct.montant, 0, "le fonctionnement n'est pas dépensé");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé : aucune sortie");
+  // Seuls les salaires publics sortent des caisses (et l'impôt à la source
+  // sur ces soldes y revient) : le reste n'a pas bougé.
+  const impots = entrees(1, "impots", j1.journal)[0];
+  const salaires = entrees(1, "salaires", j1.journal)[0];
+  assert.equal(j1.budgetVille, m.budgetVille + impots.montant - salaires.montant, "les caisses n'ont bougé que des salaires publics");
+  assert.equal(Object.keys(j1.recettesCommerce ?? {}).length, 0, "aucune recette de commerce");
 });
 
 test("flux : deux employés au Fournil Doré, la bascule stock vers flux en monde réel", () => {
   const m = calme(createMondeDefaut());
   const boulangerie = m.batiments.find((b) => b.nom.includes("Fournil"))!.id;
-  m.pnjs[10] = { ...m.pnjs[10], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
-  m.pnjs[11] = { ...m.pnjs[11], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  // Les habitants commencent à l'indice 12 (après agents, commerçants et
+  // les trois patrons des services à vocation).
+  m.pnjs[12] = { ...m.pnjs[12], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  m.pnjs[13] = { ...m.pnjs[13], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
   const j1 = passerJour(m);
   const recettes = j1.recettesCommerce![boulangerie];
   const plafond = Math.round(PART_SALARIALE_FLUX * recettes);

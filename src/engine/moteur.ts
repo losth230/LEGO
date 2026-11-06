@@ -1,15 +1,19 @@
 // Moteur économique quotidien — cahier des charges §4.1 et §4.3.
 // Pur et déterministe : aucun accès réseau, aucun stockage, pas de React.
-// Ordre du règlement (§4.1) : salaires publics (impôt retenu à la source,
-// arbitrage 2026-11-06) -> fonctionnement (acheté sur place si un commerce
-// est ouvert, phase 3.6) -> intérêts -> achats -> redistribution du flux
-// (salaires privés + primes, impôt à la source, phase 3.6) -> incidents.
+// Ordre du règlement (§4.1) : salaires publics (impôt à la source, arbitrage
+// 2026-11-06) -> fonctionnement (acheté sur place, rien sinon : monde fermé)
+// -> intérêts (banque locale) -> achats -> incidents de la journée (frais
+// d'hôpital, réparations du BTP local) -> redistribution du flux le soir.
+// Monde 100 % fermé (2026-11-06) : aucune sortie documentée, tout reste
+// dans le circuit (la seule création monétaire : les emprunts, vers la
+// banque locale ; les seules pertes : le crime et l'usure non réparée).
 
 import type {
   Batiment,
   Etat,
   JournalEntree,
   Pnj,
+  Vocation,
 } from "./types.ts";
 import {
   COUT_EMPLOYE_PRIVE_L,
@@ -48,19 +52,38 @@ export function joursDeMarge(etat: Etat): number {
 /** Nombre de magasins ouverts pour un acheteur (un commerçant n'achète pas chez lui). */
 export function commercesPourAcheteur(etat: Etat, pnj: Pnj): Batiment[] {
   return etat.batiments.filter((b) => {
-    if (b.type !== "commerce") return false;
+    if (b.type !== "commerce" || b.vocation) return false;
     const proprio = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
     return proprio !== undefined && proprio.id !== pnj.id;
   });
 }
 
-/** Commerces ouverts : un commerce n'est ouvert que s'il a son commerçant. */
-export function commercesOuverts(etat: Etat): Batiment[] {
+/** Boutiques de consommation ouvertes : un commerce sans vocation n'est ouvert que s'il a son commerçant. */
+export function boutiquesOuvertes(etat: Etat): Batiment[] {
   return etat.batiments.filter(
     (b) =>
       b.type === "commerce" &&
+      !b.vocation &&
       etat.pnjs.some((p) => p.batimentId === b.id && p.statut === "commercant"),
   );
+}
+
+/**
+ * Service local à vocation (monde 100 % fermé, arbitrage 2026-11-06) :
+ * renvoie le bâtiment et son gérant si le service existe et est tenu,
+ * null sinon. Sans service en ville, aucune activité ni frais lié
+ * à ce service (santé, BTP, banque).
+ */
+export function serviceLocal(
+  etat: Etat,
+  vocation: Vocation,
+): { bat: Batiment; gerant: Pnj } | null {
+  for (const b of etat.batiments) {
+    if (b.type !== "commerce" || b.vocation !== vocation) continue;
+    const gerant = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
+    if (gerant) return { bat: b, gerant };
+  }
+  return null;
 }
 
 /** Employés privés travaillant dans un commerce (lieu de travail renseigné). */
@@ -123,7 +146,6 @@ interface Totaux {
   salairesDus: number;
   villeSansLeSou: boolean;
   fonctionnementPaye: number;
-  sortiesJour: number;
   achatsTotal: number;
   encaissements: Map<string, number>; // id bâtiment commerce -> centimes encaissés
   acheteursSansCommerce: number;
@@ -160,45 +182,51 @@ function etapeSalaires(etat: Etat, totaux: Totaux): void {
 
 function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
   // Phase 3.6 — la ville achète sur place : le fonctionnement des services
-  // rejoint les recettes des commerces ouverts et repart en salaires le soir.
-  // Sans commerce ouvert, la ville se fournit à l'extérieur (sortie tracée).
-  const boutiques = commercesOuverts(etat);
+  // rejoint les recettes des boutiques et repart en salaires le soir.
+  // Monde 100 % fermé (2026-11-06) : sans boutique ouverte, la ville ne
+  // s'équipe pas — rien n'est dépensé, rien ne quitte le circuit.
+  const boutiques = boutiquesOuvertes(etat);
   totaux.fonctionnementLocal = boutiques.length > 0;
+  if (boutiques.length === 0) return;
   for (const bat of etat.batiments) {
     if (bat.type !== "service_public") continue;
     const paye = Math.min(bat.coutFonctionnement, etat.budgetVille);
     etat.budgetVille -= paye;
     totaux.fonctionnementPaye += paye;
     if (paye === 0) continue;
-    if (boutiques.length === 0) {
-      etat.sortiesCumulees += paye;
-      totaux.sortiesJour += paye;
-    } else {
-      const parts = repartir(paye, boutiques.map(() => 1));
-      for (let i = 0; i < boutiques.length; i++) {
-        const proprio = etat.pnjs.find(
-          (p) => p.batimentId === boutiques[i].id && p.statut === "commercant",
-        );
-        if (proprio) proprio.compte += parts[i];
-        totaux.encaissements.set(
-          boutiques[i].id,
-          (totaux.encaissements.get(boutiques[i].id) ?? 0) + parts[i],
-        );
-      }
+    const parts = repartir(paye, boutiques.map(() => 1));
+    for (let i = 0; i < boutiques.length; i++) {
+      const proprio = etat.pnjs.find(
+        (p) => p.batimentId === boutiques[i].id && p.statut === "commercant",
+      );
+      if (proprio) proprio.compte += parts[i];
+      totaux.encaissements.set(
+        boutiques[i].id,
+        (totaux.encaissements.get(boutiques[i].id) ?? 0) + parts[i],
+      );
     }
   }
 }
 
-/** Intérêts de la dette versés à la banque (phase 3) ; impayés capitalisés. */
+/** Intérêts de la dette versés à la banque locale (phase 3) ; impayés capitalisés. */
 function etapeInterets(etat: Etat, totaux: Totaux): void {
   if (etat.dette <= 0) return;
+  // Monde 100 % fermé (2026-11-06) : sans banque en ville, la dette dort —
+  // aucun intérêt prélevé ni capitalisé.
+  const banque = serviceLocal(etat, "banque");
+  if (!banque) return;
   const du = interetsDus(etat.dette);
   const paye = Math.min(du, etat.budgetVille);
   etat.budgetVille -= paye;
-  etat.sortiesCumulees += paye;
+  banque.gerant.compte += paye; // circuit fermé : la banque locale encaisse
+  // Les intérêts sont la recette du jour de la banque : ils rejoignent le
+  // flux du soir (marge imposée à la source, redistribution si embauche).
+  totaux.encaissements.set(
+    banque.bat.id,
+    (totaux.encaissements.get(banque.bat.id) ?? 0) + paye,
+  );
   totaux.interetsPayes += paye;
   totaux.interetsDusTotal += du;
-  totaux.sortiesJour += paye;
   if (paye < du) {
     etat.dette += du - paye;
     totaux.interetsCapitalises += du - paye;
@@ -250,9 +278,9 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
     );
     if (!proprio) continue;
     const recettes = totaux.encaissements.get(bat.id) ?? 0;
-    etat.recettesCommerce[bat.id] = recettes;
     const employes = employesDuCommerce(etat, bat.id);
     if (recettes === 0 && employes.length === 0) continue;
+    etat.recettesCommerce[bat.id] = recettes;
 
     let impotCommerce = 0; // retenue à la source du jour pour ce commerce
     const salairesDus = employes.reduce((s, p) => s + p.revenuIndicatif, 0);
@@ -387,29 +415,34 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
             : " : " + nomPompiers + " contre un feu de gravité " + inc.gravite + ", les flammes ne cèdent que vers midi, ") +
         fmt(degats) + " de dégâts" +
         (renfort ? " — la garnison déploie engins et bras, le sinistre est contenu" : "");
-      // La ville paie la remise en état (§4.4) : sortie vers entreprises extérieures.
-      const repare = Math.min(degats, etat.budgetVille);
-      etat.budgetVille -= repare;
-      etat.sortiesCumulees += repare;
-      totaux.degatsJour += degats;
-      totaux.sortiesJour += repare;
-      if (dispo > 0) {
-        const carburant = inc.gravite * 5000;
-        const paye = Math.min(carburant, etat.budgetVille);
-        etat.budgetVille -= paye;
-        etat.sortiesCumulees += paye;
-        totaux.sortiesJour += paye;
+      // Monde 100 % fermé (2026-11-06) : la remise en état est payée à
+      // l'entreprise de BTP locale (recette redistribuée le soir). Sans BTP
+      // en ville, pas de réparation : le bâtiment reste marqué, rien ne sort.
+      const btp = serviceLocal(etat, "btp");
+      const repare = btp ? Math.min(degats, etat.budgetVille) : 0;
+      if (btp && repare > 0) {
+        etat.budgetVille -= repare;
+        btp.gerant.compte += repare;
+        totaux.encaissements.set(
+          btp.bat.id,
+          (totaux.encaissements.get(btp.bat.id) ?? 0) + repare,
+        );
       }
+      totaux.degatsJour += degats;
       if (repare >= degats) {
-        texte += " — réparés dans la foulée pour " + fmt(repare) + ".";
+        texte +=
+          " — réparés dans la foulée par " + (btp ? btp.bat.nom : "une entreprise locale") +
+          " pour " + fmt(repare) + " : l'argent reste en ville.";
         entrees.push({ jour: etat.jour, type: "incident", texte, montant: -degats });
       } else {
         bat.valeur -= degats - repare;
         bat.etat = dispo === 0 ? "sinistre" : "degrade";
         texte +=
-          repare > 0
-            ? " — les caisses n'ont payé que " + fmt(repare) + ", le bâtiment reste marqué."
-            : " — les caisses sont vides, le bâtiment reste marqué.";
+          !btp
+            ? " — aucune entreprise de BTP en ville : les dégâts resteront marqués."
+            : repare > 0
+              ? " — les caisses n'ont payé que " + fmt(repare) + ", le bâtiment reste marqué."
+              : " — les caisses sont vides, le bâtiment reste marqué.";
         entrees.push({ jour: etat.jour, type: "incident", texte, montant: -degats });
       }
     } else if (inc.type === "cambriolage") {
@@ -448,14 +481,24 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       const victime = etat.pnjs.find((p) => p.id === inc.cibleId);
       if (!victime) continue;
       const dispo = pompiers.length;
-      const frais = Math.round(
+      const sante = serviceLocal(etat, "sante");
+      // Monde 100 % fermé (2026-11-06) : les soins sont facturés par le
+      // service de santé local (recette redistribuée le soir). Sans hôpital
+      // en ville, pas de mécanique de santé — aucune facture.
+      const fraisBrut = Math.round(
         fraisMedicaux(inc.gravite, dispo < inc.gravite, victime.compte) *
           coefficientRenfort(inc.gravite, armee.length),
       );
-      victime.compte -= frais;
-      etat.sortiesCumulees += frais;
-      totaux.fraisMedicauxJour += frais;
-      totaux.sortiesJour += frais;
+      const frais = Math.min(Math.min(fraisBrut, victime.compte), sante ? fraisBrut : 0);
+      if (sante && frais > 0) {
+        victime.compte -= frais;
+        sante.gerant.compte += frais;
+        totaux.encaissements.set(
+          sante.bat.id,
+          (totaux.encaissements.get(sante.bat.id) ?? 0) + frais,
+        );
+        totaux.fraisMedicauxJour += frais;
+      }
       entrees.push({
         jour: etat.jour,
         type: "incident",
@@ -468,8 +511,11 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
               ? " est dégagé en dix minutes par les pompiers"
               : " attend les secours, l'effectif est juste") +
           (renfort ? " — la garnison lève un poste de secours, les frais sont contenus" : "") +
-          " — " + fmt(frais) + " de frais médicaux.",
-        montant: -frais,
+          (sante
+            ? " — " + fmt(frais) + " de soins facturés à " + sante.bat.nom + " : l'argent reste en ville."
+            : " — aucun service de santé en ville : personne pour facturer les soins.") +
+          (sante && frais === 0 ? " (la victime n'avait pas un centime)" : ""),
+        montant: frais === 0 ? 0 : -frais,
       });
     }
   }
@@ -516,16 +562,16 @@ function journaliserJour(
       ? "Fournitures, énergie et entretien des services publics : " +
         fmt(totaux.fonctionnementPaye) +
         " versés aux commerces locaux — la ville achète sur place, l'argent reste dans le circuit."
-      : "Fournitures, énergie et entretien des services publics : " +
-        fmt(totaux.fonctionnementPaye) +
-        " quittent le circuit vers des fournisseurs extérieurs — aucun commerce ouvert pour acheter sur place.",
+      : "Fournitures, énergie et entretien des services publics : aucune boutique ouverte en ville, la ville ne s'équipe pas — rien ne quitte le circuit (monde fermé).",
     montant: totaux.fonctionnementPaye,
   });
   if (totaux.achatsTotal > 0 || totaux.acheteursSansCommerce > 0) {
     const detail: string[] = [];
     for (const [batId, somme] of totaux.encaissements) {
       const bat = etat.batiments.find((b) => b.id === batId);
-      if (bat) detail.push(bat.nom + " : " + fmt(somme));
+      // Les services à vocation (santé, BTP, banque) ne sont pas des courses :
+      // leurs recettes sont racontées par les incidents et le flux du soir.
+      if (bat && !bat.vocation) detail.push(bat.nom + " : " + fmt(somme));
     }
     j.push({
       jour: etat.jour,
@@ -633,7 +679,6 @@ export function passerJour(etat: Etat): Etat {
     salairesDus: 0,
     villeSansLeSou: false,
     fonctionnementPaye: 0,
-    sortiesJour: 0,
     achatsTotal: 0,
     encaissements: new Map(),
     acheteursSansCommerce: 0,
@@ -654,8 +699,11 @@ export function passerJour(etat: Etat): Etat {
   etapeFonctionnement(e, totaux);
   etapeInterets(e, totaux);
   etapeAchats(e, totaux);
-  const entreesFlux = etapeSalariesPrives(e, totaux);
+  // Les incidents arrivent dans la journée (frais d'hôpital, réparations du
+  // BTP) : le règlement du soir (flux) les redistribue comme toute recette
+  // du jour — monde fermé, l'argent ne fait que circuler.
   const entreesIncidents = etapeIncidents(e, totaux);
+  const entreesFlux = etapeSalariesPrives(e, totaux);
   journaliserJour(e, totaux, entreesFlux, entreesIncidents);
   return e;
 }
