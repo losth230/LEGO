@@ -554,6 +554,11 @@ test("profil criminel : les traits, la pauvreté et le casier pèsent, pas le ha
 test("milieu criminel : chaque voleur journalisé porte un casier (tirage profilé)", () => {
   let m = createMondeDefaut();
   m = modifierVille(m, { coeffIntensite: 100000 });
+  // Budgets aléatoires (v1.16) : les gros tirages vident vite les comptes —
+  // on garantit des victimes solvables sur toute la période testée.
+  m.pnjs.forEach((p) => {
+    if (p.statut !== "agent_public") p.compte = Math.max(p.compte, 5000000);
+  });
   for (let j = 1; j <= 30; j++) m = passerJour(m);
   const vols = m.journal.filter((e) => e.texte.includes("poche de"));
   assert.ok(vols.length > 0, "des cambriolages ont eu lieu sur 30 jours");
@@ -568,6 +573,10 @@ test("milieu criminel : chaque voleur journalisé porte un casier (tirage profil
 test("territoire de gang : les Corbeaux ne volent que sur leur terrain", () => {
   let m = createMondeDefaut();
   assainir(m); // seul le gang garde un profil criminel
+  // Budgets aléatoires (v1.16) : victimes solvables sur toute la période.
+  m.pnjs.forEach((p) => {
+    if (p.statut !== "agent_public") p.compte = Math.max(p.compte, 5000000);
+  });
   m = modifierVille(m, { coeffIntensite: 100000 });
   for (let j = 1; j <= 20; j++) m = passerJour(m);
   const vols = m.journal.filter((e) => e.texte.includes("Cambriolage chez"));
@@ -757,9 +766,13 @@ test("rembourser : la dette fond ; à zéro, la ville est libre", () => {
 
 test("alerte trésorerie : le journal somme la ville de choisir", () => {
   let m = calme(createMondeDefaut());
+  // Budgets aléatoires (v1.16) : les impôts du jour varient au tirage (ils
+  // peuvent dépasser les charges). Sans impôt, la marge ne dépend que du
+  // budget versé — le test reste exact quelle que soit la partie.
+  m.params.tauxImpotBp = 0;
   m = modifierVille(m, { budgetVille: 300 });
   const j1 = passerJour(m);
-  assert.ok(joursDeMarge(j1) <= 5, "la marge est critique");
+  assert.equal(joursDeMarge(j1), 0, "la marge est critique : caisses vides");
   assert.ok(
     j1.journal.some(
       (x) =>

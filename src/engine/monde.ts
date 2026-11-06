@@ -179,11 +179,19 @@ export function createMondeDefaut(): Etat {
     ["musicien", 3100], ["guide touristique", 3900], ["horticultrice", 4100], ["grutier", 5700],
     ["pâtissière", 4900], ["ébéniste", 4600], ["contrôleuse SNCF", 5800],
   ];
+  // Noms complets uniques (correctif 2026-11-06) : le journal identifie les
+  // figurines par leur nom — deux homonymes faussaient le rattachement (un
+  // cambriolage pouvait être porté au casier du mauvais figurant). En cas de
+  // collision, on avance dans la liste des noms jusqu'à un nom libre.
+  const nomsPris = new Set<string>(pnjs.map((p) => p.prenom + " " + p.nom));
   for (let i = 0; i < metiers.length; i++) {
     const [metier, revenu] = metiers[i];
     const genre: "F" | "M" = i % 2 === 0 ? "F" : "M";
     const prenom = genre === "F" ? PRENOMS_F[i % PRENOMS_F.length] : PRENOMS_M[i % PRENOMS_M.length];
-    const nom = NOMS[i % NOMS.length];
+    let idxNom = i % NOMS.length;
+    while (nomsPris.has(prenom + " " + NOMS[idxNom % NOMS.length])) idxNom += 1;
+    const nom = NOMS[idxNom % NOMS.length];
+    nomsPris.add(prenom + " " + nom);
     pnjs.push(
       nouveauPnj({
         prenom,
