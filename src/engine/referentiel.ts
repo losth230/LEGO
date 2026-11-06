@@ -53,9 +53,10 @@ export const TAUX_IMPOT_DEFAUT_BP = Math.round(
 export const COEFF_INTENSITE_DEFAUT = Math.max(1, Math.round(refNombre("meta.coeff_intensite.valeur", 1000)));
 
 /**
- * Service pénitentiaire (phase 3.10, arbitrage Thibaut 2026-11-06) : frais de
- * détention par détenu et par jour (L), et chances de rédemption à la
- * libération selon la qualité du service (maison d'arrêt tenue ou pas).
+ * Détention au commissariat (phase 3.10, corrections Thibaut 2026-11-06) :
+ * frais de garde par détenu et par jour (L), versés en prime aux policiers
+ * en poste ; chances de rédemption à la libération selon l'effectif de
+ * police (assez de policiers que de détenus, ou commissariat débordé).
  */
 export const FRAIS_DETENTION_L = refNombre("penitentiaire.frais_detention_par_detenu_jour.valeur", 5);
 export const CHANCE_REDEMPTION_ACTIF = refNombre("penitentiaire.chance_redemption_service_actif.valeur", 50) / 100;

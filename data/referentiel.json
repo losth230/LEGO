@@ -1,5 +1,5 @@
 {
-  "version": "1.9",
+  "version": "1.10",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -534,22 +534,22 @@
       "valeur": 5,
       "unite": "L/jour/détenu",
       "annee": 2026,
-      "source": "Arbitrage Thibaut 2026-11-06 — service pénitentiaire",
-      "note": "Frais de détention payés par la ville à la maison d'arrêt locale pour chaque détenu du jour (recette redistribuée le soir comme tout commerce — monde fermé)."
+      "source": "Arbitrage Thibaut 2026-11-06 — service pénitentiaire, détention au commissariat (correction du même jour)",
+      "note": "Prime de garde payée par la ville aux policiers en poste pour chaque détenu du jour : les détenus sont gardés au commissariat, pas dans un bâtiment dédié. Répartie entre agents, imposée à la source comme toute solde (monde fermé). Sans police en poste, rien n'est payé."
     },
     "chance_redemption_service_actif": {
       "valeur": 50,
       "unite": "% à la libération",
       "annee": 2026,
-      "source": "Arbitrage Thibaut 2026-11-06 — rédemption fonction de la qualité du service pénitentiaire",
-      "note": "Un détenu qui sort d'une maison d'arrêt tenue par son gérant a 50 % de chances de perdre un trait criminel (remplacé par honnête). Le casier reste : la récidive est possible, juste moins probable."
+      "source": "Arbitrage Thibaut 2026-11-06 — rédemption fonction de la qualité du service (correction : effectif du commissariat)",
+      "note": "Un détenu a 50 % de chances de perdre un trait criminel (remplacé par honnête) à sa libération si la police est au moins aussi nombreuse que les détenus du jour. Le casier reste : la récidive est possible, juste moins probable."
     },
     "chance_redemption_sans_service": {
       "valeur": 10,
       "unite": "% à la libération",
       "annee": 2026,
-      "source": "Arbitrage Thibaut 2026-11-06",
-      "note": "Sans maison d'arrêt (ou sans gérant), la détention se joue en assignation à résidence et ne corrige presque personne."
+      "source": "Arbitrage Thibaut 2026-11-06 — commissariat débordé (correction du même jour)",
+      "note": "Commissariat débordé (moins de policiers que de détenus) : la garde ne corrige presque personne, 10 % seulement à la libération."
     }
   }
 }

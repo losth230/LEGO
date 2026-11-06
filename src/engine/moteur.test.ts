@@ -78,25 +78,25 @@ function neutraliserCourses(etat: Etat, metier: string): void {
   if (i >= 0) etat.pnjs[i] = { ...etat.pnjs[i], budgetAchat: 0 };
 }
 
-test("monde par défaut : 15 bâtiments, 56 figurines (garnison, gang et maison d'arrêt incluses), jour 0", () => {
+test("monde par défaut : 14 bâtiments, 55 figurines (garnison et gang incluses), jour 0", () => {
   const m = createMondeDefaut();
-  assert.equal(m.batiments.length, 15);
-  assert.equal(m.pnjs.length, 56);
+  assert.equal(m.batiments.length, 14);
+  assert.equal(m.pnjs.length, 55);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
   assert.equal(services.length, 4);
   const agents = m.pnjs.filter((p) => p.statut === "agent_public");
   assert.equal(agents.length, 6);
-  // Monde 100 % fermé : 3 boutiques de consommation + 4 services à vocation
-  // (hôpital, BTP, banque, maison d'arrêt), chacun tenu par son gérant.
+  // Monde 100 % fermé : 3 boutiques de consommation + 3 services à vocation
+  // (hôpital, BTP, banque), chacun tenu par son gérant. La détention se
+  // joue au commissariat (Poste de police), pas dans un bâtiment dédié.
   const boutiques = m.batiments.filter((b) => b.type === "commerce" && !b.vocation);
   assert.equal(boutiques.length, 3);
   assert.ok(serviceLocal(m, "sante") !== null, "l'hôpital est en ville et tenu");
   assert.ok(serviceLocal(m, "btp") !== null, "le BTP est en ville et tenu");
   assert.ok(serviceLocal(m, "banque") !== null, "la banque est en ville et tenue");
-  assert.ok(serviceLocal(m, "prison") !== null, "la maison d'arrêt est en ville et tenue");
-  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 7);
+  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 6);
 });
 
 test("un jour : impôts retenus à la source, salaires versés, sorties tracées, achats encaissés", () => {
@@ -253,9 +253,9 @@ test("l'épargne n'est pas touchée par le moteur", () => {
 
 test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
   assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 56);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 55);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 56, "version future -> monde par défaut");
+  assert.equal(futur.pnjs.length, 55, "version future -> monde par défaut");
   const m = migrerEtat({ schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
@@ -1005,7 +1005,7 @@ test("traits actifs : le ciblage pèse la personnalité (victimes ×1,5/×0,5, t
   assert.equal(poidsAccident({ ...temoin, personnalite: ["téméraire", "honnête"] }), 2, "le téméraire se fait plus souvent mal (×2)");
 });
 
-test("maison d'arrêt : la ville paie 5 L par détenu et par jour, l'argent reste en ville", () => {
+test("commissariat : la ville paie 5 L par détenu et par jour en prime de garde aux policiers", () => {
   const temoin = calme(createMondeDefaut());
   const avec = structuredClone(temoin);
   const detenu = avec.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
@@ -1015,14 +1015,23 @@ test("maison d'arrêt : la ville paie 5 L par détenu et par jour, l'argent rest
   const t1 = passerJour(temoin);
   const fonct1 = entrees(1, "fonctionnement", j1.journal)[0];
   const fonctT = entrees(1, "fonctionnement", t1.journal)[0];
-  assert.ok(fonct1.texte.includes("frais de détention"), "les frais de détention sont racontés");
+  assert.ok(fonct1.texte.includes("primes de garde"), "la prime de garde est racontée");
   assert.equal(fonct1.montant! - fonctT.montant!, FRAIS_DETENTION_L * 100, "5 L par détenu, payés en plus du fonctionnement");
-  // Coût net : les frais partent, mais la marge du gérant est imposée à la
-  // source — l'impôt revient aux caisses (monde fermé, rien ne se perd).
+  // Coût net : la prime part aux policiers, mais l'impôt à la source sur
+  // chaque part revient aux caisses (monde fermé, rien ne se perd).
   const net = FRAIS_DETENTION_L * 100 - impotSur(FRAIS_DETENTION_L * 100, avec.params.tauxImpotBp);
-  assert.equal(j1.budgetVille - t1.budgetVille, -net, "coût net des frais pour la ville : " + net);
-  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(avec), "conservation exacte : l'argent rejoint la maison d'arrêt");
-  assert.equal(j1.sortiesCumulees, 0, "monde fermé : les frais ne fuient pas vers l'extérieur");
+  assert.equal(j1.budgetVille - t1.budgetVille, -net, "coût net de la prime pour la ville : " + net);
+  const karim1 = j1.pnjs.find((x) => x.metier.includes("policier"))!;
+  const karimT = t1.pnjs.find((x) => x.metier.includes("policier"))!;
+  assert.equal(karim1.compte - karimT.compte, net, "le policier encaisse la prime de garde, nette d'impôt");
+  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(avec), "conservation exacte : la prime reste en ville");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé : la prime ne fuit pas vers l'extérieur");
+  // Sans police en poste, personne ne garde les cellules : rien n'est payé.
+  const vide = structuredClone(avec);
+  const karim = vide.pnjs.find((x) => x.metier.includes("policier"))!;
+  const sans = passerJour(supprimerPnj(vide, karim.id));
+  const fonctSans = entrees(1, "fonctionnement", sans.journal)[0];
+  assert.ok(!fonctSans.texte.includes("primes de garde"), "sans police en poste, pas de prime de garde");
 });
 
 test("racheter : le premier trait criminel s'efface (cupide, puis opportuniste, puis téméraire)", () => {
@@ -1032,22 +1041,23 @@ test("racheter : le premier trait criminel s'efface (cupide, puis opportuniste, 
   assert.equal(racheter(p), null, "un honnête homme ne peut plus se racheter");
 });
 
-test("rédemption : à sa sortie, le détenu peut se racheter — la maison d'arrêt quintuple les chances", () => {
-  // Le tirage de libération du jour choisi tombe entre 10 % et 50 % : avec la
-  // maison d'arrêt le détenu se rachète, sans elle il ressort amer (10 % seul).
+test("rédemption : à sa sortie, le détenu peut se racheter — l'effectif du commissariat décide", () => {
+  // Le tirage de libération du jour choisi tombe entre 10 % et 50 % : avec
+  // un effectif suffisant le détenu se rachète, débordé il ressort amer.
   let jour = 1;
   let tirage = generateurPour(jour * 11 + 7)();
   while (!(tirage > CHANCE_REDEMPTION_SANS && tirage < CHANCE_REDEMPTION_ACTIF)) {
     jour += 1;
     tirage = generateurPour(jour * 11 + 7)();
   }
+  // Un policier en poste (Karim), un détenu libéré ce jour-là : effectif
+  // suffisant (1 >= 1), 50 % de chances — ce tirage-là rachète.
   const base = calme(createMondeDefaut());
   const detenu = base.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
   detenu.personnalite = ["cupide", "discret"];
   detenu.casier = 1;
   detenu.arreteJusqua = jour;
   base.jour = jour - 1;
-  // Avec la maison d'arrêt (chance 50 %) : ce tirage-là rachète.
   const avec = passerJour(structuredClone(base));
   const pAvec = avec.pnjs.find((p) => p.id === detenu.id)!;
   assert.ok(
@@ -1056,13 +1066,15 @@ test("rédemption : à sa sortie, le détenu peut se racheter — la maison d'ar
   );
   assert.ok(pAvec.personnalite!.includes("honnête") && !pAvec.personnalite!.includes("cupide"), "cupide s'est effacé au profit d'honnête");
   assert.equal(pAvec.casier, 1, "le casier reste : la récidive reste possible");
-  assert.ok((pAvec.arreteJusqua ?? 0) <= jour, "le détenu est libre");
-  // Sans service pénitentiaire (chance 10 %) : mêmes tirages, pas de rédemption ce jour-là.
-  const nadia = base.pnjs.find((p) => p.nom === "Hoarau")!;
-  const sans = passerJour(supprimerPnj(structuredClone(base), nadia.id));
+  assert.ok(avec.journal.some((e) => e.texte.includes("effectif suffisant")), "l'effectif suffisant est raconté");
+  // Commissariat débordé : un deuxième détenu, un seul policier (1 < 2) —
+  // 10 % seulement, et ce tirage-là ne rachète pas.
+  const deborde = structuredClone(base);
+  const second = deborde.pnjs.find((p) => p.statut === "prive" && !p.gangId && p.id !== detenu.id)!;
+  second.arreteJusqua = jour + 5;
+  const sans = passerJour(deborde);
   const pSans = sans.pnjs.find((p) => p.id === detenu.id)!;
-  assert.equal(serviceLocal(sans, "prison"), null, "plus de maison d'arrêt tenue");
-  assert.ok(!sans.journal.some((e) => e.texte.includes("se rachète")), "sans service, pas de rédemption ce jour-là");
+  assert.ok(!sans.journal.some((e) => e.texte.includes("se rachète")), "débordé, pas de rédemption ce jour-là");
   assert.ok(pSans.personnalite!.includes("cupide"), "le trait criminel est resté");
 });
 

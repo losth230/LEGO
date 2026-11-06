@@ -106,9 +106,8 @@ export function createMondeDefaut(): Etat {
     nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacite: 4, vocation: "sante" }),
     nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacite: 4, vocation: "btp" }),
     nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacite: 2, vocation: "banque" }),
-    // Service pénitentiaire (phase 3.10, arbitrage Thibaut 2026-11-06) : la
-    // qualité de la détention (gérant présent) décide de la rédemption.
-    nouveauBatiment({ nom: "Maison d'arrêt de Bricke-en-Provence", type: "commerce", quartier: "Nord", valeur: 600000, capacite: 6, vocation: "prison" }),
+    // Phase 3.10 (correction Thibaut 2026-11-06) : les détenus sont gardés
+    // au Poste de police, pas dans un bâtiment dédié — pas de maison d'arrêt.
     nouveauBatiment({ nom: "Les Terrasses (immeuble)", type: "habitation", quartier: "Centre", valeur: 1500000, capacite: 16 }),
     nouveauBatiment({ nom: "Maison des Dupont", type: "habitation", quartier: "Nord", valeur: 350000, capacite: 4 }),
     nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capacite: 20 }),
@@ -125,10 +124,9 @@ export function createMondeDefaut(): Etat {
   const idHopital = batiments[6].id;
   const idBtp = batiments[7].id;
   const idBanque = batiments[8].id;
-  const idPrison = batiments[9].id;
-  const immeubles = [batiments[10].id, batiments[11].id, batiments[12].id, batiments[13].id];
+  const immeubles = [batiments[9].id, batiments[10].id, batiments[11].id, batiments[12].id];
   const idStade = immeubles[2]; // Résidence du Stade (Sud) — fief des Corbeaux
-  const idCaserneMilitaire = batiments[14].id;
+  const idCaserneMilitaire = batiments[13].id;
 
   const pnjs: Pnj[] = [];
 
@@ -151,7 +149,6 @@ export function createMondeDefaut(): Etat {
   pnjs.push(nouveauPnj({ prenom: "Sofia", nom: "Marchand", age: 44, genre: "F", metier: "cheffe de l'hôpital", statut: "commercant", batimentId: idHopital, revenuIndicatif: 7500, compte: 750000 }));
   pnjs.push(nouveauPnj({ prenom: "Dario", nom: "Costa", age: 39, genre: "M", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: idBtp, revenuIndicatif: 5500, compte: 550000 }));
   pnjs.push(nouveauPnj({ prenom: "Émile", nom: "Verne", age: 51, genre: "M", metier: "banquier", statut: "commercant", batimentId: idBanque, revenuIndicatif: 8000, compte: 800000 }));
-  pnjs.push(nouveauPnj({ prenom: "Nadia", nom: "Hoarau", age: 41, genre: "F", metier: "cheffe de la maison d'arrêt", statut: "commercant", batimentId: idPrison, revenuIndicatif: 6500, compte: 650000 }));
 
   // 39 habitants privés : métiers narratifs, revenus variés autour du médian.
   const metiers: Array<[string, number]> = [

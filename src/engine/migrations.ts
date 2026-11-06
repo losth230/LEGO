@@ -63,10 +63,17 @@ export function migrerEtat(brut: unknown): Etat {
         ? (p as Partial<{ arreteJusqua?: number }>).arreteJusqua
         : 0,
   }));
-  const batiments = (Array.isArray(b.batiments) ? b.batiments : defaut.batiments).map((x) => ({
-    ...x,
-    vocation: (x as Partial<{ vocation?: Vocation | null }>).vocation ?? null,
-  }));
+  const batiments = (Array.isArray(b.batiments) ? b.batiments : defaut.batiments).map((x) => {
+    // Correction 2026-11-06 (v1.15) : plus de vocation « prison » — les détenus
+    // sont gardés au commissariat. Un bâtiment sauvegardé sous v1.14 avec
+    // l'ancienne vocation « prison » redevient une boutique ordinaire.
+    const vocationBrute = (x as Partial<{ vocation?: unknown }>).vocation;
+    return {
+      ...x,
+      vocation:
+        vocationBrute === "prison" ? null : ((vocationBrute as Vocation | null) ?? null),
+    };
+  });
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;
   const recettesCommerce =
     b.recettesCommerce !== null && typeof b.recettesCommerce === "object"

@@ -1,7 +1,8 @@
 // Moteur économique quotidien — cahier des charges §4.1 et §4.3.
 // Pur et déterministe : aucun accès réseau, aucun stockage, pas de React.
 // Ordre du règlement (§4.1) : salaires publics (impôt à la source, arbitrage
-// 2026-11-06) -> frais de détention (phase 3.10, maison d'arrêt locale)
+// 2026-11-06) -> frais de détention (phase 3.10 : prime de garde aux
+// policiers en poste, les détenus sont gardés au commissariat)
 // -> fonctionnement (acheté sur place, rien sinon : monde fermé)
 // -> intérêts (banque locale) -> achats (budget effectif modulé par les
 // traits, phase 3.10) -> incidents de la journée (frais d'hôpital,
@@ -212,25 +213,27 @@ function etapeSalaires(etat: Etat, totaux: Totaux): void {
 }
 
 function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
-  // Service pénitentiaire (phase 3.10) : chaque détenu du jour coûte des
-  // frais à la ville, payés à la maison d'arrêt locale (recette du jour,
-  // redistribuée le soir — monde fermé). Se paie même sans boutique ouverte :
-  // on ne rationne pas les prisons par fantaisie commerciale.
-  const prison = serviceLocal(etat, "prison");
-  if (prison) {
-    const detenus = etat.pnjs.filter((p) => (p.arreteJusqua ?? 0) > etat.jour).length;
-    if (detenus > 0) {
-      const du = Math.round(FRAIS_DETENTION_L * 100) * detenus;
-      const paye = Math.min(du, etat.budgetVille);
-      etat.budgetVille -= paye;
-      prison.gerant.compte += paye;
-      totaux.fonctionnementPaye += paye;
-      totaux.detentionPayee += paye;
-      totaux.encaissements.set(
-        prison.bat.id,
-        (totaux.encaissements.get(prison.bat.id) ?? 0) + paye,
-      );
+  // Frais de détention (phase 3.10, correction Thibaut 2026-11-06 : les
+  // détenus sont gardés au commissariat, pas dans un bâtiment dédié) :
+  // chaque détenu du jour coûte 5 L à la ville, versés en prime de garde
+  // aux policiers en poste (répartie, imposée à la source comme toute
+  // solde — monde fermé). Se paie même sans boutique ouverte ; sans
+  // police en poste, personne ne garde les cellules, rien n'est payé.
+  const police = gardePolice(etat);
+  const detenus = etat.pnjs.filter((p) => (p.arreteJusqua ?? 0) > etat.jour).length;
+  if (detenus > 0 && police.length > 0) {
+    const du = Math.round(FRAIS_DETENTION_L * 100) * detenus;
+    const paye = Math.min(du, etat.budgetVille);
+    const parts = repartir(paye, police.map(() => 1));
+    etat.budgetVille -= paye;
+    for (let i = 0; i < police.length; i++) {
+      const impot = Math.min(impotSur(parts[i], etat.params.tauxImpotBp), parts[i]);
+      police[i].compte += parts[i] - impot;
+      etat.budgetVille += impot;
+      totaux.impotsPayes += impot;
     }
+    totaux.fonctionnementPaye += paye;
+    totaux.detentionPayee += paye;
   }
   // Phase 3.6 — la ville achète sur place : le fonctionnement des services
   // rejoint les recettes des boutiques et repart en salaires le soir.
@@ -460,9 +463,14 @@ export function racheter(pnj: Pnj): string | null {
 function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
   const entrees: JournalEntree[] = [];
   // Libérations du jour (phase 3.10) : à sa sortie, un détenu peut se
-  // racheter — la qualité du service pénitentiaire décide des chances.
-  const prison = serviceLocal(etat, "prison");
-  const chance = prison ? CHANCE_REDEMPTION_ACTIF : CHANCE_REDEMPTION_SANS;
+  // racheter — et la qualité du service dépend de l'effectif du
+  // commissariat (correction Thibaut 2026-11-06 : les détenus sont gardés
+  // au poste, pas dans un bâtiment dédié). Police au moins aussi nombreuse
+  // que les détenus du jour : 50 % ; commissariat débordé : 10 %.
+  const police = gardePolice(etat);
+  const detenusCeJour = etat.pnjs.filter((p) => (p.arreteJusqua ?? 0) >= etat.jour).length;
+  const serviceActif = police.length >= detenusCeJour;
+  const chance = serviceActif ? CHANCE_REDEMPTION_ACTIF : CHANCE_REDEMPTION_SANS;
   const aleaSortie = generateurPour(etat.jour * 11 + 7);
   for (const libere of etat.pnjs.filter(
     (p) => (p.arreteJusqua ?? 0) === etat.jour && (p.casier ?? 0) > 0,
@@ -476,13 +484,12 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       texte:
         libere.prenom + " " + libere.nom + " sort de détention et se rachète : le trait « " +
         traitPerdu + " » s'efface, remplacé par « honnête » — " +
-        (prison
-          ? "la maison d'arrêt a fait son œuvre (le casier reste : " + (libere.casier ?? 0) + " fait(s))."
-          : "même sans service pénitentiaire, contre toute attente."),
+        (serviceActif
+          ? "le commissariat, en effectif suffisant, a fait son œuvre (le casier reste : " + (libere.casier ?? 0) + " fait(s))."
+          : "même d'un commissariat débordé, contre toute attente."),
     });
   }
   const pompiers = gardePompiers(etat);
-  const police = gardePolice(etat);
   const armee = gardeArmee(etat);
 
   for (const inc of tirerIncidents(etat, etat.jour)) {
@@ -548,11 +555,17 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       const dispo = police.length;
       if (dispo >= inc.gravite) {
         // Rien de volé — et le malfaiteur est arrêté sur le fait (phase 3.9) :
-        // le casier se remplit, l'assignation à résidence le neutralise
+        // le casier se remplit, la détention au commissariat le neutralise
         // quelques jours (3 × gravité), le monde reste fermé.
         voleur.casier = (voleur.casier ?? 0) + 1;
         const duree = 3 * inc.gravite;
         voleur.arreteJusqua = etat.jour + duree;
+        // Correction Thibaut 2026-11-06 : les détenus sont gardés au
+        // commissariat (le poste de police de la ville), pas dans un
+        // bâtiment dédié. Sans poste en ville : assignation à résidence.
+        const commissariat = etat.batiments.find(
+          (b) => b.type === "service_public" && /police|commissariat/i.test(b.nom),
+        );
         entrees.push({
           jour: etat.jour,
           type: "incident",
@@ -561,7 +574,7 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
             " : la patrouille le surprend à temps, rien de volé — " +
             voleur.prenom + " " + voleur.nom + " est arrêté sur le fait" + signature +
             ", " + duree + " jour" + (duree > 1 ? "s" : "") +
-            (prison !== null ? " à " + prison.bat.nom : " d'assignation à résidence") +
+            (commissariat ? " au " + commissariat.nom : " d'assignation à résidence") +
             ".",
         });
       } else {
@@ -729,12 +742,12 @@ function journaliserJour(
         fmt(totaux.fonctionnementPaye) +
         " versés aux commerces locaux — la ville achète sur place, l'argent reste dans le circuit." +
         (totaux.detentionPayee > 0
-          ? " Dont " + fmt(totaux.detentionPayee) + " de frais de détention facturés par la maison d'arrêt."
+          ? " Dont " + fmt(totaux.detentionPayee) + " de primes de garde versées aux policiers en poste (frais de détention)."
           : "")
       : totaux.detentionPayee > 0
-        ? "Aucune boutique ouverte : la ville ne s'équipe pas, mais la maison d'arrêt facture " +
+        ? "Aucune boutique ouverte : la ville ne s'équipe pas, mais les policiers de garde encaissent " +
           fmt(totaux.detentionPayee) +
-          " de frais de détention — l'argent reste dans le circuit (monde fermé)."
+          " de primes de détention — l'argent reste dans le circuit (monde fermé)."
         : "Fournitures, énergie et entretien des services publics : aucune boutique ouverte en ville, la ville ne s'équipe pas — rien ne quitte le circuit (monde fermé).",
     montant: totaux.fonctionnementPaye,
   });
