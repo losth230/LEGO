@@ -535,7 +535,7 @@
       "unite": "L/jour/détenu",
       "annee": 2026,
       "source": "Arbitrage Thibaut 2026-11-06 — service pénitentiaire, détention au commissariat (correction du même jour)",
-      "note": "Prime de garde payée par la ville aux policiers en poste pour chaque détenu du jour : les détenus sont gardés au commissariat, pas dans un bâtiment dédié. Répartie entre agents, imposée à la source comme toute solde (monde fermé). Sans police en poste, rien n'est payé."
+      "note": "Prime de garde payée par la ville aux policiers en poste pour chaque détenu du jour : les détenus sont gardés au poste de police, pas dans un bâtiment dédié. Répartie entre agents, imposée à la source comme toute solde (monde fermé). Sans poste de police en ville ou sans policier en poste, la détention se joue en assignation à résidence : rien n'est payé."
     },
     "chance_redemption_service_actif": {
       "valeur": 50,

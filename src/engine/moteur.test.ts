@@ -7,8 +7,9 @@
 // jour (salaires + primes), la marge patronale seule reste au patron.
 // Phase 3.9 : cartes d'identité & milieu criminel — profil criminel pondéré,
 // territoire de gang, arrestations, guerres de gangs, migration v8.
-// Phase 3.10 : traits actifs & maison d'arrêt — consommation modulée (±20 %),
-// ciblage pondéré par traits, frais de détention, rédemption, éditeur des gangs.
+// Phase 3.10 : traits actifs & détention au commissariat — consommation
+// modulée (±20 %), ciblage pondéré par traits, prime de garde, rédemption,
+// éditeur des gangs.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -975,7 +976,7 @@ test("flux : deux employés au Fournil Doré, la bascule stock vers flux en mond
   assert.equal(j1.sortiesCumulees, 0, "rien ne sort du circuit quand les commerces sont ouverts");
 });
 
-// ---------- Phase 3.10 : traits actifs & maison d'arrêt ----------
+// ---------- Phase 3.10 : traits actifs & détention au commissariat ----------
 
 test("traits actifs : la personnalité module le budget d'achat (±20 % max)", () => {
   const base = nouveauPnj({
@@ -1032,6 +1033,35 @@ test("commissariat : la ville paie 5 L par détenu et par jour en prime de garde
   const sans = passerJour(supprimerPnj(vide, karim.id));
   const fonctSans = entrees(1, "fonctionnement", sans.journal)[0];
   assert.ok(!fonctSans.texte.includes("primes de garde"), "sans police en poste, pas de prime de garde");
+});
+
+test("commissariat : sans poste de police en ville, la détention est une assignation à résidence — aucune prime", () => {
+  // Cohérence de la correction 2026-11-06 : la prime paie la garde des
+  // cellules du poste. Sans bâtiment poste en ville, l'arrestation se
+  // raconte « assignation à résidence » — la ville ne paie rien, même si
+  // des policiers sont encore en poste.
+  const temoin = calme(createMondeDefaut());
+  const avec = structuredClone(temoin);
+  const detenu = avec.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
+  detenu.arreteJusqua = 5; // détenu les jours 1 à 4, libéré le jour 5
+  detenu.casier = 1;
+  avec.batiments = avec.batiments.filter((b) => !/police|commissariat/i.test(b.nom));
+  const j1 = passerJour(avec);
+  // Témoin identique (sans poste, donc sans ses 15 L de fonctionnement
+  // municipal) mais sans détenu : la seule différence doit être nulle.
+  const temoinSansPoste = structuredClone(temoin);
+  temoinSansPoste.batiments = temoinSansPoste.batiments.filter(
+    (b) => !/police|commissariat/i.test(b.nom),
+  );
+  const t1 = passerJour(temoinSansPoste);
+  const fonct1 = entrees(1, "fonctionnement", j1.journal)[0];
+  const fonctT = entrees(1, "fonctionnement", t1.journal)[0];
+  assert.ok(
+    !fonct1.texte.includes("primes de garde"),
+    "sans poste de police en ville, pas de prime de garde (assignation à résidence)",
+  );
+  assert.equal(fonct1.montant! - fonctT.montant!, 0, "aucun frais de détention sans poste");
+  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(avec), "conservation exacte");
 });
 
 test("racheter : le premier trait criminel s'efface (cupide, puis opportuniste, puis téméraire)", () => {

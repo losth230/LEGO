@@ -191,7 +191,7 @@ interface Totaux {
   // --- phase 3.6 : modèle flux ---
   fonctionnementLocal: boolean;
   salairesPrivesPayes: number;
-  // --- phase 3.10 : service pénitentiaire ---
+  // --- phase 3.10 : détention (prime de garde au poste) ---
   detentionPayee: number;
 }
 
@@ -212,16 +212,27 @@ function etapeSalaires(etat: Etat, totaux: Totaux): void {
   totaux.villeSansLeSou = etat.budgetVille === 0;
 }
 
+// Le poste de police de la ville (bâtiment public) : c'est là que les
+// détenus sont gardés (correction Thibaut 2026-11-06, pas de bâtiment
+// dédié). Sans poste, l'arrestation se joue en assignation à résidence
+// et la ville ne verse aucune prime de garde.
+function posteDePolice(etat: Etat): Batiment | undefined {
+  return etat.batiments.find(
+    (b) => b.type === "service_public" && /police|commissariat/i.test(b.nom),
+  );
+}
+
 function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
   // Frais de détention (phase 3.10, correction Thibaut 2026-11-06 : les
   // détenus sont gardés au commissariat, pas dans un bâtiment dédié) :
   // chaque détenu du jour coûte 5 L à la ville, versés en prime de garde
   // aux policiers en poste (répartie, imposée à la source comme toute
   // solde — monde fermé). Se paie même sans boutique ouverte ; sans
-  // police en poste, personne ne garde les cellules, rien n'est payé.
+  // poste de police en ville ou sans policier en poste, la détention se
+  // joue en assignation à résidence et rien n'est payé.
   const police = gardePolice(etat);
   const detenus = etat.pnjs.filter((p) => (p.arreteJusqua ?? 0) > etat.jour).length;
-  if (detenus > 0 && police.length > 0) {
+  if (detenus > 0 && police.length > 0 && posteDePolice(etat)) {
     const du = Math.round(FRAIS_DETENTION_L * 100) * detenus;
     const paye = Math.min(du, etat.budgetVille);
     const parts = repartir(paye, police.map(() => 1));
@@ -563,9 +574,7 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
         // Correction Thibaut 2026-11-06 : les détenus sont gardés au
         // commissariat (le poste de police de la ville), pas dans un
         // bâtiment dédié. Sans poste en ville : assignation à résidence.
-        const commissariat = etat.batiments.find(
-          (b) => b.type === "service_public" && /police|commissariat/i.test(b.nom),
-        );
+        const commissariat = posteDePolice(etat);
         entrees.push({
           jour: etat.jour,
           type: "incident",
@@ -739,11 +748,12 @@ function journaliserJour(
     type: "fonctionnement",
     texte: totaux.fonctionnementLocal
       ? "Fournitures, énergie et entretien des services publics : " +
-        fmt(totaux.fonctionnementPaye) +
-        " versés aux commerces locaux — la ville achète sur place, l'argent reste dans le circuit." +
+        fmt(totaux.fonctionnementPaye - totaux.detentionPayee) +
+        " versés aux commerces locaux" +
         (totaux.detentionPayee > 0
-          ? " Dont " + fmt(totaux.detentionPayee) + " de primes de garde versées aux policiers en poste (frais de détention)."
-          : "")
+          ? " et " + fmt(totaux.detentionPayee) + " de primes de garde versées aux policiers en poste (frais de détention)"
+          : "") +
+        " — la ville achète sur place, l'argent reste dans le circuit."
       : totaux.detentionPayee > 0
         ? "Aucune boutique ouverte : la ville ne s'équipe pas, mais les policiers de garde encaissent " +
           fmt(totaux.detentionPayee) +
