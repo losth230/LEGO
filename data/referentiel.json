@@ -1,5 +1,5 @@
 {
-  "version": "1.7",
+  "version": "1.8",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -471,6 +471,13 @@
       "annee": 2024,
       "source": "INSEE — Bilan démographique 2024",
       "url": "https://www.insee.fr/fr/statistiques/8570394"
+    },
+    "affrontement_gangs": {
+      "valeur": 2,
+      "comptage": "taux de jeu (aucune statistique réelle)",
+      "annee": 2026,
+      "source": "Arbitrage Thibaut 2026-11-06 — milieu criminel",
+      "note": "Taux de jeu assumé, pas une donnée réelle : un affrontement criminel par ~5 semaines dans une ville hébergeant au moins deux factions rivales (gang contre gang, gang contre indépendant). Ajustable librement dans le référentiel."
     }
   },
   "services": {

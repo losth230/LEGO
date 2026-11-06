@@ -22,7 +22,16 @@ import {
   TAUX_IMPOT_DEFAUT_BP,
   salaireJourL,
 } from "./referentiel.ts";
-import { gardePolice, gardePompiers, gardeArmee, tirerIncidents } from "./evenements.ts";
+import {
+  forceCriminelle,
+  gangDe,
+  gardeArmee,
+  gardePolice,
+  gardePompiers,
+  generateurPour,
+  quartierAdjacent,
+  tirerIncidents,
+} from "./evenements.ts";
 
 export { TAUX_IMPOT_DEFAUT_BP, PART_SALARIALE_FLUX, COUT_EMPLOYE_PRIVE_L };
 
@@ -449,15 +458,29 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
     } else if (inc.type === "cambriolage") {
       const cible = etat.pnjs.find((p) => p.id === inc.cibleId);
       if (!cible) continue;
+      const voleur = etat.pnjs.find((p) => p.id === inc.voleurId);
+      if (!voleur) continue; // pas de voleur crédible en ville : pas de vol
+      // Signature de gang (phase 3.9) : le milieu se raconte dans le journal.
+      const gangVoleur = gangDe(etat, voleur);
+      const signature = gangVoleur ? " — signé " + gangVoleur.nom : "";
       const butin = Math.min(Math.round(cible.compte * 0.15 * inc.gravite), cible.compte);
       const dispo = police.length;
       if (dispo >= inc.gravite) {
+        // Rien de volé — et le malfaiteur est arrêté sur le fait (phase 3.9) :
+        // le casier se remplit, l'assignation à résidence le neutralise
+        // quelques jours (3 × gravité), le monde reste fermé.
+        voleur.casier = (voleur.casier ?? 0) + 1;
+        const prison = 3 * inc.gravite;
+        voleur.arreteJusqua = etat.jour + prison;
         entrees.push({
           jour: etat.jour,
           type: "incident",
           texte:
             "Un cambrioleur rôde chez " + cible.prenom + " " + cible.nom +
-            " : la patrouille le surprend à temps, rien de volé.",
+            " : la patrouille le surprend à temps, rien de volé — " +
+            voleur.prenom + " " + voleur.nom + " est arrêté sur le fait" + signature +
+            ", " + prison + " jour" + (prison > 1 ? "s" : "") +
+            " d'assignation à résidence.",
         });
       } else {
         const volBrut = dispo > 0 ? Math.floor(butin / 2) : butin;
@@ -465,12 +488,13 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
         // Monde 100 % fermé (arbitrage 2026-11-06) : le crime ne détruit plus
         // la monnaie — le butin change de poche, il rejoint le voleur,
         // un figurant de la ville. Aucune perte, aucune disparition.
-        const voleur = etat.pnjs.find((p) => p.id === inc.voleurId);
-        if (!voleur) continue; // pas de voleur en ville : pas de vol
         cible.compte -= vol;
         voleur.compte += vol;
         etat.volsCumules += vol;
         totaux.volsJour += vol;
+        // Le casier se remplit même quand la police arrive trop tard :
+        // la récidive pèsera sur les tirages futurs (phase 3.9).
+        voleur.casier = (voleur.casier ?? 0) + 1;
         entrees.push({
           jour: etat.jour,
           type: "incident",
@@ -481,10 +505,62 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
               : "aucune patrouille pour lui couper la route") +
             (renfort ? " — patrouille Vigipirate de la garnison en renfort, une partie du butin est récupérée" : "") +
             " — " + fmt(vol) + " passés dans la poche de " + voleur.prenom + " " + voleur.nom +
-            " : le butin reste en ville (monde fermé).",
+            " : le butin reste en ville (monde fermé)." + signature,
           montant: -vol,
         });
       }
+    } else if (inc.type === "guerre_gangs") {
+      // Affrontement criminel (phase 3.9, arbitrage Thibaut 2026-11-06) :
+      // deux factions rivales se disputent le terrain. Le pillage ne fait
+      // changer la monnaie que de poche ; le gang vainqueur étend son
+      // territoire d'un quartier adjacent, le gang perdant recule.
+      const agresseur = etat.pnjs.find((p) => p.id === inc.agresseurId);
+      const defenseur = etat.pnjs.find((p) => p.id === inc.defenseurId);
+      if (!agresseur || !defenseur) continue;
+      const aleaGuerre = generateurPour(etat.jour * 7 + 13); // flux dédié, déterministe
+      const forceA = forceCriminelle(etat, agresseur);
+      const forceD = forceCriminelle(etat, defenseur);
+      const vainqueur = aleaGuerre() * (forceA + forceD) < forceA ? agresseur : defenseur;
+      const perdant = vainqueur === agresseur ? defenseur : agresseur;
+      const pillage = Math.min(Math.round(perdant.compte * 0.1 * inc.gravite), perdant.compte);
+      perdant.compte -= pillage;
+      vainqueur.compte += pillage;
+      // Transfert criminel interne : tracé comme les butins, monde fermé.
+      etat.volsCumules += pillage;
+      totaux.volsJour += pillage;
+      etat.affrontementsCumules = (etat.affrontementsCumules ?? 0) + 1;
+      agresseur.casier = (agresseur.casier ?? 0) + 1;
+      defenseur.casier = (defenseur.casier ?? 0) + 1;
+      const quartiersVille = [...new Set(etat.batiments.map((b) => b.quartier))];
+      const gangV = gangDe(etat, vainqueur);
+      const gangP = gangDe(etat, perdant);
+      let consigne = "";
+      if (gangV && gangV !== gangP) {
+        const conquete = quartierAdjacent(gangV, quartiersVille);
+        if (conquete) {
+          gangV.quartiers.push(conquete);
+          consigne += " " + gangV.nom + " étendent leur emprise sur le quartier " + conquete + ".";
+        }
+      }
+      if (gangP && gangP !== gangV && gangP.quartiers.length > 1) {
+        const perdu = gangP.quartiers.pop();
+        if (perdu) consigne += " " + gangP.nom + " reculent du quartier " + perdu + ".";
+      }
+      const etiquette = (x: Pnj): string => {
+        const g = gangDe(etat, x);
+        return x.prenom + " " + x.nom + (g ? " (" + g.nom + ")" : " (indépendant)");
+      };
+      entrees.push({
+        jour: etat.jour,
+        type: "incident",
+        texte:
+          "Guerre de gangs : " + etiquette(agresseur) + " attaque " + etiquette(defenseur) +
+          " au grand jour. " + etiquette(vainqueur) + " remporte l'affrontement et pille " +
+          fmt(pillage) +
+          (pillage === 0 ? " — la cagnotte adverse était vide" : "") +
+          " : la monnaie reste en ville (monde fermé)." + consigne,
+        montant: -pillage,
+      });
     } else {
       const victime = etat.pnjs.find((p) => p.id === inc.cibleId);
       if (!victime) continue;

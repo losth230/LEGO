@@ -5,6 +5,7 @@ import { useStore } from "../state/store.tsx";
 import type { Pnj, Statut } from "../engine/types.ts";
 import { montantL, salaireJourL } from "../engine/referentiel.ts";
 import { impotSur } from "../engine/moteur.ts";
+import { gangDe } from "../engine/evenements.ts";
 
 const BADGES_STATUT: Record<Statut, { libelle: string; classe: string }> = {
   agent_public: { libelle: "Agent public", classe: "badge-agent" },
@@ -23,6 +24,8 @@ function Fiche({ pnj }: { pnj: Pnj }) {
     ? etat.batiments.find((b) => b.id === pnj.travailBatimentId)
     : null;
   const taux = etat.params.tauxImpotBp;
+  const gang = gangDe(etat, pnj);
+  const detenu = (pnj.arreteJusqua ?? 0) > etat.jour;
   return (
     <tr className="fiche-pnj">
       <td colSpan={6}>
@@ -30,11 +33,39 @@ function Fiche({ pnj }: { pnj: Pnj }) {
           <div>
             <strong>{nomComplet(pnj)}</strong> — {pnj.metier}, {pnj.age} ans
             <br />
+            Quartier : {bat ? bat.quartier : "sans attache"}
+            <br />
             Logement/service : {bat ? bat.nom : "sans bâtiment"}
             {travail ? (
               <>
                 <br />
                 Lieu de travail : {travail.nom}
+              </>
+            ) : null}
+          </div>
+          <div>
+            <strong>Carte d'identité</strong>
+            <br />
+            Personnalité :{" "}
+            {(pnj.personnalite ?? []).length > 0
+              ? (pnj.personnalite ?? []).join(" · ")
+              : "inconnue"}
+            <br />
+            Casier judiciaire : {pnj.casier ?? 0} fait(s)
+            <br />
+            {gang ? (
+              <>
+                Gang : {gang.nom} — territoire : {gang.quartiers.join(", ")}
+              </>
+            ) : (pnj.casier ?? 0) > 0 ? (
+              "Criminel indépendant"
+            ) : (
+              "Casier vierge, pas de gang"
+            )}
+            {detenu ? (
+              <>
+                <br />
+                🔒 Assigné à résidence jusqu'au jour {pnj.arreteJusqua}
               </>
             ) : null}
           </div>
@@ -132,7 +163,11 @@ function PaireLignes({
   deplie: string | null;
   setDeplie: (id: string | null) => void;
 }) {
+  const { etat } = useStore();
   const badge = BADGES_STATUT[pnj.statut];
+  const criminel = pnj.gangId !== null && pnj.gangId !== undefined;
+  const detenu = (pnj.arreteJusqua ?? 0) > etat.jour;
+  const recidive = (pnj.casier ?? 0) > 0;
   return (
     <>
       <tr className={deplie === pnj.id ? "rangée-active" : undefined}>
@@ -141,6 +176,9 @@ function PaireLignes({
         <td>{pnj.metier}</td>
         <td>
           <span className={"badge " + badge.classe}>{badge.libelle}</span>
+          {criminel ? <span className="badge badge-agent"> 🥷 gang</span> : null}
+          {recidive && !criminel ? <span className="badge badge-prive"> 🥷 casier</span> : null}
+          {detenu ? <span className="badge badge-commerce"> 🔒</span> : null}
         </td>
         <td className="col-nombre">{montantL(pnj.compte)}</td>
         <td>

@@ -1,10 +1,12 @@
-// Tests du moteur (phases 1 à 3.6) — exécution : npm test
+// Tests du moteur (phases 1 à 3.9) — exécution : npm test
 // (node --experimental-strip-types --test src/engine/moteur.test.ts)
 // Critère d'acceptation phase 1 : 30 jours passés, argent cohérent, journal lisible.
 // Phase 2 : incidents tirés (règle R × P × K / 10000 / 365), garde des
 // services, dégâts/vols tracés, déterminisme seedé par jour.
 // Phase 3.6 : modèle flux — les commerces redistribuent leurs recettes du
 // jour (salaires + primes), la marge patronale seule reste au patron.
+// Phase 3.9 : cartes d'identité & milieu criminel — profil criminel pondéré,
+// territoire de gang, arrestations, guerres de gangs, migration v8.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +37,7 @@ import {
   repartir,
   serviceLocal,
 } from "./moteur.ts";
-import { gardeArmee, gardePolice, gardePompiers, probaQuotidienne } from "./evenements.ts";
+import { gardeArmee, gardePolice, gardePompiers, probaQuotidienne, profilCriminel } from "./evenements.ts";
 import { COEFF_INTENSITE_DEFAUT, salaireJourL, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
 function entrees(jour: number, type: string, j: JournalEntree[]): JournalEntree[] {
@@ -53,10 +55,10 @@ function neutraliserCourses(etat: Etat, metier: string): void {
   if (i >= 0) etat.pnjs[i] = { ...etat.pnjs[i], budgetAchat: 0 };
 }
 
-test("monde par défaut : 14 bâtiments, 51 figurines (garnison incluse), jour 0", () => {
+test("monde par défaut : 14 bâtiments, 55 figurines (garnison et gang incluses), jour 0", () => {
   const m = createMondeDefaut();
   assert.equal(m.batiments.length, 14);
-  assert.equal(m.pnjs.length, 51);
+  assert.equal(m.pnjs.length, 55);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
@@ -227,9 +229,9 @@ test("l'épargne n'est pas touchée par le moteur", () => {
 
 test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
   assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 51);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 55);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 51, "version future -> monde par défaut");
+  assert.equal(futur.pnjs.length, 55, "version future -> monde par défaut");
   const m = migrerEtat({ schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
@@ -237,7 +239,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
   assert.equal(m.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
-  assert.equal(m.schemaVersion, 7, "v1 -> v7 : schema à jour");
+  assert.equal(m.schemaVersion, 8, "v1 -> v8 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -256,7 +258,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
-  assert.equal(v5.schemaVersion, 7, "v5 -> v7 : schema à jour");
+  assert.equal(v5.schemaVersion, 8, "v5 -> v8 : schema à jour");
   // v5 -> v6 : la vocation des bâtiments existants est complétée à null
   // (boutique de consommation par défaut), jamais devinée.
   const v5bat = migrerEtat({
@@ -268,7 +270,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
       { id: "b2", nom: "Mairie", type: "service_public" },
     ],
   });
-  assert.equal(v5bat.schemaVersion, 7, "v5 -> v7 : schema à jour");
+  assert.equal(v5bat.schemaVersion, 8, "v5 -> v8 : schema à jour");
   assert.ok(
     v5bat.batiments.every((b) => b.vocation === null),
     "v5 -> v6 : vocation des bâtiments complétée (boutique par défaut)",
@@ -278,7 +280,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   // par défaut passe de 10 % à 30 % — une ville restée à l'ancien défaut
   // monte au nouveau taux, un taux choisi reste le sien.
   const v6defaut = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 1000, coeffIntensite: 2 } });
-  assert.equal(v6defaut.schemaVersion, 7, "v6 -> v7 : schema à jour");
+  assert.equal(v6defaut.schemaVersion, 8, "v6 -> v8 : schema à jour");
   assert.equal(v6defaut.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
   assert.equal(v6defaut.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP, "v6 -> v7 : l'ancien défaut 10 % devient 30 %");
   const v6choisi = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 555, coeffIntensite: 2 } });
@@ -495,6 +497,148 @@ test("déterminisme : même jour, mêmes événements, toujours", () => {
   const a = passerJour(m);
   const b = passerJour(m);
   assert.equal(JSON.stringify(a), JSON.stringify(b));
+});
+
+// ---------- Phase 3.9 : cartes d'identité & milieu criminel ----------
+
+/** Neutralise tout profil criminel d'un monde (figurines privées et commerçants). */
+function assainir(m: Etat): void {
+  for (const p of m.pnjs) {
+    if (p.statut === "agent_public") continue;
+    if (p.gangId) continue; // les gangs du monde témoin restent en place
+    p.personnalite = ["honnête", "travailleur"];
+    p.casier = 0;
+    p.compte = Math.max(p.compte, 15 * Math.max(p.revenuIndicatif, 1)); // pas de pauvreté
+  }
+}
+
+test("profil criminel : les traits, la pauvreté et le casier pèsent, pas le hasard", () => {
+  const honnete = nouveauPnj({
+    prenom: "Alice", nom: "Test", personnalite: ["honnête", "travailleur"],
+    revenuIndicatif: 6000, compte: 600000,
+  });
+  const cupide = nouveauPnj({
+    prenom: "Bob", nom: "Test", personnalite: ["cupide", "discret"],
+    revenuIndicatif: 1500, compte: 10000, casier: 2, gangId: "g1",
+  });
+  assert.equal(profilCriminel(honnete), 0, "honnête travailleur aisé : profil nul, il ne vole jamais");
+  assert.ok(profilCriminel(cupide) >= 10, "cupide, fauché, récidiviste et en gang : profil élevé");
+});
+
+test("milieu criminel : chaque voleur journalisé porte un casier (tirage profilé)", () => {
+  let m = createMondeDefaut();
+  m = modifierVille(m, { coeffIntensite: 100000 });
+  for (let j = 1; j <= 30; j++) m = passerJour(m);
+  const vols = m.journal.filter((e) => e.texte.includes("poche de"));
+  assert.ok(vols.length > 0, "des cambriolages ont eu lieu sur 30 jours");
+  for (const v of vols) {
+    const nom = /poche de (.+) : le butin/.exec(v.texte)![1];
+    const voleur = m.pnjs.find((p) => p.prenom + " " + p.nom === nom);
+    assert.ok(voleur !== undefined, "le voleur est un figurant de la ville : " + nom);
+    assert.ok((voleur.casier ?? 0) > 0, "le voleur est un criminel au casier connu : " + nom);
+  }
+});
+
+test("territoire de gang : les Corbeaux ne volent que sur leur terrain", () => {
+  let m = createMondeDefaut();
+  assainir(m); // seul le gang garde un profil criminel
+  m = modifierVille(m, { coeffIntensite: 100000 });
+  for (let j = 1; j <= 20; j++) m = passerJour(m);
+  const vols = m.journal.filter((e) => e.texte.includes("Cambriolage chez"));
+  assert.ok(vols.length > 0, "des cambriolages ont eu lieu sur 20 jours");
+  const territoire = m.gangs![0].quartiers;
+  for (const v of vols) {
+    const nom = /Cambriolage chez (.+?) : /.exec(v.texte)![1];
+    const cible = m.pnjs.find((p) => p.prenom + " " + p.nom === nom);
+    assert.ok(cible !== undefined, "cible connue : " + nom);
+    const bat = m.batiments.find((b) => b.id === cible!.batimentId);
+    assert.ok(
+      bat !== undefined && territoire.includes(bat.quartier),
+      "la victime vit sur le territoire du gang : " + nom + " (" + (bat?.quartier ?? "?") + ")",
+    );
+  }
+});
+
+test("arrestation : la police surprend le voleur, il ne vole plus pendant sa détention", () => {
+  let m = createMondeDefaut();
+  assainir(m);
+  // Une seule criminelle en ville : cupide, fauchée, indépendante.
+  const criminelle = m.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
+  criminelle.personnalite = ["cupide", "discret"];
+  criminelle.compte = 10000;
+  // Police nombreuse : 3 patrouilleurs couvrent la gravité 3.
+  for (let i = 0; i < 2; i++) {
+    m = ajouterPnj(m, nouveauPnj({
+      prenom: "Renfort", nom: "Police" + i, metier: "policier municipal",
+      statut: "agent_public", grade: "policier_municipal",
+      batimentId: m.batiments[1].id, revenuIndicatif: 5300,
+    }));
+  }
+  m = modifierVille(m, { coeffIntensite: 100000 });
+  const j1 = passerJour(m);
+  assert.ok(j1.journal.some((e) => e.texte.includes("arrêté sur le fait")), "l'arrestation est racontée");
+  const arrete = j1.pnjs.find((p) => (p.arreteJusqua ?? 0) > j1.jour);
+  assert.ok(arrete !== undefined, "le voleur est assigné à résidence");
+  assert.ok((arrete!.casier ?? 0) >= 1, "le casier s'est rempli même raté");
+  // Pendant toute sa détention, plus personne ne peut voler (une seule criminelle en ville).
+  let e = j1;
+  while (e.jour < (arrete!.arreteJusqua ?? 0)) e = passerJour(e);
+  const volsPendant = e.journal.filter(
+    (x) => x.texte.includes("Cambriolage chez") && x.jour > j1.jour,
+  );
+  assert.equal(volsPendant.length, 0, "un détenu ne peut pas voler");
+});
+
+test("guerre de gangs : pillage interne, territoire, conservation exacte", () => {
+  let m = createMondeDefaut();
+  assainir(m);
+  // Une seule faction rivale : un indépendant cupide avec une cagnotte juteuse.
+  const solo = m.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
+  solo.personnalite = ["cupide", "téméraire"];
+  solo.compte = 100000;
+  const avant = monnaieEnCircuit(m);
+  m = modifierVille(m, { coeffIntensite: 100000 });
+  const j1 = passerJour(m);
+  const guerre = j1.journal.find((e) => e.texte.includes("Guerre de gangs"));
+  assert.ok(guerre !== undefined, "l'affrontement est raconté");
+  assert.equal(j1.affrontementsCumules, 1, "l'affrontement est tracé");
+  assert.equal(monnaieEnCircuit(j1), avant, "le pillage ne fait changer la monnaie que de poche");
+  const gangGagne = guerre!.texte.includes("(Les Corbeaux du Sud) remporte");
+  const corbeaux = j1.gangs![0];
+  assert.equal(
+    corbeaux.quartiers.length,
+    gangGagne ? 2 : 1,
+    gangGagne ? "le gang vainqueur étend son territoire" : "le gang tenace garde son seul quartier",
+  );
+  assert.ok(j1.volsCumules > 0, "le pillage rejoint les transferts criminels tracés");
+});
+
+test("migration v8 : carte d'identité complétée, le crime continue dans les vieilles villes", () => {
+  const pnjsV7 = Array.from({ length: 13 }, (_, i) => ({
+    id: "v" + i, prenom: "Vieux" + i, nom: "Test", age: 40, genre: "F" as const,
+    metier: "habitant", statut: "prive" as const, batimentId: null,
+    revenuIndicatif: 4000, budgetAchat: 4000, compte: 400000, epargne: 0,
+  }));
+  const v8 = migrerEtat({
+    schemaVersion: 7, jour: 10,
+    params: { tauxImpotBp: 3000, coeffIntensite: 1000 },
+    pnjs: pnjsV7, batiments: [], journal: [],
+  });
+  assert.equal(v8.schemaVersion, 8, "v7 -> v8 : schema à jour");
+  assert.ok(
+    v8.pnjs.every((p) => Array.isArray(p.personnalite) && p.personnalite.length === 2),
+    "v7 -> v8 : personnalité attribuée à chaque figurine",
+  );
+  assert.ok(
+    v8.pnjs.every((p) => (p.casier ?? 0) === 0 && p.gangId === null && (p.arreteJusqua ?? 0) === 0),
+    "v7 -> v8 : casier, gang et détention initialisés",
+  );
+  assert.deepEqual(v8.gangs, [], "v7 -> v8 : aucun gang inventé");
+  assert.equal(v8.affrontementsCumules, 0, "v7 -> v8 : affrontements initialisés");
+  assert.ok(
+    v8.pnjs.some((p) => (p.personnalite ?? []).includes("cupide")),
+    "au moins un habitant passe du mauvais côté de la barrière",
+  );
 });
 
 test("l'éditeur raconte : emménagement, arrivée, départ, ouverture", () => {

@@ -5,10 +5,21 @@
 // une ville en cours (sauf état irrécupérable).
 
 import type { Etat, Vocation } from "./types.ts";
-import { createMondeDefaut } from "./monde.ts";
+import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 7;
+export const SCHEMA_VERSION_ETAT = 8;
+
+/**
+ * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
+ * déterministe — deux habitants sur dix-neuf passent du mauvais côté de la
+ * barrière, pour que le crime continue d'exister dans les vieilles villes.
+ */
+function traitsMigres(i: number): string[] {
+  if (i % 19 === 5) return ["cupide", "discret"];
+  if (i % 19 === 12) return ["opportuniste", "téméraire"];
+  return PAIRS_TRAITS[i % PAIRS_TRAITS.length];
+}
 
 /** Ancien taux d'impôt par défaut (v6 : 10 % des gains du jour). */
 const ANCIEN_TAUX_IMPOT_DEFAUT_BP = 1000;
@@ -30,10 +41,27 @@ export function migrerEtat(brut: unknown): Etat {
   // employés privés et recettes du dernier jour par commerce.
   // Migration v5 -> v6 (monde 100 % fermé, 2026-11-06) : vocation des
   // commerces (santé, BTP, banque) — complétée à null (boutique) si absente.
-  const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p) => ({
+  const pnjs = (Array.isArray(b.pnjs) ? b.pnjs : defaut.pnjs).map((p, i) => ({
     ...p,
     travailBatimentId:
       (p as Partial<{ travailBatimentId?: string | null }>).travailBatimentId ?? null,
+    // Migration v7 -> v8 (phase 3.9, milieu criminel) : carte d'identité —
+    // personnalité, casier judiciaire, gang et assignation à résidence.
+    personnalite: Array.isArray((p as Partial<{ personnalite?: string[] }>).personnalite)
+      ? (p as Partial<{ personnalite?: string[] }>).personnalite
+      : traitsMigres(i),
+    casier:
+      typeof (p as Partial<{ casier?: number }>).casier === "number"
+        ? (p as Partial<{ casier?: number }>).casier
+        : 0,
+    gangId:
+      typeof (p as Partial<{ gangId?: string | null }>).gangId === "string"
+        ? (p as Partial<{ gangId?: string | null }>).gangId
+        : null,
+    arreteJusqua:
+      typeof (p as Partial<{ arreteJusqua?: number }>).arreteJusqua === "number"
+        ? (p as Partial<{ arreteJusqua?: number }>).arreteJusqua
+        : 0,
   }));
   const batiments = (Array.isArray(b.batiments) ? b.batiments : defaut.batiments).map((x) => ({
     ...x,
@@ -89,6 +117,10 @@ export function migrerEtat(brut: unknown): Etat {
     volsCumules,
     dette,
     mouvementsBanqueCumules,
+    // Migration v7 -> v8 : gangs de la ville et affrontements cumulés.
+    gangs: Array.isArray(b.gangs) ? b.gangs : [],
+    affrontementsCumules:
+      typeof b.affrontementsCumules === "number" ? b.affrontementsCumules : 0,
     params,
     pnjs,
     batiments,

@@ -13,6 +13,23 @@ import { serviceLocal } from "./moteur.ts";
 
 const REF_ACHAT = Math.round(ACHAT_REFERENCE_L * 100); // 5250 centimes = 52,50 L
 
+// Carte d'identité (phase 3.9) : paires de traits attribuées en rotation
+// déterministe aux figurines qui n'en ont pas de curaté (milieu criminel).
+export const PAIRS_TRAITS: string[][] = [
+  ["honnête", "travailleur"],
+  ["travailleur", "sociable"],
+  ["sociable", "discret"],
+  ["honnête", "prudent"],
+  ["travailleur", "discret"],
+  ["sociable", "téméraire"],
+  ["prudent", "discret"],
+  ["honnête", "sociable"],
+  ["travailleur", "téméraire"],
+  ["sociable", "prudent"],
+  ["honnête", "discret"],
+  ["travailleur", "prudent"],
+];
+
 let compteur = 0;
 function nouvelId(prefixe: string): string {
   compteur += 1;
@@ -36,6 +53,11 @@ export function nouveauPnj(p: Partial<Pnj> & { prenom: string; nom: string }): P
     budgetAchat: p.budgetAchat ?? revenu,
     compte: p.compte ?? 400000,
     epargne: p.epargne ?? 0,
+    // Carte d'identité (phase 3.9) : paire de traits en rotation déterministe.
+    personnalite: p.personnalite ?? PAIRS_TRAITS[compteur % PAIRS_TRAITS.length],
+    casier: p.casier ?? 0,
+    gangId: p.gangId ?? null,
+    arreteJusqua: p.arreteJusqua ?? 0,
   };
 }
 
@@ -91,6 +113,7 @@ export function createMondeDefaut(): Etat {
   const idBtp = batiments[7].id;
   const idBanque = batiments[8].id;
   const immeubles = [batiments[9].id, batiments[10].id, batiments[11].id, batiments[12].id];
+  const idStade = immeubles[2]; // Résidence du Stade (Sud) — fief des Corbeaux
   const idCaserneMilitaire = batiments[13].id;
 
   const pnjs: Pnj[] = [];
@@ -146,8 +169,50 @@ export function createMondeDefaut(): Etat {
     );
   }
 
+  // Milieu criminel (phase 3.9, arbitrage Thibaut 2026-11-06) :
+  // un gang dédié, les Corbeaux du Sud, ancrés à la Résidence du Stade —
+  // ils ne volent que sur leur territoire, qui peut s'étendre par la guerre.
+  for (const g of [
+    { prenom: "Otto", nom: "Sabatini", age: 49, genre: "M", metier: "chef des Corbeaux du Sud", revenu: 1500, compte: 120000, casier: 3, traits: ["cupide", "téméraire"] },
+    { prenom: "Nino", nom: "Vasseur", age: 23, genre: "M", metier: "guetteur des Corbeaux", revenu: 1200, compte: 30000, casier: 1, traits: ["opportuniste", "discret"] },
+    { prenom: "Rita", nom: "Ursini", age: 27, genre: "F", metier: "receleuse des Corbeaux", revenu: 1800, compte: 45000, casier: 2, traits: ["cupide", "discret"] },
+    { prenom: "Sacha", nom: "Zeller", age: 31, genre: "M", metier: "bras droit des Corbeaux", revenu: 2000, compte: 50000, casier: 2, traits: ["opportuniste", "téméraire"] },
+  ] as const) {
+    pnjs.push(
+      nouveauPnj({
+        prenom: g.prenom,
+        nom: g.nom,
+        age: g.age,
+        genre: g.genre,
+        metier: g.metier,
+        statut: "prive",
+        batimentId: idStade,
+        revenuIndicatif: g.revenu,
+        compte: g.compte,
+        personnalite: [...g.traits],
+        casier: g.casier,
+        gangId: "gang-corbeaux",
+      }),
+    );
+  }
+
+  // Indépendants (criminels sans gang) : trois habitants à la marge —
+  // petits revenus, traits criminels. Le profil criminel fait le reste.
+  const independants: Array<[string, string[]]> = [
+    ["étudiant", ["opportuniste", "discret"]],
+    ["musicien", ["cupide", "sociable"]],
+    ["artiste peintre", ["opportuniste", "téméraire"]],
+  ];
+  for (const [metierCible, traits] of independants) {
+    const p = pnjs.find((x) => x.metier === metierCible);
+    if (p) {
+      p.personnalite = traits;
+      p.compte = 45000; // la faucille : 450 L en tout et pour tout
+    }
+  }
+
   return {
-    schemaVersion: 3,
+    schemaVersion: 8,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
@@ -156,6 +221,14 @@ export function createMondeDefaut(): Etat {
     volsCumules: 0,
     dette: 0,
     mouvementsBanqueCumules: 0,
+    gangs: [
+      {
+        id: "gang-corbeaux",
+        nom: "Les Corbeaux du Sud",
+        quartiers: ["Sud"],
+      },
+    ],
+    affrontementsCumules: 0,
     params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP, coeffIntensite: COEFF_INTENSITE_DEFAUT },
     pnjs,
     batiments,

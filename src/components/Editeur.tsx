@@ -4,6 +4,7 @@
 import { useState, type ReactNode } from "react";
 import { useStore } from "../state/store.tsx";
 import type { Batiment, EtatBatiment, Pnj, Statut, TypeBatiment, Vocation } from "../engine/types.ts";
+import { TRAITS_PNJ } from "../engine/types.ts";
 import { COUT_EMPLOYE_PRIVE_L, montantL, salaireJourL } from "../engine/referentiel.ts";
 import { effectifMax, employesDuCommerce } from "../engine/moteur.ts";
 import {
@@ -333,6 +334,10 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
   const [achat, setAchat] = useState(versL(p.budgetAchat));
   const [compte, setCompte] = useState(versL(p.compte));
   const [epargne, setEpargne] = useState(versL(p.epargne));
+  const [trait1, setTrait1] = useState(p.personnalite?.[0] ?? "honnête");
+  const [trait2, setTrait2] = useState(p.personnalite?.[1] ?? "travailleur");
+  const [casier, setCasier] = useState(String(p.casier ?? 0));
+  const [gang, setGang] = useState(p.gangId ?? "");
 
   const enregistrer = () => {
     majEtat(
@@ -349,6 +354,10 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
         budgetAchat: nombreL(achat),
         compte: nombreL(compte),
         epargne: nombreL(epargne),
+        // Carte d'identité (phase 3.9) : le designer façonne le milieu criminel.
+        personnalite: [trait1, trait2],
+        casier: Number.isFinite(Number(casier)) ? Math.max(0, Number(casier)) : 0,
+        gangId: statut === "agent_public" ? null : gang === "" ? null : gang,
       }),
     );
     setOuvert(false);
@@ -443,6 +452,33 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
           <Champ label="Épargne (L)">
             <input className="input" value={epargne} onChange={(e) => setEpargne(e.target.value)} />
           </Champ>
+          <Champ label="Trait de personnalité n°1 (carte d'identité)">
+            <select className="input" value={trait1} onChange={(e) => setTrait1(e.target.value)}>
+              {TRAITS_PNJ.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </Champ>
+          <Champ label="Trait de personnalité n°2">
+            <select className="input" value={trait2} onChange={(e) => setTrait2(e.target.value)}>
+              {TRAITS_PNJ.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </Champ>
+          <Champ label="Casier judiciaire (cambriolages commis)">
+            <input className="input" value={casier} onChange={(e) => setCasier(e.target.value)} />
+          </Champ>
+          {statut !== "agent_public" ? (
+            <Champ label="Gang (vide : indépendant)">
+              <select className="input" value={gang} onChange={(e) => setGang(e.target.value)}>
+                <option value="">— aucun (indépendant) —</option>
+                {(etat.gangs ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>{g.nom}</option>
+                ))}
+              </select>
+            </Champ>
+          ) : null}
           <button className="bouton" onClick={enregistrer}>Enregistrer</button>
         </div>
       ) : null}

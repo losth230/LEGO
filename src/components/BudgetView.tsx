@@ -62,8 +62,8 @@ export function BudgetView() {
         <h2>🥷 Vols en ville</h2>
         <p className="grand-nombre">{montantL(etat.volsCumules)}</p>
         <p className="mute">
-          Butin remis au voleur depuis le jour 1 : l'argent change de poche mais
-          reste dans le circuit (monde fermé).
+          Butins remis aux voleurs et pillages de guerres depuis le jour 1 : l'argent
+          change de poche mais reste dans le circuit (monde fermé).
         </p>
         {etat.pertesCumulees > 0 ? (
           <p className="mute">
@@ -71,6 +71,34 @@ export function BudgetView() {
             d'avant le monde fermé.
           </p>
         ) : null}
+      </div>
+      <div className="carte carte-indicateur">
+        <h2>🩸 Milieu criminel</h2>
+        {(etat.gangs ?? []).length === 0 ? (
+          <p className="mute">Aucun gang établi en ville.</p>
+        ) : (
+          <div>
+            {(etat.gangs ?? []).map((g) => {
+              const membres = etat.pnjs.filter((p) => p.gangId === g.id);
+              const detenus = membres.filter((p) => (p.arreteJusqua ?? 0) > etat.jour).length;
+              const casierGang = membres.reduce((s, p) => s + (p.casier ?? 0), 0);
+              return (
+                <p className="mute" key={g.id}>
+                  <strong>{g.nom}</strong> — territoire : {g.quartiers.join(", ")} ·{" "}
+                  {membres.length} membre(s) ({detenus} en résidence surveillée) ·
+                  casier cumulé : {casierGang}
+                </p>
+              );
+            })}
+          </div>
+        )}
+        <p className="mute">
+          Criminels indépendants actifs :{" "}
+          {etat.pnjs.filter(
+            (p) => p.statut !== "agent_public" && (p.casier ?? 0) > 0 && !p.gangId,
+          ).length}{" "}
+          · Affrontements depuis le jour 1 : {etat.affrontementsCumules ?? 0}
+        </p>
       </div>
       <div className="carte carte-indicateur">
         <h2>💳 Dette bancaire</h2>

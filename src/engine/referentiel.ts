@@ -43,7 +43,7 @@ export function salaireJourL(grade: string): number {
 /**
  * Taux d'imposition par défaut (arbitrage 2026-11-06) : une seule forme
  * d'impôt, prélevée à la source sur les gains réels du jour de chacun
- * (soldes, salaires et primes privés, marges) — 10 % par défaut.
+ * (soldes, salaires et primes privés, marges) — 30 % par défaut (référentiel v1.7).
  */
 export const TAUX_IMPOT_DEFAUT_BP = Math.round(
   refNombre("economie.taux_impot_defaut.valeur", 10) * 100,

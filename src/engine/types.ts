@@ -5,6 +5,23 @@
 
 export type Statut = "agent_public" | "commercant" | "prive";
 
+/**
+ * Carte d'identité (phase 3.9) : traits de personnalité en liste fermée.
+ * Les traits criminels (cupide, opportuniste, téméraire) alimentent le
+ * profil criminel ; les traits honnêtes le neutralisent.
+ */
+export const TRAITS_PNJ = [
+  "honnête",
+  "travailleur",
+  "sociable",
+  "prudent",
+  "discret",
+  "opportuniste",
+  "cupide",
+  "téméraire",
+] as const;
+export type TraitPnj = (typeof TRAITS_PNJ)[number];
+
 export type TypeBatiment = "habitation" | "commerce" | "service_public";
 
 /**
@@ -46,6 +63,29 @@ export interface Pnj {
   compte: number;
   /** Épargne en centimes (touched uniquement par l'éditeur en phase 1). */
   epargne: number;
+  /**
+   * Carte d'identité (phase 3.9) : 2 traits de personnalité (liste TRAITS_PNJ).
+   * Absent des sauvegardes v7 et moins : la migration v8 l'attribue.
+   */
+  personnalite?: string[];
+  /** Casier judiciaire (phase 3.9) : cambriolages et affrontements commis, même ratés. */
+  casier?: number;
+  /** Gang d'appartenance (id dans Etat.gangs) — null : indépendant ou honnête citoyen. */
+  gangId?: string | null;
+  /** Jour de libération si arrêté (0 ou absent : libre). Un détenu ne peut pas voler. */
+  arreteJusqua?: number;
+}
+
+/**
+ * Gang de la ville (phase 3.9, milieu criminel) : un gang ancré dans un
+ * quartier opère chez lui ; une guerre gagnée lui ouvre un quartier adjacent
+ * (expansion territoriale, arbitrage Thibaut 2026-11-06).
+ */
+export interface Gang {
+  id: string;
+  nom: string;
+  /** Quartiers où le gang opère : victimes éligibles des cambriolages de ses membres. */
+  quartiers: string[];
 }
 
 export interface Batiment {
@@ -111,6 +151,10 @@ export interface Etat {
   dette: number;
   /** Création monétaire cumulée : somme des emprunts contractés. Les remboursements vont à la banque locale et ne détruisent plus de monnaie (monde fermé, 2026-11-06). */
   mouvementsBanqueCumules: number;
+  /** Gangs de la ville (phase 3.9) — un membre de gang vole sur le territoire du gang. */
+  gangs?: Gang[];
+  /** Affrontements criminels cumulés (guerres de gangs, phase 3.9). */
+  affrontementsCumules?: number;
   params: ParamsVille;
   pnjs: Pnj[];
   batiments: Batiment[];
