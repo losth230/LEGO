@@ -7,11 +7,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  createMondeDefaut,
   emprunterVille,
   modifierVille,
   rembourserVille
 } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   chargesJournalieres,
@@ -32,13 +32,13 @@ import {
 // ---------- Phase 3 : dette bancaire, trésorerie, arbitrages ----------
 
 test("charges et marge : la ville sait combien de jours elle tient", () => {
-  const m = calme(createMondeDefaut());
+  const m = calme(createMondeDemonstration());
   assert.ok(chargesJournalieres(m) > 0, "la ville a des charges");
   assert.equal(joursDeMarge(m), Math.floor(m.budgetVille / chargesJournalieres(m)));
 });
 
 test("emprunter : les caisses respirent, la dette grimpe, le journal raconte", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const e = emprunterVille(m, 200000);
   assert.equal(e.budgetVille, m.budgetVille + 200000);
   assert.equal(e.dette, 200000);
@@ -47,7 +47,7 @@ test("emprunter : les caisses respirent, la dette grimpe, le journal raconte", (
 });
 
 test("les intérêts coulent chaque jour vers la banque locale (3,54 %/an réel)", () => {
-  let m = calme(createMondeDefaut());
+  let m = calme(createMondeDemonstration());
   m = emprunterVille(m, 10000000); // 100 000 L
   const interets = interetsDus(10000000);
   assert.ok(interets > 900 && interets < 1000, "≈ 9,70 L/jour : " + interets);
@@ -75,7 +75,7 @@ test("les intérêts coulent chaque jour vers la banque locale (3,54 %/an réel)
 test("sans le sou : les intérêts se capitalisent, la dette grossit", () => {
   // Sans employé privé (facteur détaché, voir outils-test.ts), la retenue
   // du soir se confond avec l'impôt sur les recettes de chaque commerce.
-  let m = sansEmployePrive(calme(createMondeDefaut()));
+  let m = sansEmployePrive(calme(createMondeDemonstration()));
   m = emprunterVille(m, 10000000);
   m = modifierVille(m, { budgetVille: 0 });
   const j1 = passerJour(m);
@@ -93,7 +93,7 @@ test("sans le sou : les intérêts se capitalisent, la dette grossit", () => {
 });
 
 test("rembourser : la dette fond ; à zéro, la ville est libre", () => {
-  let m = calme(createMondeDefaut());
+  let m = calme(createMondeDemonstration());
   const banquierAvant = m.pnjs.find((p) => p.metier === "banquier")!.compte;
   m = emprunterVille(m, 300000);
   m = rembourserVille(m, 100000);
@@ -112,7 +112,7 @@ test("rembourser : la dette fond ; à zéro, la ville est libre", () => {
 });
 
 test("alerte trésorerie : le journal somme la ville de choisir", () => {
-  let m = calme(createMondeDefaut());
+  let m = calme(createMondeDemonstration());
   // Budgets aléatoires (v1.16) : les impôts du jour varient au tirage (ils
   // peuvent dépasser les charges). Sans impôt, la marge ne dépend que du
   // budget versé — le test reste exact quelle que soit la partie.
@@ -131,7 +131,7 @@ test("alerte trésorerie : le journal somme la ville de choisir", () => {
 });
 
 test("conservation avec la banque : 30 jours, un emprunt en route", () => {
-  let e = calme(createMondeDefaut());
+  let e = calme(createMondeDemonstration());
   const initial = monnaieEnCircuit(e);
   for (let i = 0; i < 10; i++) e = passerJour(e);
   e = emprunterVille(e, 5000000);

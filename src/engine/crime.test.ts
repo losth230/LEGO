@@ -13,11 +13,11 @@ import type {
 import {
   ajouterPnj,
   ajouterBatiment,
-  createMondeDefaut,
   modifierVille,
   nouveauBatiment,
   nouveauPnj
 } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   migrerEtat
@@ -59,7 +59,7 @@ test("profil criminel : les traits, la pauvreté et le casier pèsent, pas le ha
 });
 
 test("milieu criminel : chaque voleur journalisé porte un casier (tirage profilé)", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   m = modifierVille(m, { coeffIntensite: 100000 });
   // Budgets aléatoires (v1.16) : les gros tirages vident vite les comptes —
   // on garantit des victimes solvables sur toute la période testée.
@@ -78,7 +78,7 @@ test("milieu criminel : chaque voleur journalisé porte un casier (tirage profil
 });
 
 test("territoire de gang : les Corbeaux ne volent que sur leur terrain", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   assainir(m); // seul le gang garde un profil criminel
   // Budgets aléatoires (v1.16) : victimes solvables sur toute la période.
   m.pnjs.forEach((p) => {
@@ -102,7 +102,7 @@ test("territoire de gang : les Corbeaux ne volent que sur leur terrain", () => {
 });
 
 test("arrestation : la police surprend le voleur, il ne vole plus pendant sa détention", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   assainir(m);
   // Une seule criminelle en ville : cupide, fauchée, indépendante.
   const criminelle = m.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
@@ -132,7 +132,7 @@ test("arrestation : la police surprend le voleur, il ne vole plus pendant sa dé
 });
 
 test("guerre de gangs : pillage interne, territoire, conservation exacte", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   assainir(m);
   // Une seule faction rivale : un indépendant cupide avec une cagnotte juteuse.
   const solo = m.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
@@ -184,7 +184,7 @@ test("migration v8 : carte d'identité complétée, le crime continue dans les v
 });
 
 test("l'éditeur raconte : emménagement, arrivée, départ, ouverture", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   const n = m.journal.length;
   m = ajouterBatiment(m, nouveauBatiment({ nom: "Maison des Tests", type: "habitation" }));
   assert.ok(m.journal.length > n, "une entrée de journal a été ajoutée");

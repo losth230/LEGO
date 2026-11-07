@@ -10,10 +10,10 @@ import type {
 } from "./types.ts";
 
 import {
-  createMondeDefaut,
   nouveauPnj,
   supprimerPnj
 } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   effectifMax,
@@ -39,7 +39,7 @@ test("effectifMax : le calibrage des effectifs d'un commerce (0,88 × recettes /
 
 test("flux : un commerce redistribue le jour même, seul le patron garde sa marge (monde témoin)", () => {
   // Monde témoin : 1 commerce, 1 patron, 2 employés, 1 client, aucun service public.
-  const base = calme(createMondeDefaut());
+  const base = calme(createMondeDemonstration());
   const boutique = base.batiments.find((b) => b.type === "commerce")!;
   const monde: Etat = {
     ...base,
@@ -85,7 +85,7 @@ test("flux : un commerce redistribue le jour même, seul le patron garde sa marg
 });
 
 test("flux : sur-embauche et caisses vides — prorata, salaires impayés, faillite racontée", () => {
-  const base = calme(createMondeDefaut());
+  const base = calme(createMondeDemonstration());
   const boutique = base.batiments.find((b) => b.type === "commerce")!;
   const monde: Etat = {
     ...base,
@@ -118,7 +118,7 @@ test("flux : sur-embauche et caisses vides — prorata, salaires impayés, faill
 });
 
 test("flux : sans boutique ouverte, la ville ne s'équipe pas — rien ne sort (monde fermé)", () => {
-  let m = calme(createMondeDefaut());
+  let m = calme(createMondeDemonstration());
   // Tous les commerçants partis : plus aucune boutique, plus aucun service
   // à vocation ouvert (hôpital, BTP, banque inclus) — cohérent : un service
   // sans gérant est un service fermé.
@@ -141,7 +141,7 @@ test("flux : sans boutique ouverte, la ville ne s'équipe pas — rien ne sort (
 });
 
 test("flux : deux employés au Fournil Doré, la bascule stock vers flux en monde réel", () => {
-  const m = calme(createMondeDefaut());
+  const m = calme(createMondeDemonstration());
   const boulangerie = m.batiments.find((b) => b.nom.includes("Fournil"))!.id;
   // Les habitants commencent à l'indice 17 (après les agents publics et
   // municipaux, les commerçants, les trois gérants des services à vocation,

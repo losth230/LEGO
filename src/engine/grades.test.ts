@@ -8,9 +8,9 @@ import assert from "node:assert/strict";
 
 import {
   ajouterPnj,
-  createMondeDefaut,
   nouveauPnj
 } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   migrerEtat
@@ -41,7 +41,7 @@ import {
 test("grades retirés : une sauvegarde v1.11 est convertie vers le grade conservé au salaire le plus proche", () => {
   // Arbitrage Thibaut 2026-11-06 : trois grades par corps. Au chargement,
   // chaque grade retiré devient le grade conservé le plus proche en solde.
-  const e = createMondeDefaut();
+  const e = createMondeDemonstration();
   e.pnjs[0].grade = "general_armee";
   e.pnjs[1].grade = "brigadier_pm";
   e.pnjs[2].grade = "commandant_spp";
@@ -61,7 +61,7 @@ test("grades retirés : une sauvegarde v1.11 est convertie vers le grade conserv
 test("gardes : les grades conservés suffisent à repérer police et pompiers (suffixes de corps)", () => {
   // v1.12 : major_pm et colonel_spp ne commencent ni par « policier » ni par
   // « sapeur » — la détection passe aussi par le suffixe du corps.
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const avecMajor = ajouterPnj(
     m,
     nouveauPnj({ prenom: "Test", nom: "Major", metier: "agent", statut: "agent_public", grade: "major_pm" }),
@@ -75,7 +75,7 @@ test("gardes : les grades conservés suffisent à repérer police et pompiers (s
 });
 
 test("gardeArmee : la garnison est détectée par grade et par métier", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const g = gardeArmee(m);
   assert.equal(g.length, 3);
   assert.ok(g.every((p) => corpsDuGrade(p.grade ?? "") === "Armée"));
@@ -89,7 +89,7 @@ test("gardeArmee : la garnison est détectée par grade et par métier", () => {
 });
 
 test("charges : la garnison pèse sur les charges journalières", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const avec = chargesJournalieres(m);
   const sansGarnison = chargesJournalieres({
     ...m,
@@ -142,7 +142,7 @@ test("grilles strictement croissantes dans chaque corps (le référentiel est la
 });
 
 test("gardes : chaque grade du référentiel est repéré par la garde de son corps (corps du référentiel, v1.20)", () => {
-  const base = createMondeDefaut();
+  const base = createMondeDemonstration();
   for (const g of GROUPES_GRADES) {
     const garde =
       g.corps === "Police municipale" ? gardePolice :
@@ -172,7 +172,7 @@ test("v1.20 : la garde lit le corps du référentiel — un suffixe plausible su
   // n'existe pas dans le référentiel : plus de garde fantôme. La figurine
   // sera journalisée au salaire de secours (test suivant), à corriger.
   const monde = ajouterPnj(
-    createMondeDefaut(),
+    createMondeDemonstration(),
     nouveauPnj({ prenom: "Faux", nom: "Suffixe", metier: "agent", statut: "agent_public", grade: "faux_pm" }),
   );
   assert.ok(
@@ -191,7 +191,7 @@ test("v1.20 : la garde lit le corps du référentiel — un suffixe plausible su
 
 test("v1.20 : salaire de secours journalisé — un grade inconnu paie 50 L/jour et le journal le raconte", () => {
   let e = ajouterPnj(
-    createMondeDefaut(),
+    createMondeDemonstration(),
     nouveauPnj({ prenom: "Cas", nom: "Inconnu", metier: "agent", statut: "agent_public", grade: "commisaire_pm" }),
   );
   e = passerJour(e);
@@ -211,7 +211,7 @@ test("v1.22 : corps Mairie — un seul grade (la propreté n'a pas besoin de gra
 });
 
 test("v1.22 : les grades Mairie retirés (v1.21) reconvertis au chargement d'une sauvegarde", () => {
-  const e = createMondeDefaut();
+  const e = createMondeDemonstration();
   e.pnjs[7].grade = "agent_maitrise"; // Robert, chef d'équipe (v1.21)
   e.pnjs[8].grade = "technicien_territorial";
   const rel = migrerEtat(JSON.parse(JSON.stringify(e)));
@@ -221,7 +221,7 @@ test("v1.22 : les grades Mairie retirés (v1.21) reconvertis au chargement d'une
 });
 
 test("v1.22 : le bureau de poste est privé — receveur patron, facteur salarié, la ville ne paie rien", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const bureau = m.batiments.find((b) => b.nom.includes("Bureau de poste"));
   assert.ok(bureau, "le bureau de poste existe");
   assert.equal(bureau.type, "commerce");
@@ -238,7 +238,7 @@ test("v1.22 : le bureau de poste est privé — receveur patron, facteur salari�
 });
 
 test("v1.21 : la brigade municipale du monde par défaut est payée et ne garde rien (aucun corps de sécurité)", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const brigade = m.pnjs.filter((p) => p.batimentId !== null && p.metier.match(/balayeur|éboueuse|voirie/));
   assert.equal(brigade.length, 3, "balayeur, éboueuse, chef d'équipe");
   assert.ok(brigade.every((p) => p.statut === "agent_public"));

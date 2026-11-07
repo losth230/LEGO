@@ -105,7 +105,7 @@ function BarreVille(): ReactNode {
         <button
           className="bouton-mini bouton-supprimer"
           onClick={() => {
-            if (window.confirm("Repartir du monde par défaut ? La sauvegarde actuelle sera remplacée.")) {
+            if (window.confirm("Repartir d'une ville nue — aucun habitant, aucun bâtiment, 5 000 L en caisse ? La sauvegarde actuelle sera remplacée.")) {
               reinitialiser();
             }
           }}

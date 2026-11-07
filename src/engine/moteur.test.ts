@@ -13,6 +13,7 @@ import {
   createMondeDefaut,
   modifierVille
 } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   migrerEtat
@@ -37,8 +38,8 @@ import {
   sansEmployePrive
 } from "./outils-test.ts";
 
-test("monde par défaut : 15 bâtiments, 59 figurines (garnison, brigade, gang et bureau de poste inclus), jour 0", () => {
-  const m = createMondeDefaut();
+test("ville de démonstration : 15 bâtiments, 59 figurines (garnison, brigade, gang et bureau de poste inclus), jour 0", () => {
+  const m = createMondeDemonstration();
   assert.equal(m.batiments.length, 15);
   assert.equal(m.pnjs.length, 59);
   assert.equal(m.jour, 0);
@@ -59,11 +60,35 @@ test("monde par défaut : 15 bâtiments, 59 figurines (garnison, brigade, gang e
   assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 7);
 });
 
+test("monde par défaut (v1.23) : une ville nue, tout se construit dans l'éditeur", () => {
+  const m = createMondeDefaut();
+  assert.equal(m.batiments.length, 0, "aucun bâtiment");
+  assert.equal(m.pnjs.length, 0, "aucun figurant");
+  assert.equal((m.gangs ?? []).length, 0, "aucun gang");
+  assert.equal(m.jour, 0);
+  assert.equal(m.budgetVille, 500000, "5 000 L en caisse");
+  assert.equal(monnaieEnCircuit(m), 500000, "la monnaie se résume aux caisses de la ville");
+  assert.equal(m.dette, 0);
+  assert.equal(m.journal.length, 1, "une seule entrée : le coup de crayon inaugural");
+  assert.ok(m.journal[0].texte.includes("éditeur"), "le journal invite à bâtir");
+});
+
+test("ville nue : trente jours sans crash, la monnaie ne bouge pas d'un centime", () => {
+  let e = createMondeDefaut();
+  const initial = monnaieEnCircuit(e);
+  for (let i = 0; i < 30; i++) e = passerJour(e);
+  assert.equal(e.jour, 30, "les jours passent, même sur un terrain nu");
+  assert.equal(monnaieEnCircuit(e), initial, "rien n'entre, rien ne sort : 5 000 L intacts");
+  assert.equal(e.sortiesCumulees, 0, "monde fermé");
+  assert.equal(e.pnjs.length, 0, "toujours personne");
+  assert.equal(e.batiments.length, 0, "toujours rien de bâti");
+});
+
 test("un jour : impôts retenus à la source, salaires versés, sorties tracées, achats encaissés", () => {
   // Ce test vérifie l'arithmétique de l'impôt sans employé privé : le
   // facteur du bureau de poste (v1.22) est détaché — le flux avec employé
   // est couvert par flux.test.ts.
-  const m = sansEmployePrive(calme(createMondeDefaut()));
+  const m = sansEmployePrive(calme(createMondeDemonstration()));
   const taux = m.params.tauxImpotBp;
   const attenduSalaires = m.pnjs
     .filter((p) => p.statut === "agent_public")
@@ -113,7 +138,7 @@ test("un jour : impôts retenus à la source, salaires versés, sorties tracées
 });
 
 test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const initial = monnaieEnCircuit(m);
   let e: Etat = m;
   for (let i = 0; i < 30; i++) e = passerJour(e);
@@ -138,7 +163,7 @@ test("conservation de la monnaie sur 30 jours (circuit fermé exact)", () => {
 });
 
 test("le vendeur de frites encaisse les achats des habitants", () => {
-  const m = calme(createMondeDefaut());
+  const m = calme(createMondeDemonstration());
   const avant = m.pnjs.find((p) => p.prenom === "Mario")!.compte;
   const j1 = passerJour(m);
   const mario = j1.pnjs.find((p) => p.prenom === "Mario")!;
@@ -151,7 +176,7 @@ test("le vendeur de frites encaisse les achats des habitants", () => {
 test("impôt à la source : sans gain, pas d'impôt — même à sec", () => {
   // Même neutralisation que le test « un jour » : sans employé privé,
   // la retenue patronale se confond avec l'impôt sur les recettes.
-  const m = sansEmployePrive(calme(createMondeDefaut()));
+  const m = sansEmployePrive(calme(createMondeDemonstration()));
   const taux = m.params.tauxImpotBp;
   m.pnjs[17] = { ...m.pnjs[17], compte: 100 }; // 1,00 L, aucun gain à venir (première habitante)
   const j1 = passerJour(m);
@@ -170,7 +195,7 @@ test("impôt à la source : sans gain, pas d'impôt — même à sec", () => {
 });
 
 test("taux d'imposition : plus de taux, plus de recettes", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const m2 = modifierVille(m, { tauxImpotBp: m.params.tauxImpotBp + 100 });
   const j1 = passerJour(m);
   const j2 = passerJour(m2);
@@ -180,7 +205,7 @@ test("taux d'imposition : plus de taux, plus de recettes", () => {
 });
 
 test("ville pauvre : salaires et fonctionnement payés au prorata des caisses", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   // L'impôt est retenu à la source sur les soldes : une part des caisses
   // revient immédiatement, mais avec 3,00 L le prorata reste total — on
   // force un monde sans contribuables privés, aux caisses vides.
@@ -197,7 +222,7 @@ test("ville pauvre : salaires et fonctionnement payés au prorata des caisses", 
 });
 
 test("sans commerce, personne ne dépense et l'argent reste en place", () => {
-  const m = calme(createMondeDefaut());
+  const m = calme(createMondeDemonstration());
   m.batiments = m.batiments.filter((b) => b.type !== "commerce");
   const avant = monnaieEnCircuit(m);
   const j1 = passerJour(m);
@@ -210,20 +235,31 @@ test("sans commerce, personne ne dépense et l'argent reste en place", () => {
 });
 
 test("l'épargne n'est pas touchée par le moteur", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   m.pnjs[5] = { ...m.pnjs[5], epargne: 123456 };
   let e = m;
   for (let i = 0; i < 5; i++) e = passerJour(e);
   assert.equal(e.pnjs[5].epargne, 123456);
 });
 
-test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
-  assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 59);
+test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
+  // v1.23 : le monde par défaut est une ville nue (arbitrage Thibaut) —
+  // un état corrompu ou une version future repart d'un terrain vide.
+  const nue = migrerEtat(null);
+  assert.equal(nue.jour, 0);
+  assert.equal(nue.pnjs.length, 0, "aucun PNJ dans le monde par défaut");
+  assert.equal(nue.batiments.length, 0, "aucun bâtiment");
+  assert.equal((nue.gangs ?? []).length, 0, "aucun gang");
+  assert.equal(nue.budgetVille, 500000, "5 000 L en caisse pour bâtir");
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 0);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 59, "version future -> monde par défaut");
-  const m = migrerEtat({ schemaVersion: 1, jour: 5 });
+  assert.equal(futur.pnjs.length, 0, "version future -> ville nue");
+  // Complétion v1 -> v8 sur une vraie ville (la démo) : les figurines
+  // existantes sont conservées, les champs manquants complétés.
+  const demo = createMondeDemonstration();
+  const m = migrerEtat({ ...demo, schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
+  assert.equal(m.pnjs.length, 59, "les figurines sont conservées");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");

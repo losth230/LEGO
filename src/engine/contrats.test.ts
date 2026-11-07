@@ -8,6 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { Pnj } from "./types.ts";
 import { createMondeDefaut } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 import { migrerEtat } from "./migrations.ts";
 import { passerJour } from "./moteur.ts";
 
@@ -46,13 +47,27 @@ function contratPnj(p: Pnj, ou: string): void {
   assert.ok(p.arreteJusqua === undefined || typeof p.arreteJusqua === "number", ou + " : arreteJusqua");
 }
 
-test("contrat : le monde par défaut respecte les formes de types.ts", () => {
-  const m = createMondeDefaut();
-  for (const p of m.pnjs) contratPnj(p, "monde par défaut");
+test("contrat : la ville de démonstration respecte les formes de types.ts", () => {
+  const m = createMondeDemonstration();
+  for (const p of m.pnjs) contratPnj(p, "ville de démonstration");
+});
+
+test("contrat : le monde par défaut (v1.23) est une ville nue aux formes valides", () => {
+  const nue = createMondeDefaut();
+  assert.ok(Array.isArray(nue.pnjs) && nue.pnjs.length === 0, "pnjs : tableau vide");
+  assert.ok(Array.isArray(nue.batiments) && nue.batiments.length === 0, "batiments : tableau vide");
+  assert.ok(Array.isArray(nue.journal) && nue.journal.length >= 1, "journal : au moins le jour 0");
+  assert.ok(Array.isArray(nue.gangs ?? []) && (nue.gangs ?? []).length === 0, "gangs : aucun");
+  assert.ok(typeof nue.budgetVille === "number" && Number.isFinite(nue.budgetVille), "budgetVille");
+  // La ville nue survit à quelques jours : les formes tiennent aussi vide.
+  let e = nue;
+  for (let i = 0; i < 3; i++) e = passerJour(e);
+  assert.ok(Array.isArray(e.journal), "journal après 3 jours");
+  assert.ok(typeof e.jour === "number" && e.jour === 3, "jour");
 });
 
 test("contrat : une sauvegarde hostile migrée respecte les formes (payloads tordus)", () => {
-  const e = createMondeDefaut();
+  const e = createMondeDemonstration();
   e.pnjs[0].grade = null as unknown as string; // le bug v1.17, volontairement
   (e.pnjs[1] as unknown as Record<string, unknown>).casier = "beaucoup";
   (e.pnjs[2] as unknown as Record<string, unknown>).personnalite = "cupide";
@@ -63,7 +78,7 @@ test("contrat : une sauvegarde hostile migrée respecte les formes (payloads tor
 });
 
 test("contrat : passerJour ne casse aucune forme", () => {
-  let e = createMondeDefaut();
+  let e = createMondeDemonstration();
   for (let i = 0; i < 3; i++) e = passerJour(e);
   for (const p of e.pnjs) contratPnj(p, "après 3 jours");
   assert.ok(typeof e.budgetVille === "number" && Number.isFinite(e.budgetVille), "budgetVille");

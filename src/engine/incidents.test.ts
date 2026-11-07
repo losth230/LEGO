@@ -7,12 +7,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  createMondeDefaut,
   emprunterVille,
   modifierVille,
   nouveauPnj,
   supprimerPnj
 } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   impotSur,
@@ -36,7 +36,7 @@ import {
 // ---------- Phase 2 : incidents, garde des services ----------
 
 test("garde : pompiers (pro + volontaire) et police identifiés par métier/grade", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   assert.equal(gardePompiers(m).length, 2, "Élodie + la sapeuse-pompière volontaire");
   assert.equal(gardePolice(m).length, 1, "Karim, policier municipal");
 });
@@ -49,7 +49,7 @@ test("règle d'échelle : R × P × K / 10000 / 365", () => {
 });
 
 test("K géant : le jour 1 déborde d'incidents", () => {
-  const m = modifierVille(createMondeDefaut(), { coeffIntensite: 100000 });
+  const m = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000 });
   const j1 = passerJour(m);
   const inc = entrees(1, "incident", j1.journal);
   assert.ok(inc.length >= 2, "incidents attendus, obtenu : " + inc.length);
@@ -57,7 +57,7 @@ test("K géant : le jour 1 déborde d'incidents", () => {
 });
 
 test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caisses vides ne réparent rien", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   for (const p of gardePompiers(m)) m = supprimerPnj(m, p.id);
   // ville pauvre : la réparation ne pourra pas suivre, le sinistre marque le bâtiment
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 100 });
@@ -98,7 +98,7 @@ test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caiss
 });
 
 test("incendie avec budget : les réparations encaissées par le BTP local restent en ville", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 50000000 });
   neutraliserCourses(m, "chef d'entreprise BTP");
   const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
@@ -129,7 +129,7 @@ test("incendie avec budget : les réparations encaissées par le BTP local reste
 });
 
 test("accident : les soins sont facturés à l'hôpital local, l'argent reste en ville", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   m = modifierVille(m, { coeffIntensite: 100000 });
   neutraliserCourses(m, "cheffe de l'hôpital");
   const sofiaAvant = m.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!.compte;
@@ -160,7 +160,7 @@ test("accident : les soins sont facturés à l'hôpital local, l'argent reste en
 });
 
 test("sans hôpital : aucun service de santé, aucun frais", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   m = modifierVille(m, { coeffIntensite: 100000 });
   const sofia = m.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!;
   m = supprimerPnj(m, sofia.id); // l'hôpital reste, sans gérant il est fermé
@@ -177,7 +177,7 @@ test("sans hôpital : aucun service de santé, aucun frais", () => {
 });
 
 test("emprunter sans banque : pas de crédit ; la dette dort sans banquier", () => {
-  let m = calme(createMondeDefaut());
+  let m = calme(createMondeDemonstration());
   m = emprunterVille(m, 10000000);
   const emile = m.pnjs.find((p) => p.metier === "banquier")!;
   m = supprimerPnj(m, emile.id); // la banque reste, sans gérant elle est fermée
@@ -193,7 +193,7 @@ test("emprunter sans banque : pas de crédit ; la dette dort sans banquier", () 
 });
 
 test("garde au complet : l'incendie est maîtrisé, dégâts légers", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   // 4 pompiers supplémentaires : garde de 5, gravité 3 couverte.
   for (let i = 0; i < 4; i++) {
     m.pnjs.push(
@@ -219,7 +219,7 @@ test("garde au complet : l'incendie est maîtrisé, dégâts légers", () => {
 });
 
 test("cambriolage sans police : le butin change de poche, rien ne disparaît", () => {
-  let m = createMondeDefaut();
+  let m = createMondeDemonstration();
   for (const p of gardePolice(m)) m = supprimerPnj(m, p.id);
   const avant = monnaieEnCircuit(m);
   const m2 = modifierVille(m, { coeffIntensite: 100000 });
@@ -239,7 +239,7 @@ test("cambriolage sans police : le butin change de poche, rien ne disparaît", (
 });
 
 test("déterminisme : même jour, mêmes événements, toujours", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const a = passerJour(m);
   const b = passerJour(m);
   assert.equal(JSON.stringify(a), JSON.stringify(b));

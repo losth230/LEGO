@@ -9,12 +9,12 @@ import assert from "node:assert/strict";
 import {
   ajouterGang,
   budgetAleatoire,
-  createMondeDefaut,
   nouveauGang,
   nouveauPnj,
   supprimerPnj,
   supprimerGang
 } from "./monde.ts";
+import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   migrerEtat
@@ -76,7 +76,7 @@ test("traits actifs : le ciblage pèse la personnalité (victimes ×1,5/×0,5, t
 });
 
 test("commissariat : la ville paie 5 L par détenu et par jour en prime de garde aux policiers", () => {
-  const temoin = calme(createMondeDefaut());
+  const temoin = calme(createMondeDemonstration());
   const avec = structuredClone(temoin);
   const detenu = avec.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
   detenu.arreteJusqua = 5; // détenu les jours 1 à 4, libéré le jour 5
@@ -109,7 +109,7 @@ test("commissariat : sans poste de police en ville, la détention est une assign
   // cellules du poste. Sans bâtiment poste en ville, l'arrestation se
   // raconte « assignation à résidence » — la ville ne paie rien, même si
   // des policiers sont encore en poste.
-  const temoin = calme(createMondeDefaut());
+  const temoin = calme(createMondeDemonstration());
   const avec = structuredClone(temoin);
   const detenu = avec.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
   detenu.arreteJusqua = 5; // détenu les jours 1 à 4, libéré le jour 5
@@ -161,7 +161,7 @@ test("budget aléatoire : loi log-uniforme entre ×0,5 et ×10 le revenu indicat
 test("budget aléatoire : le monde par défaut tire le budget de chaque figurine, une fois pour toutes", () => {
   // Arbitrage Thibaut : tous les PNJ, total non recalé, aléatoire à chaque
   // partie (Math.random). La simulation journalière, elle, reste déterministe.
-  const e = createMondeDefaut();
+  const e = createMondeDemonstration();
   assert.equal(e.pnjs.length, 59, "59 figurines");
   const tires = e.pnjs.filter((p) => p.budgetAchat !== p.revenuIndicatif);
   assert.ok(tires.length > 0, "au moins un budget tiré hors du revenu indicatif");
@@ -191,7 +191,7 @@ test("rédemption : à sa sortie, le détenu peut se racheter — l'effectif du 
   }
   // Un policier en poste (Karim), un détenu libéré ce jour-là : effectif
   // suffisant (1 >= 1), 50 % de chances — ce tirage-là rachète.
-  const base = calme(createMondeDefaut());
+  const base = calme(createMondeDemonstration());
   const detenu = base.pnjs.find((p) => p.statut === "prive" && !p.gangId)!;
   detenu.personnalite = ["cupide", "discret"];
   detenu.casier = 1;
@@ -218,7 +218,7 @@ test("rédemption : à sa sortie, le détenu peut se racheter — l'effectif du 
 });
 
 test("éditeur des gangs : installer, recruter, démanteler — le journal raconte tout", () => {
-  const m = createMondeDefaut();
+  const m = createMondeDemonstration();
   const gang = nouveauGang({ nom: "Les Rats du Port", quartiers: ["Port"] });
   const m2 = ajouterGang(m, gang);
   assert.equal(m2.gangs!.length, (m.gangs?.length ?? 0) + 1, "le gang est en ville");
