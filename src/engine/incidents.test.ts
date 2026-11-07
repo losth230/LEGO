@@ -81,7 +81,7 @@ test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caiss
       (e) =>
         e.type === "incident" &&
         e.texte.includes("Dario Costa") &&
-        (e.texte.includes("Cambriolage") || e.texte.includes("Accident")),
+        (e.texte.includes("Cambriolage") || e.texte.includes("Accident") || e.texte.includes("Guerre de gangs")),
     )
     .reduce((s, e) => s + (e.montant ?? 0), 0);
   assert.equal(
@@ -112,7 +112,7 @@ test("incendie avec budget : les réparations encaissées par le BTP local reste
       (e) =>
         e.type === "incident" &&
         e.texte.includes("Dario Costa") &&
-        (e.texte.includes("Cambriolage") || e.texte.includes("Accident")),
+        (e.texte.includes("Cambriolage") || e.texte.includes("Accident") || e.texte.includes("Guerre de gangs")),
     )
     .reduce((s, e) => s + (e.montant ?? 0), 0);
   const dario = j1.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!;

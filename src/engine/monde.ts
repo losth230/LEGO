@@ -106,7 +106,7 @@ const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:I
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
 
-/** Le monde par défaut : 14 bâtiments, 58 figurines (monde fermé 2026-11-06, brigade municipale v1.21). */
+/** Le monde par défaut : 15 bâtiments, 59 figurines (monde fermé 2026-11-06, brigade municipale v1.21, bureau de poste v1.22). */
 export function createMondeDefaut(): Etat {
   compteur = 0;
 
@@ -122,6 +122,10 @@ export function createMondeDefaut(): Etat {
     nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacite: 4, vocation: "sante" }),
     nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacite: 4, vocation: "btp" }),
     nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacite: 2, vocation: "banque" }),
+    // Bureau de poste (v1.22, arbitrage Thibaut : entreprise privée) : La
+    // Poste n'est pas municipale — le receveur tient la boutique, la ville
+    // ne paie rien, le facteur est salarié payé par le flux du soir.
+    nouveauBatiment({ nom: "Bureau de poste de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 300000, capacite: 2 }),
     // Phase 3.10 (correction Thibaut 2026-11-06) : les détenus sont gardés
     // au Poste de police, pas dans un bâtiment dédié — pas de maison d'arrêt.
     nouveauBatiment({ nom: "Les Terrasses (immeuble)", type: "habitation", quartier: "Centre", valeur: 1500000, capacite: 16 }),
@@ -140,21 +144,23 @@ export function createMondeDefaut(): Etat {
   const idHopital = batiments[6].id;
   const idBtp = batiments[7].id;
   const idBanque = batiments[8].id;
-  const immeubles = [batiments[9].id, batiments[10].id, batiments[11].id, batiments[12].id];
+  const idPosteBureau = batiments[9].id;
+  const immeubles = [batiments[10].id, batiments[11].id, batiments[12].id, batiments[13].id];
   const idStade = immeubles[2]; // Résidence du Stade (Sud) — fief des Corbeaux
-  const idCaserneMilitaire = batiments[13].id;
+  const idCaserneMilitaire = batiments[14].id;
 
   const pnjs: Pnj[] = [];
 
   // Agents publics (3) — salaires réels grilles FPT 2025 (voir référentiel).
   pnjs.push(nouveauPnj({ prenom: "Brigitte", nom: "Roussel", age: 52, genre: "F", metier: "secrétaire de mairie", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4500 }));
   // Brigade municipale (v1.21) : les agents techniques de la ville existent
-  // enfin — balayeurs, éboueurs, chef d'équipe de la voirie (grilles FPT
-  // 2025, corps Mairie du référentiel v1.15). Comptent pour la garde de
-  // rien : ils balayent, la ville leur doit ses soldes.
+  // enfin — balayeurs, éboueurs, chef d'équipe de la voirie. La propreté
+  // n'a pas besoin de grades multiples (arbitrage Thibaut v1.22) : un seul
+  // grade Mairie, adjoint technique (48,30 L/j, grille FPT 2025).
+  // Comptent pour la garde de rien : ils balayent, la ville leur doit ses soldes.
   pnjs.push(nouveauPnj({ prenom: "Gérard", nom: "Lavigne", age: 58, genre: "M", metier: "balayeur municipal", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4830 }));
   pnjs.push(nouveauPnj({ prenom: "Solène", nom: "Pichon", age: 36, genre: "F", metier: "éboueuse", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4830 }));
-  pnjs.push(nouveauPnj({ prenom: "Robert", nom: "Vidal", age: 47, genre: "M", metier: "chef d'équipe de la voirie", statut: "agent_public", grade: "agent_maitrise", batimentId: idMairie, revenuIndicatif: 5500 }));
+  pnjs.push(nouveauPnj({ prenom: "Robert", nom: "Vidal", age: 47, genre: "M", metier: "chef d'équipe de la voirie", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4830 }));
   pnjs.push(nouveauPnj({ prenom: "Karim", nom: "Benali", age: 34, genre: "M", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", batimentId: idPolice, revenuIndicatif: 5300 }));
   pnjs.push(nouveauPnj({ prenom: "Élodie", nom: "Garnier", age: 29, genre: "F", metier: "sapeur-pompier", statut: "agent_public", grade: "sapeur_pompier_debutant", batimentId: idCaserne, revenuIndicatif: 5800 }));
   // Garnison (3) — branche militaire, soldes réelles 2025 (grilles NPRM, voir référentiel).
@@ -173,12 +179,21 @@ export function createMondeDefaut(): Etat {
   pnjs.push(nouveauPnj({ prenom: "Dario", nom: "Costa", age: 39, genre: "M", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: idBtp, revenuIndicatif: 5500, compte: 550000 }));
   pnjs.push(nouveauPnj({ prenom: "Émile", nom: "Verne", age: 51, genre: "M", metier: "banquier", statut: "commercant", batimentId: idBanque, revenuIndicatif: 8000, compte: 800000 }));
 
-  // 39 habitants privés : métiers narratifs, revenus variés autour du médian.
+  // Bureau de poste (v1.22, arbitrage Thibaut : entreprise privée — La
+  // Poste n'est pas municipale) : un patron et son facteur, salariés du
+  // privé payés par le flux du soir (convention d'entreprise La Poste,
+  // IDCC 5516). Receveur : grille La Poste 2025, classe III niveau 2,
+  // 2 250 EUR brut ≈ 1 780 net → 59,30 L/j. Facteur : débutant au SMIC,
+  // 1 867 EUR brut ≈ 1 480 net → 49,30 L/j (reconversionprofessionnelle.org).
+  pnjs.push(nouveauPnj({ prenom: "Philippe", nom: "Aubert", age: 45, genre: "M", metier: "receveur de la poste", statut: "commercant", batimentId: idPosteBureau, revenuIndicatif: 5930, compte: 593000 }));
+  pnjs.push(nouveauPnj({ prenom: "Nora", nom: "Nguyen", age: 49, genre: "F", metier: "facteur", statut: "prive", batimentId: immeubles[0], travailBatimentId: idPosteBureau, revenuIndicatif: 4930 }));
+
+  // 38 habitants privés : métiers narratifs, revenus variés autour du médian.
   const metiers: Array<[string, number]> = [
     ["professeure des écoles", 5800], ["pêcheur", 3800], ["ingénieure", 7200], ["médecin", 9000],
     ["retraité", 3000], ["libraire", 4200], ["chauffeur de bus", 4600], ["cuisinière", 4800],
     ["jardinier", 4000], ["photographe", 4400], ["banquière", 8500], ["étudiant", 2000],
-    ["facteur", 4200], ["coiffeuse", 4300], ["électricien", 5000], ["artiste peintre", 3300],
+    ["coiffeuse", 4300], ["électricien", 5000], ["artiste peintre", 3300],
     ["infirmière", 5400], ["architecte", 7500], ["fromager", 5200], ["serveur", 3600],
     ["garagiste", 4900], ["vétérinaire", 8200], ["conseillère municipale", 5100], ["prof de sport", 4500],
     ["horlogère", 4700], ["boucher", 5300], ["apicultrice", 3900], ["pilote de ferry", 6800],

@@ -74,6 +74,10 @@ const GRADES_RETIRES: Record<string, string> = {
   lieutenant_colonel_armee: "capitaine_armee",
   colonel_armee: "capitaine_armee",
   general_armee: "capitaine_armee",
+  // Mairie (v1.22) : la propreté n'a pas besoin de grades multiples
+  // (arbitrage Thibaut) — retour au grade unique, adjoint technique.
+  agent_maitrise: "adjoint_technique",
+  technicien_territorial: "adjoint_technique",
 };
   // Migration v3 -> v4 : modèle flux (phase 3.6) — lieu de travail des
   // employés privés et recettes du dernier jour par commerce.

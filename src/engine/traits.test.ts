@@ -162,7 +162,7 @@ test("budget aléatoire : le monde par défaut tire le budget de chaque figurine
   // Arbitrage Thibaut : tous les PNJ, total non recalé, aléatoire à chaque
   // partie (Math.random). La simulation journalière, elle, reste déterministe.
   const e = createMondeDefaut();
-  assert.equal(e.pnjs.length, 58, "58 figurines");
+  assert.equal(e.pnjs.length, 59, "59 figurines");
   const tires = e.pnjs.filter((p) => p.budgetAchat !== p.revenuIndicatif);
   assert.ok(tires.length > 0, "au moins un budget tiré hors du revenu indicatif");
   for (const p of e.pnjs) {

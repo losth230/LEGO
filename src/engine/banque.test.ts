@@ -25,7 +25,8 @@ import {
 import {
   entrees,
   calme,
-  neutraliserCourses
+  neutraliserCourses,
+  sansEmployePrive
 } from "./outils-test.ts";
 
 // ---------- Phase 3 : dette bancaire, trésorerie, arbitrages ----------
@@ -72,7 +73,9 @@ test("les intérêts coulent chaque jour vers la banque locale (3,54 %/an réel)
 });
 
 test("sans le sou : les intérêts se capitalisent, la dette grossit", () => {
-  let m = calme(createMondeDefaut());
+  // Sans employé privé (facteur détaché, voir outils-test.ts), la retenue
+  // du soir se confond avec l'impôt sur les recettes de chaque commerce.
+  let m = sansEmployePrive(calme(createMondeDefaut()));
   m = emprunterVille(m, 10000000);
   m = modifierVille(m, { budgetVille: 0 });
   const j1 = passerJour(m);

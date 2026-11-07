@@ -33,32 +33,37 @@ import {
 
 import {
   entrees,
-  calme
+  calme,
+  sansEmployePrive
 } from "./outils-test.ts";
 
-test("monde par défaut : 14 bâtiments, 58 figurines (garnison, brigade municipale et gang incluses), jour 0", () => {
+test("monde par défaut : 15 bâtiments, 59 figurines (garnison, brigade, gang et bureau de poste inclus), jour 0", () => {
   const m = createMondeDefaut();
-  assert.equal(m.batiments.length, 14);
-  assert.equal(m.pnjs.length, 58);
+  assert.equal(m.batiments.length, 15);
+  assert.equal(m.pnjs.length, 59);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
   assert.equal(services.length, 4);
   const agents = m.pnjs.filter((p) => p.statut === "agent_public");
   assert.equal(agents.length, 9);
-  // Monde 100 % fermé : 3 boutiques de consommation + 3 services à vocation
-  // (hôpital, BTP, banque), chacun tenu par son gérant. La détention se
-  // joue au commissariat (Poste de police), pas dans un bâtiment dédié.
+  // Monde 100 % fermé : 4 boutiques de consommation (dont le bureau de
+  // poste, v1.22) + 3 services à vocation (hôpital, BTP, banque), chacun
+  // tenu par son gérant. La détention se joue au commissariat (Poste de
+  // police), pas dans un bâtiment dédié.
   const boutiques = m.batiments.filter((b) => b.type === "commerce" && !b.vocation);
-  assert.equal(boutiques.length, 3);
+  assert.equal(boutiques.length, 4);
   assert.ok(serviceLocal(m, "sante") !== null, "l'hôpital est en ville et tenu");
   assert.ok(serviceLocal(m, "btp") !== null, "le BTP est en ville et tenu");
   assert.ok(serviceLocal(m, "banque") !== null, "la banque est en ville et tenue");
-  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 6);
+  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 7);
 });
 
 test("un jour : impôts retenus à la source, salaires versés, sorties tracées, achats encaissés", () => {
-  const m = calme(createMondeDefaut());
+  // Ce test vérifie l'arithmétique de l'impôt sans employé privé : le
+  // facteur du bureau de poste (v1.22) est détaché — le flux avec employé
+  // est couvert par flux.test.ts.
+  const m = sansEmployePrive(calme(createMondeDefaut()));
   const taux = m.params.tauxImpotBp;
   const attenduSalaires = m.pnjs
     .filter((p) => p.statut === "agent_public")
@@ -92,15 +97,16 @@ test("un jour : impôts retenus à la source, salaires versés, sorties tracées
   for (const typeAtt of ["impots", "salaires", "fonctionnement", "achats", "solde"]) {
     assert.equal(entrees(1, typeAtt, j1.journal).length, 1, typeAtt);
   }
-  assert.equal(entrees(1, "flux", j1.journal).length, 3, "trois commerces racontent leur flux");
+  assert.equal(entrees(1, "flux", j1.journal).length, 4, "quatre boutiques racontent leur flux");
   // Sans employé, un commerce thésaurise : la phase 3.6 le raconte (stock).
+  // (Le facteur du bureau de poste est détaché pour ce test : voir plus haut.)
   assert.ok(
     entrees(1, "flux", j1.journal).every((e) => e.texte.includes("stock")),
     "l'accumulation sans employé est racontée",
   );
   // Recettes du dernier jour persistées (calibrage des effectifs).
   assert.ok(j1.recettesCommerce !== undefined);
-  assert.equal(Object.keys(j1.recettesCommerce!).length, 3);
+  assert.equal(Object.keys(j1.recettesCommerce!).length, 4);
   for (const v of Object.values(j1.recettesCommerce!)) assert.ok(v > 70000, "recettes: " + v);
   // Fonctionnement rerouté : la ville achète sur place (montant identique).
   assert.ok(fonct[0].texte.includes("commerces locaux"), "l'achat sur place est raconté");
@@ -143,9 +149,11 @@ test("le vendeur de frites encaisse les achats des habitants", () => {
 });
 
 test("impôt à la source : sans gain, pas d'impôt — même à sec", () => {
-  const m = calme(createMondeDefaut());
+  // Même neutralisation que le test « un jour » : sans employé privé,
+  // la retenue patronale se confond avec l'impôt sur les recettes.
+  const m = sansEmployePrive(calme(createMondeDefaut()));
   const taux = m.params.tauxImpotBp;
-  m.pnjs[15] = { ...m.pnjs[15], compte: 100 }; // 1,00 L, aucun gain à venir (première habitante)
+  m.pnjs[17] = { ...m.pnjs[17], compte: 100 }; // 1,00 L, aucun gain à venir (première habitante)
   const j1 = passerJour(m);
   const impots = entrees(1, "impots", j1.journal);
   // Le PNJ à sec n'a rien gagné dans la journée : il n'est pas imposé du tout.
@@ -158,7 +166,7 @@ test("impôt à la source : sans gain, pas d'impôt — même à sec", () => {
   );
   assert.equal(impots[0].montant, attenduAgents + attenduPatrons);
   // Son unique L a servi ses achats, pas l'impôt.
-  assert.equal(j1.pnjs[15].compte, 0);
+  assert.equal(j1.pnjs[17].compte, 0);
 });
 
 test("taux d'imposition : plus de taux, plus de recettes", () => {
@@ -211,9 +219,9 @@ test("l'épargne n'est pas touchée par le moteur", () => {
 
 test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
   assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 58);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 59);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 58, "version future -> monde par défaut");
+  assert.equal(futur.pnjs.length, 59, "version future -> monde par défaut");
   const m = migrerEtat({ schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
@@ -229,7 +237,10 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   );
   assert.equal(m.dette, 0, "v2 -> v3 : dette initialisée");
   assert.equal(m.mouvementsBanqueCumules, 0, "v2 -> v3 : mouvements banque initialisés");
-  assert.ok(m.pnjs.every((p) => p.travailBatimentId === null), "v3 -> v4 : lieu de travail initialisé");
+  assert.ok(
+    m.pnjs.every((p) => p.travailBatimentId === null || typeof p.travailBatimentId === "string"),
+    "v3 -> v4 : champ lieu de travail initialisé (null, ou déjà renseigné — le facteur du bureau de poste, v1.22)",
+  );
   assert.deepEqual(m.recettesCommerce, {}, "v3 -> v4 : recettes des commerces initialisées");
   // v5 : le taux réglé par le joueur est conservé, la vocation est complétée.
   const v5 = migrerEtat({

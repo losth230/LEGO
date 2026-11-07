@@ -143,17 +143,25 @@ test("flux : sans boutique ouverte, la ville ne s'équipe pas — rien ne sort (
 test("flux : deux employés au Fournil Doré, la bascule stock vers flux en monde réel", () => {
   const m = calme(createMondeDefaut());
   const boulangerie = m.batiments.find((b) => b.nom.includes("Fournil"))!.id;
-  // Les habitants commencent à l'indice 15 (après les agents publics et
-  // municipaux, les commerçants et les trois gérants des services à vocation).
-  m.pnjs[15] = { ...m.pnjs[15], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
-  m.pnjs[16] = { ...m.pnjs[16], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  // Les habitants commencent à l'indice 17 (après les agents publics et
+  // municipaux, les commerçants, les trois gérants des services à vocation,
+  // et l'équipe du bureau de poste v1.22 : receveur + facteur).
+  m.pnjs[17] = { ...m.pnjs[17], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  m.pnjs[18] = { ...m.pnjs[18], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
   const j1 = passerJour(m);
   const recettes = j1.recettesCommerce![boulangerie];
   const plafond = Math.round(PART_SALARIALE_FLUX * recettes);
   const entree = entrees(1, "flux", j1.journal).find((e) => e.texte.includes("Fournil"));
   assert.ok(entree !== undefined, "le Fournil raconte sa journée");
   assert.equal(entree!.montant, plafond, "88 % du flux repartent en salaires et primes le soir même");
-  // Les deux autres commerces, sans employé, thésaurisent toujours (raconté).
+  // Les deux autres boutiques sans employé (friterie, quincaillerie)
+  // thésaurisent toujours (raconté) ; le bureau de poste, lui, paie son
+  // facteur (v1.22) : il ne thésaurise pas.
   assert.equal(entrees(1, "flux", j1.journal).filter((e) => e.texte.includes("stock")).length, 2);
+  const poste = entrees(1, "flux", j1.journal).find((e) => e.texte.includes("Bureau de poste"));
+  assert.ok(
+    poste !== undefined && !poste.texte.includes("stock"),
+    "le bureau de poste paie son facteur (v1.22) : il ne thésaurise pas",
+  );
   assert.equal(j1.sortiesCumulees, 0, "rien ne sort du circuit quand les commerces sont ouverts");
 });

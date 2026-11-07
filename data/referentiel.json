@@ -1,5 +1,5 @@
 {
-  "version": "1.15",
+  "version": "1.16",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -116,24 +116,6 @@
         "annee": 2025,
         "source": "Grilles indiciaires FPT 2025 (cat C) — point d\u2019indice 4,92278 EUR ; FIGÉ 2026-11-06 (grilles vérifiées emploi-collectivites / juristique)",
         "url": "https://www.legifrance.gouv.fr/loda/id/JORFTEXT000051724928/"
-      },
-      "agent_maitrise": {
-        "corps": "Mairie",
-        "valeur": 55.0,
-        "mensuel_net": "~1650",
-        "unite": "euro/agent/jour",
-        "annee": 2025,
-        "source": "Grille FPT agent de maîtrise territorial (cat C, chef d'équipe — v1.21 : les agents municipaux existent enfin) — point d'indice 4,92278 EUR, net ≈ brut × 0,794, échelons médians",
-        "url": "https://www.emploi-collectivites.fr/grille-indiciaire-territoriale-agent-maitrise-territorial-am/4/48.htm"
-      },
-      "technicien_territorial": {
-        "corps": "Mairie",
-        "valeur": 61.7,
-        "mensuel_net": "~1850",
-        "unite": "euro/agent/jour",
-        "annee": 2025,
-        "source": "Grille FPT technicien territorial (cat B, responsable des services techniques) — point d'indice 4,92278 EUR, net ≈ brut × 0,794, hauts échelons",
-        "url": "https://www.emploi-collectivites.fr/grille-indiciaire-territoriale-Technicien/4/35/83.htm"
       },
       "policier_municipal": {
         "corps": "Police municipale",

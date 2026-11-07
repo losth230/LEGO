@@ -110,12 +110,12 @@ test("coefficientRenfort : deux militaires contiennent la moitié d un incident 
   assert.equal(coefficientRenfort(2, 10), 1);
 });
 
-test("référentiel v1.15 : chaque grade porte son corps, l'éditeur propose exactement la grille du référentiel", () => {
+test("référentiel v1.16 : chaque grade porte son corps, l'éditeur propose exactement la grille du référentiel", () => {
   assert.deepEqual(
     GROUPES_GRADES.map((g) => g.corps),
     ["Mairie", "Police municipale", "Sapeurs-pompiers", "Armée"],
   );
-  assert.equal(GRADES.length, 12, "trois grades par corps — la Mairie comprise depuis la v1.21");
+  assert.equal(GRADES.length, 10, "trois grades par corps de sécurité, un seul pour la Mairie (v1.22)");
   for (const g of GROUPES_GRADES) {
     for (const gr of g.grades) {
       assert.ok(gradeConnu(gr), gr + " doit être défini dans le référentiel (sinon le moteur paie 50 L de secours en silence)");
@@ -203,13 +203,38 @@ test("v1.20 : salaire de secours journalisé — un grade inconnu paie 50 L/jour
   assert.equal(entree.montant, 5000); // 50,00 L bruts, retenus à la source
 });
 
-test("v1.21 : corps Mairie — trois grades croissants pour les agents municipaux (balayeurs, éboueurs, chefs d'équipe)", () => {
+test("v1.22 : corps Mairie — un seul grade (la propreté n'a pas besoin de grades multiples, arbitrage Thibaut)", () => {
   const mairie = GROUPES_GRADES.find((g) => g.corps === "Mairie");
   assert.ok(mairie, "le corps Mairie existe");
-  assert.deepEqual(mairie.grades, ["adjoint_technique", "agent_maitrise", "technicien_territorial"]);
+  assert.deepEqual(mairie.grades, ["adjoint_technique"]);
   assert.equal(salaireJourL("adjoint_technique"), 48.3);
-  assert.equal(salaireJourL("agent_maitrise"), 55.0);
-  assert.equal(salaireJourL("technicien_territorial"), 61.7);
+});
+
+test("v1.22 : les grades Mairie retirés (v1.21) reconvertis au chargement d'une sauvegarde", () => {
+  const e = createMondeDefaut();
+  e.pnjs[7].grade = "agent_maitrise"; // Robert, chef d'équipe (v1.21)
+  e.pnjs[8].grade = "technicien_territorial";
+  const rel = migrerEtat(JSON.parse(JSON.stringify(e)));
+  assert.equal(rel.pnjs[7].grade, "adjoint_technique", "agent de maîtrise → adjoint technique (grade unique)");
+  assert.equal(rel.pnjs[8].grade, "adjoint_technique", "technicien territorial → adjoint technique");
+  assert.equal(salaireJourL(rel.pnjs[7].grade ?? ""), 48.3, "la figurine garde une solde lue dans la grille conservée");
+});
+
+test("v1.22 : le bureau de poste est privé — receveur patron, facteur salarié, la ville ne paie rien", () => {
+  const m = createMondeDefaut();
+  const bureau = m.batiments.find((b) => b.nom.includes("Bureau de poste"));
+  assert.ok(bureau, "le bureau de poste existe");
+  assert.equal(bureau.type, "commerce");
+  assert.equal(bureau.vocation ?? null, null, "une boutique comme les autres : timbres et colis");
+  const receveur = m.pnjs.find((p) => p.metier === "receveur de la poste");
+  const facteur = m.pnjs.find((p) => p.metier === "facteur");
+  assert.ok(receveur && facteur, "l'équipe existe");
+  assert.equal(receveur.statut, "commercant");
+  assert.equal(receveur.batimentId, bureau.id);
+  assert.equal(facteur.statut, "prive", "La Poste n'est pas municipale : le facteur n'est pas un agent public");
+  assert.equal(facteur.travailBatimentId, bureau.id, "le facteur travaille pour le bureau de poste");
+  assert.equal(facteur.revenuIndicatif, 4930, "49,30 L/j — SMIC 2025, convention d'entreprise La Poste");
+  assert.equal(m.pnjs.filter((p) => p.statut === "agent_public").length, 9, "la ville ne paie toujours que ses 9 agents");
 });
 
 test("v1.21 : la brigade municipale du monde par défaut est payée et ne garde rien (aucun corps de sécurité)", () => {
@@ -223,5 +248,5 @@ test("v1.21 : la brigade municipale du monde par défaut est payée et ne garde 
     "les agents municipaux n'appartiennent à aucune garde",
   );
   const soldes = brigade.reduce((s, p) => s + Math.round(salaireJourL(p.grade ?? "") * 100), 0);
-  assert.equal(soldes, Math.round((48.3 + 48.3 + 55.0) * 100), "soldes brutes de la brigade (grilles FPT 2025)");
+  assert.equal(soldes, Math.round((48.3 + 48.3 + 48.3) * 100), "soldes brutes de la brigade au grade unique (grille FPT 2025)");
 });
