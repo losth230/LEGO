@@ -106,7 +106,7 @@ const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:I
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
 
-/** Le monde par défaut : 14 bâtiments, 51 figurines (cahier des charges, monde fermé 2026-11-06). */
+/** Le monde par défaut : 14 bâtiments, 58 figurines (monde fermé 2026-11-06, brigade municipale v1.21). */
 export function createMondeDefaut(): Etat {
   compteur = 0;
 
@@ -148,6 +148,13 @@ export function createMondeDefaut(): Etat {
 
   // Agents publics (3) — salaires réels grilles FPT 2025 (voir référentiel).
   pnjs.push(nouveauPnj({ prenom: "Brigitte", nom: "Roussel", age: 52, genre: "F", metier: "secrétaire de mairie", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4500 }));
+  // Brigade municipale (v1.21) : les agents techniques de la ville existent
+  // enfin — balayeurs, éboueurs, chef d'équipe de la voirie (grilles FPT
+  // 2025, corps Mairie du référentiel v1.15). Comptent pour la garde de
+  // rien : ils balayent, la ville leur doit ses soldes.
+  pnjs.push(nouveauPnj({ prenom: "Gérard", nom: "Lavigne", age: 58, genre: "M", metier: "balayeur municipal", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4830 }));
+  pnjs.push(nouveauPnj({ prenom: "Solène", nom: "Pichon", age: 36, genre: "F", metier: "éboueuse", statut: "agent_public", grade: "adjoint_technique", batimentId: idMairie, revenuIndicatif: 4830 }));
+  pnjs.push(nouveauPnj({ prenom: "Robert", nom: "Vidal", age: 47, genre: "M", metier: "chef d'équipe de la voirie", statut: "agent_public", grade: "agent_maitrise", batimentId: idMairie, revenuIndicatif: 5500 }));
   pnjs.push(nouveauPnj({ prenom: "Karim", nom: "Benali", age: 34, genre: "M", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", batimentId: idPolice, revenuIndicatif: 5300 }));
   pnjs.push(nouveauPnj({ prenom: "Élodie", nom: "Garnier", age: 29, genre: "F", metier: "sapeur-pompier", statut: "agent_public", grade: "sapeur_pompier_debutant", batimentId: idCaserne, revenuIndicatif: 5800 }));
   // Garnison (3) — branche militaire, soldes réelles 2025 (grilles NPRM, voir référentiel).

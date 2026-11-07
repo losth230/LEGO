@@ -1,9 +1,10 @@
 # data/ — Référentiel de valeurs réelles
 
-**[referentiel.json](referentiel.json)** (v1.14, 2026-11-06) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire). Chaque valeur porte sa source, son année et son calcul ; les évolutions de cadrage sont datées dans le README racine (§9).
+**[referentiel.json](referentiel.json)** (v1.15, 2026-11-06) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire). Chaque valeur porte sa source, son année et son calcul ; les évolutions de cadrage sont datées dans le README racine (§9).
 
 ### Fil des versions du référentiel
 
+- **v1.15 (2026-11-06)** : le corps **Mairie** passe de 1 à 3 grades — adjoint technique (48,30 L/jour), **agent de maîtrise** (55,00) et **technicien territorial** (61,70) — grilles FPT emploi-collectivites (point d'indice 4,92278 €, net ≈ brut × 0,794) : les agents municipaux (balayeurs, éboueurs, chefs d'équipe) existent enfin (v1.21 ; le monde par défaut embauche une brigade de 3).
 - **v1.14 (2026-11-06)** : chaque grade porte son **corps** (champ `corps`) ; grilles de salaires publics **figées** (vérifiées : point d'indice 4,92278 €, grilles FPT 2025, commissaire en grille indiciaire FPE) ; les groupes de grades de l'application sont **générés depuis ce fichier** (plus de liste en parallèle dans l'éditeur).
 - **v1.13** : le commissaire remplace l'inspecteur au sommet de la police (arbitrage Thibaut 2026-11-06 : l'inspecteur est un métier à part) — un inspecteur sauvegardé devient major, le grade conservé au salaire le plus proche.
 - **v1.12** : grilles resserrées à **trois grades par corps** (police, pompiers, armée ; arbitrage Thibaut 2026-11-06, 33 → 10 grades), les sauvegardes sont converties vers le grade conservé au salaire le plus proche.

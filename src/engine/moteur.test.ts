@@ -36,16 +36,16 @@ import {
   calme
 } from "./outils-test.ts";
 
-test("monde par défaut : 14 bâtiments, 55 figurines (garnison et gang incluses), jour 0", () => {
+test("monde par défaut : 14 bâtiments, 58 figurines (garnison, brigade municipale et gang incluses), jour 0", () => {
   const m = createMondeDefaut();
   assert.equal(m.batiments.length, 14);
-  assert.equal(m.pnjs.length, 55);
+  assert.equal(m.pnjs.length, 58);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
   assert.equal(services.length, 4);
   const agents = m.pnjs.filter((p) => p.statut === "agent_public");
-  assert.equal(agents.length, 6);
+  assert.equal(agents.length, 9);
   // Monde 100 % fermé : 3 boutiques de consommation + 3 services à vocation
   // (hôpital, BTP, banque), chacun tenu par son gérant. La détention se
   // joue au commissariat (Poste de police), pas dans un bâtiment dédié.
@@ -145,7 +145,7 @@ test("le vendeur de frites encaisse les achats des habitants", () => {
 test("impôt à la source : sans gain, pas d'impôt — même à sec", () => {
   const m = calme(createMondeDefaut());
   const taux = m.params.tauxImpotBp;
-  m.pnjs[10] = { ...m.pnjs[10], compte: 100 }; // 1,00 L, aucun gain à venir
+  m.pnjs[15] = { ...m.pnjs[15], compte: 100 }; // 1,00 L, aucun gain à venir (première habitante)
   const j1 = passerJour(m);
   const impots = entrees(1, "impots", j1.journal);
   // Le PNJ à sec n'a rien gagné dans la journée : il n'est pas imposé du tout.
@@ -158,7 +158,7 @@ test("impôt à la source : sans gain, pas d'impôt — même à sec", () => {
   );
   assert.equal(impots[0].montant, attenduAgents + attenduPatrons);
   // Son unique L a servi ses achats, pas l'impôt.
-  assert.equal(j1.pnjs[10].compte, 0);
+  assert.equal(j1.pnjs[15].compte, 0);
 });
 
 test("taux d'imposition : plus de taux, plus de recettes", () => {
@@ -211,9 +211,9 @@ test("l'épargne n'est pas touchée par le moteur", () => {
 
 test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
   assert.equal(migrerEtat(null).jour, 0);
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 55);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 58);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 55, "version future -> monde par défaut");
+  assert.equal(futur.pnjs.length, 58, "version future -> monde par défaut");
   const m = migrerEtat({ schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));

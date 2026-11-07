@@ -143,10 +143,10 @@ test("flux : sans boutique ouverte, la ville ne s'équipe pas — rien ne sort (
 test("flux : deux employés au Fournil Doré, la bascule stock vers flux en monde réel", () => {
   const m = calme(createMondeDefaut());
   const boulangerie = m.batiments.find((b) => b.nom.includes("Fournil"))!.id;
-  // Les habitants commencent à l'indice 12 (après agents, commerçants et
-  // les trois patrons des services à vocation).
-  m.pnjs[12] = { ...m.pnjs[12], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
-  m.pnjs[13] = { ...m.pnjs[13], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  // Les habitants commencent à l'indice 15 (après les agents publics et
+  // municipaux, les commerçants et les trois gérants des services à vocation).
+  m.pnjs[15] = { ...m.pnjs[15], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  m.pnjs[16] = { ...m.pnjs[16], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
   const j1 = passerJour(m);
   const recettes = j1.recettesCommerce![boulangerie];
   const plafond = Math.round(PART_SALARIALE_FLUX * recettes);
