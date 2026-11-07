@@ -122,7 +122,7 @@ export function createMondeDefaut(): Etat {
     budgetVille: 500000,
     sortiesCumulees: 0,
     pertesCumulees: 0,
-    volsCumulees: 0,
+    volsCumules: 0,
     dette: 0,
     mouvementsBanqueCumules: 0,
     gangs: [],
