@@ -1,5 +1,5 @@
 {
-  "version": "1.16",
+  "version": "1.17",
   "date_extraction": "2026-11-05",
   "principe": "Le réalisme est le point de départ, l'amusement arbitre. Chaque valeur est éditable dans l'application et porte sa source.",
   "meta": {
@@ -300,6 +300,38 @@
       "annee": 2026,
       "source": "Arbitrage Thibaut 2026-11-06 — milieu criminel",
       "note": "Taux de jeu assumé, pas une donnée réelle : un affrontement criminel par ~5 semaines dans une ville hébergeant au moins deux factions rivales (gang contre gang, gang contre indépendant). Ajustable librement dans le référentiel."
+    },
+    "vol_vehicule": {
+      "valeur": 18.95,
+      "comptage": "~130000 vols d'automobiles (France 2024)",
+      "annee": 2024,
+      "source": "SSMSI — Insécurité et délinquance en 2024 (bilan statistique)",
+      "url": "https://statistiques.interieur.gouv.fr/ssmsi/publications/insecurite-et-delinquance-en-2024-bilan-statistique-et-atlas-departemental",
+      "note": "Vols d'automobiles convertis pour 10 000 hab. (base 68,6 M) ; ordre de grandeur à resserrer à la prochaine extraction SSMSI. Dans le jeu : le voleur prend le véhicule (transfert de propriété, monde fermé)."
+    },
+    "collision_vehicule": {
+      "valeur": 15,
+      "comptage": "taux de jeu (aucune statistique réelle)",
+      "annee": 2026,
+      "source": "Arbitrage Thibaut 2026-11-08 — les véhicules",
+      "note": "Taux de jeu assumé : une collision urbaine par ~4 jours à 60 figurines (K=1000). Cible : un véhicule roulant de la ville ; dégâts au BTP local, blessés à l'hôpital local (monde fermé)."
+    }
+  },
+  "vehicules": {
+    "unite": "valeurs de jeu pour la flotte (arbitrage Thibaut 2026-11-08, v1.25)",
+    "essence_reference": {
+      "valeur": 8,
+      "unite": "L/jour de carburant pour un véhicule qui tourne",
+      "source": "Arbitrage Thibaut 2026-11-08 — les véhicules",
+      "annee": 2026,
+      "note": "Ordre de grandeur : un véhicule utilitaire municipal tournant toute la journée (~8 L). Défaut à la création, ajustable par véhicule dans l'éditeur ; un véhicule sinistré ou sans carburant ne roule pas (monde fermé : le carburant s'achète sur place, dans les boutiques ouvertes)."
+    },
+    "part_degats_collision": {
+      "valeur": 0.10,
+      "unite": "part de la valeur du véhicule par point de gravité",
+      "source": "Arbitrage Thibaut 2026-11-08 — les véhicules",
+      "annee": 2026,
+      "note": "Une collision coûte 10 % de la valeur du véhicule × gravité (doublés sans camion de propreté en ville : chaussée et carrosserie à remettre en état). Les réparations sont payées au BTP local ; sans BTP, le véhicule reste sinistré."
     }
   },
   "services": {

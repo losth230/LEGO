@@ -10,9 +10,15 @@ import type {
 } from "./types.ts";
 
 import {
+  ajouterPnj,
+  ajouterVehicule,
   createMondeDefaut,
+  modifierPnj,
   modifierVille,
-  nouveauBatiment
+  nouveauBatiment,
+  nouveauPnj,
+  nouveauVehicule,
+  supprimerVehicule
 } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
 
@@ -266,7 +272,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
   assert.equal(m.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
-  assert.equal(m.schemaVersion, 9, "v1 -> v9 : schema à jour");
+  assert.equal(m.schemaVersion, 10, "v1 -> v10 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -288,7 +294,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
-  assert.equal(v5.schemaVersion, 9, "v5 -> v9 : schema à jour");
+  assert.equal(v5.schemaVersion, 10, "v5 -> v10 : schema à jour");
   // v5 -> v6 : la vocation des bâtiments existants est complétée à null
   // (boutique de consommation par défaut), jamais devinée.
   const v5bat = migrerEtat({
@@ -300,7 +306,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
       { id: "b2", nom: "Mairie", type: "service_public" },
     ],
   });
-  assert.equal(v5bat.schemaVersion, 9, "v5 -> v9 : schema à jour");
+  assert.equal(v5bat.schemaVersion, 10, "v5 -> v10 : schema à jour");
   assert.ok(
     v5bat.batiments.every((b) => b.vocation === null),
     "v5 -> v6 : vocation des bâtiments complétée (boutique par défaut)",
@@ -314,7 +320,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   // par défaut passe de 10 % à 30 % — une ville restée à l'ancien défaut
   // monte au nouveau taux, un taux choisi reste le sien.
   const v6defaut = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 1000, coeffIntensite: 2 } });
-  assert.equal(v6defaut.schemaVersion, 9, "v6 -> v9 : schema à jour");
+  assert.equal(v6defaut.schemaVersion, 10, "v6 -> v10 : schema à jour");
   assert.equal(v6defaut.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
   assert.equal(v6defaut.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP, "v6 -> v7 : l'ancien défaut 10 % devient 30 %");
   const v6choisi = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 555, coeffIntensite: 2 } });
@@ -339,7 +345,7 @@ test("capacités séparées (v1.24) : un bâtiment peut loger et employer à la 
       { id: "b2", nom: "Le Fournil Doré", type: "commerce", capacite: 2 },
     ],
   });
-  assert.equal(vieux.schemaVersion, 9, "v8 -> v9 : schema à jour");
+  assert.equal(vieux.schemaVersion, 10, "v8 -> v10 : schema à jour");
   const maison = vieux.batiments.find((x) => x.id === "b1")!;
   assert.equal(maison.capaciteLogements, 4, "habitation : la capacité devient des logements");
   assert.equal(maison.capacitePostes, 0, "habitation : aucun poste inventé");
@@ -347,4 +353,110 @@ test("capacités séparées (v1.24) : un bâtiment peut loger et employer à la 
   assert.equal(boulangerie.capacitePostes, 2, "commerce : la capacité devient des postes");
   assert.equal(boulangerie.capaciteLogements, 0, "commerce : aucun logement inventé");
   assert.ok(!("capacite" in maison), "l'ancien champ capacite disparaît");
+});
+
+// ---------- v1.25 : les véhicules — essence, monde fermé, migrations ----------
+
+test("essence (v1.25) : le carburant s'achète sur place, la ville et les privés paient", () => {
+  // Monde témoin : une pompe, son pompiste, la flotte et une privée.
+  const base = calme(createMondeDefaut());
+  const pompe = nouveauBatiment({ nom: "Station-service du Centre", type: "commerce" });
+  const pompiste = nouveauPnj({ prenom: "Essa", nom: "Pompiste", statut: "commercant", batimentId: pompe.id, revenuIndicatif: 6000, compte: 0 });
+  const perrine = nouveauPnj({ prenom: "Perrine", nom: "Volant", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 5000 });
+  const monde: Etat = {
+    ...base,
+    batiments: [pompe],
+    pnjs: [pompiste, perrine],
+    vehicules: [
+      nouveauVehicule({ nom: "Balayeuse municipale", categorie: "municipal", role: "proprete", essenceJour: 800 }),
+      nouveauVehicule({ nom: "Voiture de Perrine", categorie: "prive", proprietairePnjId: perrine.id, essenceJour: 500 }),
+    ],
+  };
+  const avant = monnaieEnCircuit(monde);
+  const j1 = passerJour(monde);
+  assert.equal(
+    j1.budgetVille,
+    monde.budgetVille - 800 + impotSur(1300, monde.params.tauxImpotBp),
+    "la flotte se paie sur le budget de la ville, la pompe reverse sa retenue à la source",
+  );
+  assert.equal(
+    j1.pnjs.find((p) => p.prenom === "Perrine")!.compte,
+    5000 - 500,
+    "la privée paie son plein sur son propre compte",
+  );
+  const essence = entrees(1, "essence", j1.journal);
+  assert.equal(essence.length, 1, "le plein du jour est raconté");
+  assert.equal(essence[0].montant, 1300, "800 de flotte + 500 de privé");
+  assert.ok(essence[0].texte.includes("flotte municipale : 8,00 L"), "le détail flotte/privés est raconté");
+  assert.equal(j1.recettesCommerce![pompe.id], 1300, "la pompe locale encaisse tout le carburant");
+  assert.ok(j1.pnjs[0].compte > 0, "le pompiste garde sa recette du jour");
+  assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte : l'argent a seulement circulé");
+});
+
+test("essence (v1.25) : sans boutique ouverte, la flotte dort au garage — rien ne sort", () => {
+  const base = calme(createMondeDefaut());
+  const monde: Etat = {
+    ...base,
+    vehicules: [nouveauVehicule({ nom: "Ambulance", categorie: "municipal", role: "sante", essenceJour: 600 })],
+  };
+  const avant = monnaieEnCircuit(monde);
+  const j1 = passerJour(monde);
+  const essence = entrees(1, "essence", j1.journal);
+  assert.equal(essence.length, 1, "la journée sans carburant est racontée");
+  assert.equal(essence[0].montant, 0, "pas un centime de carburant dépensé");
+  assert.ok(
+    essence[0].texte.includes("aucune boutique ouverte") && essence[0].texte.includes("leurs rôles dorment"),
+    "l'immobilisation est racontée, le rôle dort",
+  );
+  assert.equal(j1.budgetVille, monde.budgetVille, "rien dépensé : la pompe ne fait pas crédit");
+  assert.equal(monnaieEnCircuit(j1), avant, "monde fermé");
+});
+
+test("migrations v9 -> v10 (v1.25) : les véhicules sont complétés, jamais inventés", () => {
+  const v9 = migrerEtat({ schemaVersion: 9, jour: 4 });
+  assert.equal(v9.schemaVersion, 10, "v9 -> v10 : schema à jour");
+  assert.deepEqual(v9.vehicules, [], "un état v9 sans véhicules obtient une liste vide, pas une flotte inventée");
+  // Payload tordu : un véhicule d'import aux champs manquants est complété
+  // au défaut (privé, bon état, essence 0), jamais deviné.
+  const tordu = migrerEtat({
+    schemaVersion: 9,
+    jour: 2,
+    vehicules: [{ id: "veh-x", nom: "Caisse à roulettes" }],
+  });
+  assert.equal(tordu.vehicules!.length, 1, "le véhicule d'import est conservé");
+  const v = tordu.vehicules![0];
+  assert.equal(v.id, "veh-x");
+  assert.equal(v.categorie, "prive", "catégorie complétée au défaut");
+  assert.equal(v.etat, "bon", "état complété au défaut");
+  assert.equal(v.essenceJour, 0, "consentation complétée à 0 : rien n'est deviné");
+  assert.equal(v.role, null, "pas de rôle inventé");
+  // La ville nue (v1.23) n'a toujours aucun véhicule.
+  const nue = createMondeDefaut();
+  assert.deepEqual(nue.vehicules, [], "la ville par défaut n'a pas de véhicule");
+  assert.ok(
+    nue.journal.some((e) => e.texte.includes("aucun véhicule")),
+    "le journal du jour 0 le raconte",
+  );
+});
+
+test("éditeur de véhicules (v1.25) : la caravane loge, on la retire — plus rien ne pend", () => {
+  let m = createMondeDefaut();
+  const caravane = nouveauVehicule({ nom: "Caravane de l'étudiant", capaciteLogements: 2 });
+  m = ajouterVehicule(m, caravane);
+  assert.ok(
+    m.journal.some((e) => e.texte.includes("il peut loger 2 figurine(s)")),
+    "l'arrivée de la roulotte est racontée",
+  );
+  const etudiant = nouveauPnj({ prenom: "Léo", nom: "Nomade", statut: "prive" });
+  m = ajouterPnj(m, etudiant);
+  m = modifierPnj(m, etudiant.id, { batimentId: caravane.id });
+  assert.equal(m.pnjs.find((p) => p.id === etudiant.id)!.batimentId, caravane.id, "l'étudiant loge dans la caravane");
+  m = supprimerVehicule(m, caravane.id);
+  assert.equal(m.vehicules!.length, 0, "la caravane a disparu");
+  assert.equal(
+    m.pnjs.find((p) => p.id === etudiant.id)!.batimentId,
+    null,
+    "plus de logement fantôme : rien ne pend à un véhicule disparu",
+  );
+  assert.ok(m.journal.some((e) => e.texte.includes("quitte la ville")), "le départ est raconté");
 });

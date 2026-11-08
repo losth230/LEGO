@@ -8,6 +8,7 @@ const ETIQUETTES: Record<TypeJournal, { icone: string; libelle: string; classe: 
   impots: { icone: "💰", libelle: "Impôts", classe: "badge-impots" },
   salaires: { icone: "👩‍✒️", libelle: "Salaires publics", classe: "badge-salaires" },
   fonctionnement: { icone: "🛠", libelle: "Fonctionnement", classe: "badge-fonctionnement" },
+  essence: { icone: "⛽", libelle: "Carburant", classe: "badge-essence" },
   dette: { icone: "💳", libelle: "Dette", classe: "badge-dette" },
   achats: { icone: "🛒", libelle: "Achats", classe: "badge-achats" },
   flux: { icone: "🔁", libelle: "Flux privé", classe: "badge-flux" },

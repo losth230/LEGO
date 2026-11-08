@@ -46,6 +46,10 @@ export function BudgetView() {
           {montantL(soldeJour)}
         </p>
         <p className="mute">
+          Carburant du jour (flotte municipale + privés) :{" "}
+          {montantL(montant(dernierJour, "essence", etat.journal))} — la pompe est en ville (monde fermé).
+        </p>
+        <p className="mute">
           Taux d'imposition : {((etat.params.tauxImpotBp / 100) * 1).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} %
         </p>
       </div>
@@ -159,6 +163,7 @@ export function BudgetView() {
               <th className="col-nombre">Salaires</th>
               <th className="col-nombre">Fonctionnement</th>
               <th className="col-nombre">Intérêts</th>
+              <th className="col-nombre">Carburant</th>
               <th className="col-nombre">Achats</th>
               <th className="col-nombre">Solde ville</th>
             </tr>
@@ -177,6 +182,7 @@ export function BudgetView() {
                   <td className="col-nombre">{montantL(salaires)}</td>
                   <td className="col-nombre">{montantL(fonct)}</td>
                   <td className="col-nombre">{montantL(interets)}</td>
+                  <td className="col-nombre">{montantL(montant(j, "essence", etat.journal))}</td>
                   <td className="col-nombre">{montantL(montant(j, "achats", etat.journal))}</td>
                   <td className={"col-nombre " + (solde < 0 ? "negatif" : "positif")}>
                     {solde < 0 ? "" : "+"}
@@ -187,7 +193,7 @@ export function BudgetView() {
             })}
             {jours.length === 0 ? (
               <tr>
-                <td colSpan={7} className="mute">
+                <td colSpan={8} className="mute">
                   Passe le premier jour pour voir les flux.
                 </td>
               </tr>

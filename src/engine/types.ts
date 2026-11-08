@@ -38,6 +38,39 @@ export type Vocation = "sante" | "btp" | "banque";
 
 export type EtatBatiment = "neuf" | "bon" | "degrade" | "sinistre";
 
+/**
+ * Véhicules (v1.25, arbitrage Thibaut 2026-11-08) : la ville roule. Un
+ * véhicule consomme du carburant acheté sur place (monde fermé), peut être
+ * municipal (rôle : pompiers, police, propreté, santé) ou privé (propriétaire
+ * figurine — volable par le milieu), et porte les mêmes capacités que les
+ * bâtiments : logements (caravane) et postes de travail (fourgon du facteur).
+ */
+export type CategorieVehicule = "municipal" | "prive";
+export type RoleVehicule = "pompiers" | "police" | "proprete" | "sante";
+
+export interface Vehicule {
+  id: string;
+  nom: string;
+  categorie: CategorieVehicule;
+  /** Rôle municipal (effets de jeu) — null pour un véhicule privé. */
+  role: RoleVehicule | null;
+  quartier: string;
+  /** Valeur en centimes — dépréciée par les collisions non réparées. */
+  valeur: number;
+  etat: EtatBatiment;
+  /** Carburant consommé par jour de route (centimes) — acheté sur place. */
+  essenceJour: number;
+  /** Capacités comme les bâtiments (v1.24) : logements (caravane) et postes de travail. */
+  capaciteLogements: number;
+  capacitePostes: number;
+  /** Propriétaire (id de figurine) pour un véhicule privé — null pour la flotte municipale. */
+  proprietairePnjId: string | null;
+  /** Gang possessionnaire si le véhicule a été volé (transfert de propriété, monde fermé). */
+  gangId: string | null;
+  /** Bâtiment auquel le véhicule est affecté (garage, caserne, boutique) — ses postes s'y ajoutent. */
+  garageBatimentId: string | null;
+}
+
 export interface Pnj {
   id: string;
   prenom: string;
@@ -114,6 +147,7 @@ export type TypeJournal =
   | "fonctionnement"
   | "dette"
   | "achats"
+  | "essence"
   | "flux"
   | "incident"
   | "solde"
@@ -162,6 +196,8 @@ export interface Etat {
   params: ParamsVille;
   pnjs: Pnj[];
   batiments: Batiment[];
+  /** Véhicules de la ville (v1.25) — flotte municipale et véhicules privés. */
+  vehicules?: Vehicule[];
   /**
    * Recettes du dernier jour par commerce (centimes) — modèle flux, phase 3.6.
    * Sert au calibrage des effectifs (effectif_max ≈ 0,88 × recettes / 57,75).

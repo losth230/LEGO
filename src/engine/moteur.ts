@@ -4,6 +4,8 @@
 // 2026-11-06) -> frais de détention (phase 3.10 : prime de garde aux
 // policiers en poste, les détenus sont gardés au commissariat)
 // -> fonctionnement (acheté sur place, rien sinon : monde fermé)
+// -> essence des véhicules (v1.25 : carburant acheté sur place, sans
+// boutique ou sans argent le véhicule ne roule pas et son rôle dort)
 // -> intérêts (banque locale) -> achats (budget effectif modulé par les
 // traits, phase 3.10) -> incidents de la journée (frais d'hôpital,
 // réparations du BTP local, victimes pondérées par les traits)
@@ -17,12 +19,15 @@ import type {
   Etat,
   JournalEntree,
   Pnj,
+  RoleVehicule,
+  Vehicule,
 } from "./types.ts";
 import {
   CHANCE_REDEMPTION_ACTIF,
   CHANCE_REDEMPTION_SANS,
   COUT_EMPLOYE_PRIVE_L,
   FRAIS_DETENTION_L,
+  PART_DEGATS_COLLISION,
   PART_SALARIALE_FLUX,
   TAUX_IMPOT_DEFAUT_BP,
   gradeConnu,
@@ -94,6 +99,12 @@ interface Totaux {
   salairesPrivesPayes: number;
   // --- phase 3.10 : détention (prime de garde au poste) ---
   detentionPayee: number;
+  // --- v1.25 : les véhicules ---
+  essencePayee: number; // carburant du jour (centimes), acheté sur place
+  essenceMunicipale: number;
+  essencePrivee: number;
+  roulent: Set<string>; // ids des véhicules qui roulent aujourd'hui
+  vehiculesImmobilises: number; // sans carburant aujourd'hui
 }
 
 function etapeSalaires(etat: Etat, totaux: Totaux): JournalEntree[] {
@@ -191,6 +202,77 @@ function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
       );
     }
   }
+}
+
+/**
+ * Carburant du matin (v1.25, arbitrage Thibaut 2026-11-08) : chaque véhicule
+ * en état de rouler achète son essence SUR PLACE, dans les boutiques ouvertes
+ * (monde fermé — l'argent rejoint les recettes du soir, redistribué en
+ * salaires comme tout le flux). Municipal : la ville paie ; privé : le
+ * propriétaire paie depuis son compte. Sans boutique ouverte, sans argent
+ * ou véhicule sinistré : pas de carburant, pas de route — le véhicule
+ * n'exerce ni son rôle ni ses capacités ce jour-là (la mécanique dort).
+ */
+function etapeEssence(etat: Etat, totaux: Totaux): void {
+  const vehicules = etat.vehicules ?? [];
+  if (vehicules.length === 0) return;
+  const boutiques = boutiquesOuvertes(etat);
+  for (const veh of vehicules) {
+    if (veh.etat === "sinistre") continue;
+    if (veh.essenceJour <= 0) {
+      totaux.roulent.add(veh.id); // véhicule sans consommation : il roule toujours
+      continue;
+    }
+    if (boutiques.length === 0) {
+      totaux.vehiculesImmobilises += 1;
+      continue;
+    }
+    const payeurVille = veh.categorie === "municipal";
+    const proprietaire = payeurVille
+      ? null
+      : etat.pnjs.find((p) => p.id === veh.proprietairePnjId) ?? null;
+    if (!payeurVille && !proprietaire) {
+      totaux.vehiculesImmobilises += 1;
+      continue;
+    }
+    const caisse = payeurVille ? etat.budgetVille : proprietaire!.compte;
+    if (caisse < veh.essenceJour) {
+      totaux.vehiculesImmobilises += 1;
+      continue; // tout ou rien : la pompe ne fait pas crédit
+    }
+    if (payeurVille) etat.budgetVille -= veh.essenceJour;
+    else proprietaire!.compte -= veh.essenceJour;
+    totaux.essencePayee += veh.essenceJour;
+    if (payeurVille) totaux.essenceMunicipale += veh.essenceJour;
+    else totaux.essencePrivee += veh.essenceJour;
+    const parts = repartir(veh.essenceJour, boutiques.map(() => 1));
+    for (let i = 0; i < boutiques.length; i++) {
+      const proprio = etat.pnjs.find(
+        (p) => p.batimentId === boutiques[i].id && p.statut === "commercant",
+      );
+      if (proprio) proprio.compte += parts[i];
+      totaux.encaissements.set(
+        boutiques[i].id,
+        (totaux.encaissements.get(boutiques[i].id) ?? 0) + parts[i],
+      );
+    }
+    totaux.roulent.add(veh.id);
+  }
+}
+
+/**
+ * L'engin municipal en service pour un rôle donné (v1.25) : non sinistré et
+ * roulé aujourd'hui (carburant acheté). Sans lui — pas de camion, pas de
+ * fourgon, pas d'ambulance — l'effet du rôle dort ce jour-là.
+ */
+function enginDeService(etat: Etat, totaux: Totaux, role: RoleVehicule): Vehicule | undefined {
+  return (etat.vehicules ?? []).find(
+    (v) =>
+      v.categorie === "municipal" &&
+      v.role === role &&
+      v.etat !== "sinistre" &&
+      totaux.roulent.has(v.id),
+  );
 }
 
 /** Intérêts de la dette versés à la banque locale (phase 3) ; impayés capitalisés. */
@@ -430,8 +512,15 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       const bat = etat.batiments.find((b) => b.id === inc.cibleId);
       if (!bat) continue;
       const dispo = pompiers.length;
+      // v1.25 : le camion de pompiers en service contient la moitié des
+      // dégâts — sans lui, la garde compte, mais à la bassine.
+      const camionPompiers = enginDeService(etat, totaux, "pompiers");
       const part = dispo >= inc.gravite ? 0.02 : dispo > 0 ? 0.08 : 0.2;
-      const degats = Math.round(bat.valeur * part * inc.gravite * coefficientRenfort(inc.gravite, armee.length));
+      const degats = Math.round(
+        bat.valeur * part * inc.gravite *
+        coefficientRenfort(inc.gravite, armee.length) *
+        (camionPompiers ? 0.5 : 1),
+      );
       const nomPompiers = dispo + (dispo > 1 ? " pompiers" : " pompier");
       let texte =
         bat.nom + " s'embrase au petit matin" +
@@ -443,7 +532,8 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
               " avant midi, "
             : " : " + nomPompiers + " contre un feu de gravité " + inc.gravite + ", les flammes ne cèdent que vers midi, ") +
         fmt(degats) + " de dégâts" +
-        (renfort ? " — la garnison déploie engins et bras, le sinistre est contenu" : "");
+        (renfort ? " — la garnison déploie engins et bras, le sinistre est contenu" : "") +
+        (camionPompiers ? " — " + camionPompiers.nom + " déverse ses lances : la moitié des dégâts est évitée" : "");
       // Monde 100 % fermé (2026-11-06) : la remise en état est payée à
       // l'entreprise de BTP locale (recette redistribuée le soir). Sans BTP
       // en ville, pas de réparation : le bâtiment reste marqué, rien ne sort.
@@ -484,7 +574,10 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       const signature = gangVoleur ? " — signé " + gangVoleur.nom : "";
       const butin = Math.min(Math.round(cible.compte * 0.15 * inc.gravite), cible.compte);
       const dispo = police.length;
-      if (dispo >= inc.gravite) {
+      // v1.25 : l'arrestation sur le fait exige un fourgon en service —
+      // sans lui, la patrouille voit le voleur filer sans pouvoir l'embarquer.
+      const fourgon = enginDeService(etat, totaux, "police");
+      if (dispo >= inc.gravite && fourgon) {
         // Rien de volé — et le malfaiteur est arrêté sur le fait (phase 3.9) :
         // le casier se remplit, la détention au commissariat le neutralise
         // quelques jours (3 × gravité), le monde reste fermé.
@@ -524,9 +617,11 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
           type: "incident",
           texte:
             "Cambriolage chez " + cible.prenom + " " + cible.nom + " : " +
-            (dispo > 0
-              ? "la patrouille arrive trop tard, le voleur s'envole avec la moitié du butin"
-              : "aucune patrouille pour lui couper la route") +
+            (dispo >= inc.gravite
+              ? "la patrouille le voit filer — sans fourgon en service, impossible de l'intercepter : le voleur s'envole avec la moitié du butin"
+              : dispo > 0
+                ? "la patrouille arrive trop tard, le voleur s'envole avec la moitié du butin"
+                : "aucune patrouille pour lui couper la route") +
             (renfort ? " — patrouille Vigipirate de la garnison en renfort, une partie du butin est récupérée" : "") +
             " — " + fmt(vol) + " passés dans la poche de " + voleur.prenom + " " + voleur.nom +
             " : le butin reste en ville (monde fermé)." + signature,
@@ -585,6 +680,142 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
           " : la monnaie reste en ville (monde fermé)." + consigne,
         montant: -pillage,
       });
+    } else if (inc.type === "collision") {
+      // v1.25 : une collision urbaine sinistre un véhicule de la ville.
+      // Les réparations vont au BTP local (payées par la ville pour la
+      // flotte, par le propriétaire pour un privé — plafonnées à sa caisse) ;
+      // sans BTP, le véhicule reste marqué, comme un bâtiment. Un camion de
+      // propreté en service évite le doublement des dégâts (chaussée et
+      // carrosserie à remettre en état) ; gravité ≥ 2 : un passager lié au
+      // véhicule est blessé, facturé à l'hôpital local (doubler sans
+      // ambulance en service). Monde fermé : tout reste en ville.
+      const veh = (etat.vehicules ?? []).find((v) => v.id === inc.cibleId);
+      if (!veh) continue;
+      const camionProprete = enginDeService(etat, totaux, "proprete");
+      const ambulance = enginDeService(etat, totaux, "sante");
+      const btp = serviceLocal(etat, "btp");
+      const sante = serviceLocal(etat, "sante");
+      const degats = Math.round(
+        veh.valeur * PART_DEGATS_COLLISION * inc.gravite * (camionProprete ? 1 : 2),
+      );
+      const payeurVille = veh.categorie === "municipal";
+      const proprietaire = payeurVille
+        ? null
+        : etat.pnjs.find((p) => p.id === veh.proprietairePnjId) ?? null;
+      const caisse = payeurVille ? etat.budgetVille : proprietaire?.compte ?? 0;
+      const repare = btp ? Math.min(degats, caisse) : 0;
+      if (btp && repare > 0) {
+        if (payeurVille) etat.budgetVille -= repare;
+        else if (proprietaire) proprietaire.compte -= repare;
+        btp.gerant.compte += repare;
+        totaux.encaissements.set(
+          btp.bat.id,
+          (totaux.encaissements.get(btp.bat.id) ?? 0) + repare,
+        );
+      }
+      // Blessé (gravité ≥ 2) : un passager lié au véhicule — logé ou affecté.
+      let texteBlesse = "";
+      if (inc.gravite >= 2) {
+        const passagers = etat.pnjs.filter(
+          (p) => p.batimentId === veh.id || p.travailBatimentId === veh.id,
+        );
+        const blesse = passagers[0];
+        if (blesse && sante) {
+          const fraisBrut = Math.round(fraisMedicaux(inc.gravite, !ambulance, blesse.compte));
+          const frais = Math.min(fraisBrut, blesse.compte);
+          if (frais > 0) {
+            blesse.compte -= frais;
+            sante.gerant.compte += frais;
+            totaux.encaissements.set(
+              sante.bat.id,
+              (totaux.encaissements.get(sante.bat.id) ?? 0) + frais,
+            );
+            totaux.fraisMedicauxJour += frais;
+            texteBlesse =
+              " " + blesse.prenom + " " + blesse.nom + ", passager, est soigné pour " +
+              fmt(frais) + " à " + sante.bat.nom +
+              (!ambulance ? " (sans ambulance, les frais doublent)" : " (emmené par " + ambulance!.nom + ")") + ".";
+          }
+        }
+      }
+      if (repare >= degats) {
+        entrees.push({
+          jour: etat.jour,
+          type: "incident",
+          texte:
+            "Collision au carrefour : " + veh.nom + " terminera la journée au garage — " +
+            fmt(degats) + " de dégâts" +
+            (!camionProprete ? " (doublés : pas de camion de propreté, la chaussée attend)" : "") +
+            " réparés dans la foulée par " + (btp ? btp.bat.nom : "l'atelier local") +
+            (payeurVille ? " sur le budget de la ville" : " aux frais de " + (proprietaire?.prenom ?? "son") + " " + (proprietaire?.nom ?? "propriétaire")) +
+            " : l'argent reste en ville (monde fermé)." + texteBlesse,
+          montant: -degats,
+        });
+      } else {
+        veh.valeur -= degats - repare;
+        veh.etat = "sinistre";
+        entrees.push({
+          jour: etat.jour,
+          type: "incident",
+          texte:
+            "Collision au carrefour : " + veh.nom + " est bon pour la casse — " +
+            (!btp
+              ? "aucune entreprise de BTP en ville : il restera sinistré sur le bas-côté."
+              : "les caisses n'ont payé que " + fmt(repare) + " de réparations (" + btp.bat.nom + "), le véhicule reste sinistré.") +
+            (!camionProprete ? " Les dégâts avaient doublé faute de camion de propreté." : "") +
+            texteBlesse,
+          montant: -degats,
+        });
+      }
+    } else if (inc.type === "vol_vehicule") {
+      // v1.25 : vol d'automobile (SSMSI, référentiel v1.17) — le butin est
+      // le véhicule lui-même : transfert de propriété, la monnaie ne bouge
+      // pas (monde fermé, perte patrimoniale). Déjoué si la police couvre la
+      // gravité ET qu'un fourgon est en service ; sinon le voleur est tout
+      // au plus identifié (casier), jamais arrêté sans fourgon.
+      const veh = (etat.vehicules ?? []).find((v) => v.id === inc.cibleId);
+      if (!veh) continue;
+      const voleur = etat.pnjs.find((p) => p.id === inc.voleurId);
+      if (!voleur) continue;
+      const gangVoleur = gangDe(etat, voleur);
+      const signature = gangVoleur ? " — signé " + gangVoleur.nom : "";
+      const dispo = police.length;
+      const fourgon = enginDeService(etat, totaux, "police");
+      if (dispo >= inc.gravite && fourgon) {
+        voleur.casier = (voleur.casier ?? 0) + 1;
+        const duree = 3 * inc.gravite;
+        voleur.arreteJusqua = etat.jour + duree;
+        const commissariat = posteDePolice(etat);
+        entrees.push({
+          jour: etat.jour,
+          type: "incident",
+          texte:
+            "Vol de voiture déjoué : " + voleur.prenom + " " + voleur.nom +
+            " forçait le contact de " + veh.nom + " quand la patrouille, fourgon en tête, le ceinture sur le fait" +
+            (commissariat ? " — " + duree + " jour(s) au " + commissariat.nom : " — " + duree + " jour(s) d'assignation à résidence") +
+            "." + signature,
+        });
+      } else {
+        voleur.casier = (voleur.casier ?? 0) + 1;
+        const ancienProprio = etat.pnjs.find((p) => p.id === veh.proprietairePnjId);
+        // Transfert de propriété : le véhicule change de main, pas un
+        // centime de la masse monétaire — le patrimoine, lui, voyage.
+        veh.proprietairePnjId = voleur.id;
+        veh.gangId = voleur.gangId ?? null;
+        entrees.push({
+          jour: etat.jour,
+          type: "incident",
+          texte:
+            "Vol de voiture : " + veh.nom +
+            (ancienProprio ? " de " + ancienProprio.prenom + " " + ancienProprio.nom : "") +
+            " disparaît dans la nuit — " + voleur.prenom + " " + voleur.nom + " roule désormais dedans" +
+            (dispo >= inc.gravite
+              ? " (la patrouille l'a identifié, mais sans fourgon en service, personne pour l'embarquer)"
+              : "") +
+            " : transfert de propriété, pas une pièce ne quitte la ville (monde fermé)." + signature,
+          montant: -veh.valeur,
+        });
+      }
     } else {
       const victime = etat.pnjs.find((p) => p.id === inc.cibleId);
       if (!victime) continue;
@@ -593,8 +824,11 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
       // Monde 100 % fermé (2026-11-06) : les soins sont facturés par le
       // service de santé local (recette redistribuée le soir). Sans hôpital
       // en ville, pas de mécanique de santé — aucune facture.
+      // v1.25 : sans ambulance en service, les secours dépannent et les
+      // frais doublent (le blessé mal évacué s'aggrave).
+      const ambulance = enginDeService(etat, totaux, "sante");
       const fraisBrut = Math.round(
-        fraisMedicaux(inc.gravite, dispo < inc.gravite, victime.compte) *
+        fraisMedicaux(inc.gravite, dispo < inc.gravite || !ambulance, victime.compte) *
           coefficientRenfort(inc.gravite, armee.length),
       );
       const frais = Math.min(Math.min(fraisBrut, victime.compte), sante ? fraisBrut : 0);
@@ -619,6 +853,7 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
               ? " est dégagé en dix minutes par les pompiers"
               : " attend les secours, l'effectif est juste") +
           (renfort ? " — la garnison lève un poste de secours, les frais sont contenus" : "") +
+          (ambulance ? " — " + ambulance.nom + " l'emmène vers les soins" : "") +
           (sante
             ? " — " + fmt(frais) + " de soins facturés à " + sante.bat.nom + " : l'argent reste en ville."
             : " — aucun service de santé en ville : personne pour facturer les soins.") +
@@ -684,6 +919,26 @@ function journaliserJour(
         : "Fournitures, énergie et entretien des services publics : aucune boutique ouverte en ville, la ville ne s'équipe pas — rien ne quitte le circuit (monde fermé).",
     montant: totaux.fonctionnementPaye,
   });
+  // v1.25 : le carburant du jour — acheté sur place comme le fonctionnement.
+  if (totaux.essencePayee > 0 || totaux.vehiculesImmobilises > 0) {
+    const flotte = totaux.essenceMunicipale > 0 ? " (flotte municipale : " + fmt(totaux.essenceMunicipale) + (totaux.essencePrivee > 0 ? ", privés : " + fmt(totaux.essencePrivee) : "") + ")" : totaux.essencePrivee > 0 ? " (véhicules privés)" : "";
+    j.push({
+      jour: etat.jour,
+      type: "essence",
+      texte: totaux.essencePayee > 0
+        ? "Les moteurs tournent : " + fmt(totaux.essencePayee) +
+          " de carburant achetés sur place" + flotte +
+          (totaux.vehiculesImmobilises > 0
+            ? " — " + totaux.vehiculesImmobilises + " véhicule(s) faute de carburant restent au garage"
+            : "") +
+          "."
+        : totaux.vehiculesImmobilises > 0
+          ? totaux.vehiculesImmobilises +
+            " véhicule(s) faute de carburant (aucune boutique ouverte, caisses vides) : ils restent au garage — leurs rôles dorment ce jour (monde fermé)."
+          : "Rien à signaler côté pompe.",
+      montant: totaux.essencePayee,
+    });
+  }
   if (totaux.achatsTotal > 0 || totaux.acheteursSansCommerce > 0) {
     const detail: string[] = [];
     for (const [batId, somme] of totaux.encaissements) {
@@ -812,12 +1067,18 @@ export function passerJour(etat: Etat): Etat {
     fonctionnementLocal: false,
     salairesPrivesPayes: 0,
     detentionPayee: 0,
+    essencePayee: 0,
+    essenceMunicipale: 0,
+    essencePrivee: 0,
+    roulent: new Set(),
+    vehiculesImmobilises: 0,
   };
   // Règlement quotidien (arbitrage 2026-11-06) : l'impôt n'est plus une étape
   // du matin — il est retenu à la source sur chaque gain versé dans la journée
   // (soldes publiques, salaires et primes privés, marges des patrons).
   const entreesSecours = etapeSalaires(e, totaux);
   etapeFonctionnement(e, totaux);
+  etapeEssence(e, totaux);
   etapeInterets(e, totaux);
   etapeAchats(e, totaux);
   // Les incidents arrivent dans la journée (frais d'hôpital, réparations du

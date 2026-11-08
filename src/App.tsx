@@ -8,16 +8,18 @@ import { appliquerTheme, ecrireTheme, lireTheme } from "./theme.ts";
 import { Journal } from "./components/Journal.tsx";
 import { HabitantsTable } from "./components/HabitantsTable.tsx";
 import { BatimentsTable } from "./components/BatimentsTable.tsx";
+import { VehiculesTable } from "./components/VehiculesTable.tsx";
 import { BudgetView } from "./components/BudgetView.tsx";
 import { ReferentielsView } from "./components/ReferentielsView.tsx";
 import { Editeur } from "./components/Editeur.tsx";
 
-type Onglet = "journal" | "habitants" | "batiments" | "budget" | "referentiels" | "editeur";
+type Onglet = "journal" | "habitants" | "batiments" | "vehicules" | "budget" | "referentiels" | "editeur";
 
 const ONGLETS: Array<{ cle: Onglet; libelle: string }> = [
   { cle: "journal", libelle: "📖 Journal" },
   { cle: "habitants", libelle: "👥 Habitants" },
   { cle: "batiments", libelle: "🧱 Bâtiments" },
+  { cle: "vehicules", libelle: "🚐 Véhicules" },
   { cle: "budget", libelle: "📊 Budget" },
   { cle: "referentiels", libelle: "📚 Référentiels" },
   { cle: "editeur", libelle: "🛠 Éditeur" },
@@ -65,7 +67,8 @@ function BarreVille(): ReactNode {
       <div className="barre-titre">
         <h1>🧱 {etat.nomVille}</h1>
         <p className="mute">
-          Jour {etat.jour} · {etat.pnjs.length} figurines · {etat.batiments.length} bâtiments
+          Jour {etat.jour} · {etat.pnjs.length} figurines · {etat.batiments.length} bâtiments ·{" "}
+          {(etat.vehicules ?? []).length} véhicules
         </p>
       </div>
       <div className="barre-budget">
@@ -151,6 +154,7 @@ function Application(): ReactNode {
         {onglet === "journal" ? <Journal /> : null}
         {onglet === "habitants" ? <HabitantsTable /> : null}
         {onglet === "batiments" ? <BatimentsTable /> : null}
+        {onglet === "vehicules" ? <VehiculesTable /> : null}
         {onglet === "budget" ? <BudgetView /> : null}
         {onglet === "referentiels" ? <ReferentielsView /> : null}
         {onglet === "editeur" ? <Editeur /> : null}

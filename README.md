@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.24 — cadrage figé (v1.0, 2026-11-05) ; phases 1 → 3.10 poussées ; **70 tests moteur PASS** ; référentiel v1.16 ; schéma de sauvegarde v9 ; monnaie du jeu : **le LEGO (L)** ; site : https://losth230.github.io/LEGO/
+> **Statut :** v1.25 — cadrage figé (v1.0, 2026-11-05) ; phases 1 → 3.10 poussées ; **79 tests moteur PASS** ; référentiel v1.17 ; schéma de sauvegarde v10 ; monnaie du jeu : **le LEGO (L)** ; site : https://losth230.github.io/LEGO/
 >
 > **Fil des versions** (feuille de route en §8, décisions datées en §9) :
 >
@@ -12,11 +12,12 @@
 > | 2026-11-06 | **v1.17** : grilles resserrées à trois grades par corps (référentiel v1.12) |
 > | 2026-11-06 | **v1.18** : le commissaire remplace l'inspecteur au sommet de la police (référentiel v1.13) |
 > | 2026-11-06 | **v1.19** : découpe moteur/éditeur/tests, contrats de formes au runtime, grades générés depuis le référentiel (v1.14), grilles FPT figées |
-| 2026-11-06 | **v1.20** : la garde lit le corps du référentiel (plus de suffixe de clé), salaire de secours journalisé |
-| 2026-11-06 | **v1.21** : agents municipaux (brigade propreté, corps Mairie à trois grades — référentiel v1.15) |
-| 2026-11-06 | **v1.22** : grade unique Mairie (référentiel v1.16), bureau de poste privé dans le monde par défaut (receveur + facteur) |
-| 2026-11-06 | **v1.23** : monde par défaut vide (ville nue), la ville de démonstration devient un fichier de tests |
-| 2026-11-08 | **v1.24** : capacité des bâtiments dédoublée (logements + postes de travail), schéma v9 |
+> | 2026-11-06 | **v1.20** : la garde lit le corps du référentiel (plus de suffixe de clé), salaire de secours journalisé |
+> | 2026-11-06 | **v1.21** : agents municipaux (brigade propreté, corps Mairie à trois grades — référentiel v1.15) |
+> | 2026-11-06 | **v1.22** : grade unique Mairie (référentiel v1.16), bureau de poste privé dans le monde par défaut (receveur + facteur) |
+> | 2026-11-06 | **v1.23** : monde par défaut vide (ville nue), la ville de démonstration devient un fichier de tests |
+> | 2026-11-08 | **v1.24** : capacité des bâtiments dédoublée (logements + postes de travail), schéma v9 |
+> | 2026-11-08 | **v1.25** : les véhicules — flotte municipale à rôles, essence achetée sur place, collisions et vols de voiture, capacités logements/postes ; schéma v10 (référentiel v1.17) |
 >
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
@@ -68,7 +69,7 @@ Trois promesses :
 | Identité | Nom, type, quartier |
 | Type | Habitation, Commerce (avec un PNJ commerçant à sa tête), Service public (mairie, police, pompiers, école), Tour des héros, Industrie |
 | Vocation | Pour un commerce : **boutique de consommation** (défaut) ou **service local à vocation** — santé, BTP, banque (monde fermé, 2026-11-06). La détention se joue au commissariat, pas dans un commerce à vocation (correction 2026-11-06). Un service à vocation n'est ouvert que s'il a son gérant ; sans lui, la mécanique liée dort |
-| Capacité | Logements (habitations) ou postes de travail (commerces, services) |
+| Capacité | Logements et/ou postes de travail (v1.24 : la capacité unique est dédoublée — un commerce peut loger ses employés au-dessus de la boutique) |
 | Valeurs | Valeur (dépréciée par les sinistres), coût de fonctionnement quotidien pour les services publics |
 | État | Neuf / bon / dégradé / sinistré (les incidents dégradent l'état) |
 
@@ -87,9 +88,22 @@ Trois promesses :
 
 ### 3.3 La ville (niveau collectif)
 
-- **Budget municipal** : recettes = impôt à la source sur les gains du jour (seule forme d'impôt) ; dépenses = salaires quotidiens des agents publics + coûts de fonctionnement des services + investissement + dette
+- **Budget municipal** : recettes = impôt à la source sur les gains du jour (seule forme d'impôt) ; dépenses = salaires quotidiens des agents publics + coûts de fonctionnement des services + carburant de la flotte + investissement + dette
 - **Services** : police (effectifs, véhicules), pompiers (casernes, moyens, temps d'intervention), éducation, santé
 - **Indicateurs** : sécurité, richesse moyenne, solde budgétaire — dans le temps
+
+### 3.4 Véhicules (v1.25)
+
+| Attribut | Description |
+|---|---|
+| Identité | Nom, quartier |
+| Catégorie | **Municipal** (rôle : pompiers, police, propreté, santé) ou **privé** (propriétaire figurine — volable par le milieu) |
+| Capacités | Mêmes capacités que les bâtiments : **logements** (caravane, lien `batimentId`) et **postes de travail** (fourgon affecté, lien `travailBatimentId`) |
+| Carburant | Consommation quotidienne (`essenceJour`, défaut 8 L/j) achetée **sur place** dans les boutiques ouvertes — tout ou rien, la pompe ne fait pas crédit ; sans boutique ou sans caisse, le véhicule reste au garage et son rôle dort ce jour-là |
+| Valeurs | Valeur (dépréciée par les collisions non réparées), état (neuf / bon / dégradé / sinistré) |
+| Garage | Bâtiment d'affectation : les postes du véhicule s'ajoutent à ceux du bâtiment qui l'accueille |
+
+> **Rôles municipaux en service** (l'engin doit avoir roulé) : camion de pompiers → dégâts d'incendie ÷ 2 ; fourgon de police → arrestation sur le fait exigée (cambriolage comme vol de voiture, sinon moitié du butin et casier) ; camion de propreté → dégâts de collision non doublés ; ambulance → frais médicaux non doublés.
 
 ## 4. La simulation
 
@@ -234,6 +248,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | 2026-11-06 | **v1.22 : le facteur est un salarié du privé, la Mairie n'a qu'un grade** — arbitrage Thibaut (« pas besoin de différents grades pour la propreté, ni pour la mairie ») : le corps Mairie revient au grade unique **adjoint technique 48,30 L/jour** (référentiel v1.16 ; une sauvegarde v1.21 avec agent de maîtrise ou technicien territorial est reconvertie au chargement) ; Robert reste chef d'équipe de la voirie, au grade unique — soldes de la brigade 151,60 → 144,90 L/jour ; **le bureau de poste est une entreprise privée** (La Poste n'est pas municipale : arbitrage Thibaut « patron + employés ») — le receveur Philippe tient la boutique, la factrice Nora est payée par le flux du soir (49,30 L/jour, SMIC 2025 ≈ 1 480 € net, convention d'entreprise La Poste IDCC 5516), la ville ne paie rien : **58 → 59 figurines, 14 → 15 bâtiments, monnaie 226 300 → 232 230 L, charges 590,80 → 584,10 L/jour** ; 66 tests moteur PASS |
 | 2026-11-06 | **v1.23 : la ville démarre nue — plus rien n'est imposé (arbitrage Thibaut « aucune figurine, aucun bâtiment, rien »)** : `createMondeDefaut()` ne contient plus ni PNJ, ni bâtiment, ni gang — un terrain nu, 5 000 L en caisse et une entrée de journal qui invite à ouvrir l'éditeur ; toute la ville se construit dans l'éditeur (les mécaniques sans service dorment, comme prévu en 3.7) ; **Bricke-en-Provence (15 bâtiments / 59 figurines, Corbeaux du Sud compris) déménage dans `monde.demo.ts`**, une fixture utilisée par les tests uniquement — rien n'est importé par l'application ; les fallbacks de migration (état corrompu, version inconnue) donnent la ville nue ; bouton Réinitialiser reformulé (« Repartir d'une ville nue ») ; 69 tests moteur PASS |
 | 2026-11-08 | **v1.24 : la capacité unique des bâtiments se dédouble (demande Thibaut « un bâtiment peut à la fois héberger des PNJ et être un lieu de travail »)** : chaque bâtiment porte `capaciteLogements` (figurines résidentes, lien `batimentId`) et `capacitePostes` (postes de travail, lien `travailBatimentId`) — un commerce peut loger ses employés au-dessus de la boutique ; schéma v8 → **v9** : l'ancienne `capacite` est répartie selon le type (habitation → logements, commerce et service public → postes), jamais perdue, jamais doublée ; l'éditeur propose deux champs (Logements, Postes de travail) et le tableau Bâtiments affiche deux colonnes (Logés, Postes) ; `contratBatiment` rejoint les contrats de formes au runtime ; 70 tests moteur PASS |
+| 2026-11-08 | **v1.25 : la ville roule (demande Thibaut « tout, les véhicules consomment de l'essence, peuvent loger des habitants ou ajouter des capacités de métier, comme les bâtiments »)** : chaque véhicule porte les mêmes capacités que les bâtiments — `capaciteLogements` (la caravane loge, lien `batimentId`) et `capacitePostes` (le fourgon emploie, lien `travailBatimentId`) ; le carburant s'achète **sur place** (flotte municipale sur le budget de la ville, privés sur le compte du propriétaire — tout ou rien, sans boutique ouverte la flotte dort au garage, le journal le raconte) ; **rôles municipaux quand l'engin a roulé** : camion de pompiers ÷ 2 sur les dégâts d'incendie, fourgon de police requis pour l'arrestation sur le fait (cambriolage comme vol de voiture — sans lui, moitié du butin et casier, jamais de détention), camion de propreté (collisions non doublées), ambulance (frais médicaux non doublés) ; **deux nouveaux incidents** tirés après la guerre des gangs (l'ordre du PRNG des incidents existants ne bouge pas) : **collision** (dégâts 10 % de la valeur × gravité, doublés sans camion de propreté ; réparations au BTP local — la ville paie sa flotte, le propriétaire paie son véhicule, plafonnés à la caisse ; non réparé → sinistré et valeur dépréciée ; gravité ≥ 2 → passager blessé facturé à l'hôpital local) et **vol de voiture** (privés pondérés par la valeur, déjoué si la police couvre la gravité ET qu'un fourgon roule, sinon **transfert de propriété** : le patrimoine change de main, pas la monnaie — monde fermé) ; schéma v9 → **v10** (véhicules complétés aux défauts, jamais inventés ; valeurs négatives bornées à 0 : pas de crédit à la pompe) ; référentiel **v1.17** (`evenements.vol_vehicule` 18,95/10k/an — SSMSI ~130 000 vols ; `evenements.collision_vehicule` 15/10k/an, taux de jeu ; domaine `vehicules` : essence de référence 8 L/j, part dégâts collision 0,10) ; interface : onglet Véhicules, compteur dans la barre de ville, panneau Véhicules de l'éditeur (catégorie, rôle, essence, capacités, propriétaire, garage), badge ⛽ Carburant dans le journal, colonne Carburant dans le Budget ; `contratVehicule` rejoint les contrats de formes au runtime ; **79 tests moteur PASS** |
 
 ### Questions ouvertes
 

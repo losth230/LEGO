@@ -6,7 +6,7 @@
 // Exécution : npm test.
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { Batiment, Pnj } from "./types.ts";
+import type { Batiment, Pnj, Vehicule } from "./types.ts";
 import { createMondeDefaut } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
 import { migrerEtat } from "./migrations.ts";
@@ -69,10 +69,46 @@ function contratBatiment(x: Batiment, ou: string): void {
     ou + " : vocation");
 }
 
+/** Vérifie qu'un véhicule respecte les formes déclarées dans types.ts (v1.25). */
+function contratVehicule(v: Vehicule, ou: string): void {
+  assert.ok(typeof v.id === "string" && v.id !== "", ou + " : id");
+  assert.ok(typeof v.nom === "string" && v.nom !== "", ou + " : nom");
+  assert.ok(v.categorie === "municipal" || v.categorie === "prive", ou + " : categorie");
+  assert.ok(
+    v.role === null || v.role === "pompiers" || v.role === "police" ||
+      v.role === "proprete" || v.role === "sante",
+    ou + " : role",
+  );
+  assert.ok(typeof v.quartier === "string", ou + " : quartier");
+  assert.ok(typeof v.valeur === "number" && Number.isFinite(v.valeur) && v.valeur >= 0,
+    ou + " : valeur");
+  assert.ok(
+    v.etat === "neuf" || v.etat === "bon" || v.etat === "degrade" || v.etat === "sinistre",
+    ou + " : etat",
+  );
+  assert.ok(typeof v.essenceJour === "number" && v.essenceJour >= 0, ou + " : essenceJour");
+  assert.ok(typeof v.capaciteLogements === "number" && v.capaciteLogements >= 0,
+    ou + " : capaciteLogements");
+  assert.ok(typeof v.capacitePostes === "number" && v.capacitePostes >= 0,
+    ou + " : capacitePostes");
+  assert.ok(v.proprietairePnjId === null || typeof v.proprietairePnjId === "string",
+    ou + " : proprietairePnjId jamais undefined");
+  assert.ok(v.gangId === null || typeof v.gangId === "string", ou + " : gangId");
+  assert.ok(v.garageBatimentId === null || typeof v.garageBatimentId === "string",
+    ou + " : garageBatimentId");
+}
+
 test("contrat : la ville de démonstration respecte les formes de types.ts", () => {
   const m = createMondeDemonstration();
   for (const p of m.pnjs) contratPnj(p, "ville de démonstration");
   for (const x of m.batiments) contratBatiment(x, "ville de démonstration");
+  for (const v of m.vehicules ?? []) contratVehicule(v, "ville de démonstration");
+  assert.equal(m.vehicules!.length, 7, "démonstration : 7 véhicules (4 engins municipaux, 3 privés)");
+  assert.equal(
+    m.vehicules!.filter((v) => v.categorie === "municipal").length,
+    4,
+    "démonstration : camion, fourgon, balayeur et ambulance en flotte municipale",
+  );
   // v1.24 : la capacité de chaque bâtiment de démonstration est répartie
   // selon son type — aucune n'est perdue dans le dédoublement.
   assert.equal(
@@ -86,6 +122,7 @@ test("contrat : le monde par défaut (v1.23) est une ville nue aux formes valide
   const nue = createMondeDefaut();
   assert.ok(Array.isArray(nue.pnjs) && nue.pnjs.length === 0, "pnjs : tableau vide");
   assert.ok(Array.isArray(nue.batiments) && nue.batiments.length === 0, "batiments : tableau vide");
+  assert.ok(Array.isArray(nue.vehicules) && nue.vehicules.length === 0, "vehicules : tableau vide");
   assert.ok(Array.isArray(nue.journal) && nue.journal.length >= 1, "journal : au moins le jour 0");
   assert.ok(Array.isArray(nue.gangs ?? []) && (nue.gangs ?? []).length === 0, "gangs : aucun");
   assert.ok(typeof nue.budgetVille === "number" && Number.isFinite(nue.budgetVille), "budgetVille");
@@ -110,9 +147,32 @@ test("contrat : une sauvegarde hostile migrée respecte les formes (payloads tor
   delete vieuxBat.capaciteLogements;
   delete vieuxBat.capacitePostes;
   (e.batiments[1] as unknown as Record<string, unknown>).capaciteLogements = "trois";
+  // v1.25 : un véhicule d'import tordu — rôle inconnu, catégorie inconnue,
+  // essence négative, champs absents — doit ressortir en v10 avec des
+  // formes propres, jamais un null dans un champ string.
+  e.vehicules = [
+    {
+      id: "veh-tordu",
+      nom: "Épave d'import",
+    } as unknown as Vehicule,
+    {
+      ...e.vehicules![0],
+      role: "démolisseur",
+      categorie: "militaire",
+      essenceJour: -50,
+    } as unknown as Vehicule,
+  ];
   const rel = migrerEtat(JSON.parse(JSON.stringify(e)));
   for (const p of rel.pnjs) contratPnj(p, "sauvegarde migrée");
   for (const x of rel.batiments) contratBatiment(x, "sauvegarde migrée");
+  for (const v of rel.vehicules) contratVehicule(v, "sauvegarde migrée");
+  const tordu = rel.vehicules.find((v) => v.id === "veh-tordu")!;
+  assert.equal(tordu.categorie, "prive", "catégorie inconnue -> privé par défaut");
+  assert.equal(tordu.role, null, "rôle inconnu -> aucun rôle inventé");
+  assert.equal(tordu.essenceJour, 0, "consentation illisible -> 0");
+  assert.equal(tordu.etat, "bon", "état absent -> bon");
+  const recupere = rel.vehicules.find((v) => v.id === e.vehicules[1].id)!;
+  assert.equal(recupere.essenceJour, 0, "essence négative -> 0, pas de crédit à la pompe");
   const premiere = rel.batiments.find((x) => x.id === e.batiments[0].id)!;
   assert.ok(
     premiere.capaciteLogements + premiere.capacitePostes === 0,
@@ -124,6 +184,7 @@ test("contrat : passerJour ne casse aucune forme", () => {
   let e = createMondeDemonstration();
   for (let i = 0; i < 3; i++) e = passerJour(e);
   for (const p of e.pnjs) contratPnj(p, "après 3 jours");
+  for (const v of e.vehicules ?? []) contratVehicule(v, "après 3 jours");
   assert.ok(typeof e.budgetVille === "number" && Number.isFinite(e.budgetVille), "budgetVille");
   assert.ok(typeof e.jour === "number", "jour");
   assert.ok(Array.isArray(e.journal), "journal");

@@ -15,17 +15,28 @@
 // Phase 3.10 (traits actifs) : la personnalité module aussi le ciblage —
 // victimes pondérées (cupide/sociable ×1,5, discret ×0,5), téméraire ×2
 // aux accidents.
+// v1.25 (les véhicules, arbitrage Thibaut 2026-11-08) : collisions urbaines
+// (cible un véhicule roulant) et vols d'automobiles (cible un véhicule privé
+// pondéré par sa valeur) ; l'ordre des tirages des incidents existants est
+// inchangé — les nouveaux types tirent après la guerre des gangs.
 
-import type { Etat, Gang, Pnj } from "./types.ts";
+import type { Etat, Gang, Pnj, Vehicule } from "./types.ts";
 import { corpsDuGrade, refNombre } from "./referentiel.ts";
 
-export type TypeIncident = "incendie" | "cambriolage" | "accident" | "guerre_gangs";
+export type TypeIncident =
+  | "incendie"
+  | "cambriolage"
+  | "accident"
+  | "guerre_gangs"
+  | "collision"
+  | "vol_vehicule";
 
 export interface Incident {
   type: TypeIncident;
   /** Gravité 1 (pépin), 2 (grave), 3 (majeur) — détermine les effectifs requis. */
   gravite: 1 | 2 | 3;
-  /** Bâtiment visé (incendie) ou figurine visée (cambriolage, accident, guerre). */
+  /** Bâtiment visé (incendie), figurine visée (cambriolage, accident, guerre)
+   * ou véhicule visé (collision, vol de voiture — v1.25). */
   cibleId: string;
   /**
    * Auteur du cambriolage (monde 100 % fermé, arbitrage 2026-11-06) : le
@@ -126,10 +137,25 @@ export function forceCriminelle(etat: Etat, pnj: Pnj): number {
   return force;
 }
 
-/** Quartier du logement d'une figurine ("" si sans bâtiment). */
+/** Quartier du logement d'une figurine ("" si sans attache) — un bâtiment
+ * ou, depuis la v1.25, un véhicule (la caravane de l'étudiant). */
 export function quartierDe(etat: Etat, pnj: Pnj): string {
   const bat = etat.batiments.find((b) => b.id === pnj.batimentId);
-  return bat?.quartier ?? "";
+  if (bat) return bat.quartier;
+  const veh = (etat.vehicules ?? []).find((v) => v.id === pnj.batimentId);
+  return veh?.quartier ?? "";
+}
+
+/** Véhicules de la ville en état de rouler (pas sinistrés) — v1.25. */
+export function vehiculesRoulables(etat: Etat): Vehicule[] {
+  return (etat.vehicules ?? []).filter((v) => v.etat !== "sinistre");
+}
+
+/** Véhicules privés volables (pas sinistrés, pas au voleur lui-même) — v1.25. */
+export function vehiculesVolables(etat: Etat, voleurId: string): Vehicule[] {
+  return vehiculesRoulables(etat).filter(
+    (v) => v.categorie === "prive" && v.proprietairePnjId !== voleurId,
+  );
 }
 
 /**
@@ -219,6 +245,9 @@ const TAUX: Record<TypeIncident, string> = {
   cambriolage: "evenements.cambriolage_logement.valeur",
   accident: "evenements.accident_circulation.valeur",
   guerre_gangs: "evenements.affrontement_gangs.valeur",
+  // v1.25 : les véhicules entrent dans la danse (référentiel v1.17).
+  collision: "evenements.collision_vehicule.valeur",
+  vol_vehicule: "evenements.vol_vehicule.valeur",
 };
 
 /** Gravité tirée : 1 (60 %), 2 (30 %), 3 (10 %). */
@@ -250,7 +279,14 @@ export function tirerIncidents(etat: Etat, jour: number): Incident[] {
   const k = etat.params.coeffIntensite;
   const p = etat.pnjs.length;
   const incidents: Incident[] = [];
-  for (const type of ["incendie", "cambriolage", "accident", "guerre_gangs"] as TypeIncident[]) {
+  for (const type of [
+    "incendie",
+    "cambriolage",
+    "accident",
+    "guerre_gangs",
+    "collision",
+    "vol_vehicule",
+  ] as TypeIncident[]) {
     const taux = refNombre(TAUX[type], 0);
     if (a() >= probaQuotidienne(taux, p, k)) continue;
     const gravite = tirerGravite(a);
@@ -301,6 +337,24 @@ export function tirerIncidents(etat: Etat, jour: number): Incident[] {
             agresseurId = agresseur.id;
             defenseurId = defenseur.id;
           }
+        }
+      }
+    } else if (type === "collision" && vehiculesRoulables(etat).length > 0) {
+      // v1.25 : une collision urbaine — cible un véhicule en état de rouler.
+      const cibles = vehiculesRoulables(etat);
+      cibleId = cibles[Math.floor(a() * cibles.length)].id;
+    } else if (type === "vol_vehicule") {
+      // v1.25 : le milieu s'attaque aux voitures — l'auteur est désigné par
+      // son profil criminel, la cible (privée, non sinistrée) par sa valeur :
+      // les belles carrosseries attirent.
+      const voleurs = candidatsCriminels(etat, jour);
+      const voleur = tirerPondere(a, voleurs, profilCriminel);
+      if (voleur) {
+        const proies = vehiculesVolables(etat, voleur.id);
+        const cible = tirerPondere(a, proies, (v) => v.valeur);
+        if (cible) {
+          cibleId = cible.id;
+          voleurId = voleur.id;
         }
       }
     }

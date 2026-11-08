@@ -4,11 +4,11 @@
 // d'une version à l'autre se contentent de compléter, jamais de jeter
 // une ville en cours (sauf état irrécupérable).
 
-import type { Etat, Pnj, Vocation } from "./types.ts";
+import type { Etat, Pnj, Vehicule, Vocation } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 9;
+export const SCHEMA_VERSION_ETAT = 10;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -169,6 +169,40 @@ const GRADES_RETIRES: Record<string, string> = {
         vocationBrute === "prison" ? null : ((vocationBrute as Vocation | null) ?? null),
     };
   });
+  // Migration v9 -> v10 (v1.25) : les véhicules débarquent — un état v9 ou
+  // moins n'en a pas, le tableau est complété à vide ; les champs manquants
+  // d'un véhicule d'import tordu sont complétés au défaut, jamais devinés.
+  const vehicules: Vehicule[] = (Array.isArray(b.vehicules) ? b.vehicules : []).map((v) => {
+    const roleBrut = (v as Partial<{ role?: unknown }>).role;
+    const categorieBrute = (v as Partial<{ categorie?: unknown }>).categorie;
+    return {
+      id: typeof v.id === "string" && v.id !== "" ? v.id : "",
+      nom: typeof v.nom === "string" ? v.nom : "",
+      categorie: categorieBrute === "municipal" || categorieBrute === "prive" ? categorieBrute : "prive",
+      role:
+        roleBrut === "pompiers" || roleBrut === "police" || roleBrut === "proprete" || roleBrut === "sante"
+          ? roleBrut
+          : null,
+      quartier: typeof v.quartier === "string" ? v.quartier : "Centre",
+      valeur: typeof v.valeur === "number" && v.valeur >= 0 ? v.valeur : 0,
+      etat: v.etat === "neuf" || v.etat === "bon" || v.etat === "degrade" || v.etat === "sinistre" ? v.etat : "bon",
+      essenceJour: typeof v.essenceJour === "number" && v.essenceJour >= 0 ? v.essenceJour : 0,
+      capaciteLogements: typeof v.capaciteLogements === "number" && v.capaciteLogements >= 0 ? v.capaciteLogements : 0,
+      capacitePostes: typeof v.capacitePostes === "number" && v.capacitePostes >= 0 ? v.capacitePostes : 0,
+      proprietairePnjId:
+        typeof (v as Partial<{ proprietairePnjId?: unknown }>).proprietairePnjId === "string"
+          ? (v as Partial<{ proprietairePnjId?: string }>).proprietairePnjId!
+          : null,
+      gangId:
+        typeof (v as Partial<{ gangId?: unknown }>).gangId === "string"
+          ? (v as Partial<{ gangId?: string }>).gangId!
+          : null,
+      garageBatimentId:
+        typeof (v as Partial<{ garageBatimentId?: unknown }>).garageBatimentId === "string"
+          ? (v as Partial<{ garageBatimentId?: string }>).garageBatimentId!
+          : null,
+    };
+  });
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;
   const recettesCommerce =
     b.recettesCommerce !== null && typeof b.recettesCommerce === "object"
@@ -226,6 +260,7 @@ const GRADES_RETIRES: Record<string, string> = {
     params,
     pnjs,
     batiments,
+    vehicules,
     journal,
     recettesCommerce,
   };

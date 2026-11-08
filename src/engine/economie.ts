@@ -21,7 +21,7 @@ export function interetsDus(dette: number): number {
   return Math.round((dette * TAUX_EMPRUNT_PCT) / 100 / 365);
 }
 
-/** Charges fixes quotidiennes de la ville (centimes) : salaires, fonctionnement, intérêts. */
+/** Charges fixes quotidiennes de la ville (centimes) : salaires, fonctionnement, carburant municipal, intérêts. */
 export function chargesJournalieres(etat: Etat): number {
   const salaires = etat.pnjs
     .filter((p) => p.statut === "agent_public")
@@ -29,7 +29,13 @@ export function chargesJournalieres(etat: Etat): number {
   const fonct = etat.batiments
     .filter((b) => b.type === "service_public")
     .reduce((s, b) => s + b.coutFonctionnement, 0);
-  return salaires + fonct + interetsDus(etat.dette);
+  // v1.25 : le carburant de la flotte municipale est une charge quotidienne
+  // (même convention que le fonctionnement : comptée même si elle ne sera
+  // dépensée qu'en présence d'une boutique ouverte — estimation prudente).
+  const essence = (etat.vehicules ?? [])
+    .filter((v) => v.categorie === "municipal" && v.etat !== "sinistre")
+    .reduce((s, v) => s + v.essenceJour, 0);
+  return salaires + fonct + essence + interetsDus(etat.dette);
 }
 
 /** Nombre de jours de charges encore couverts par la caisse (Infinity si tout va bien). */
@@ -76,10 +82,24 @@ export function serviceLocal(
   return null;
 }
 
-/** Employés privés travaillant dans un commerce (lieu de travail renseigné). */
+/**
+ * Employés privés travaillant dans un commerce (lieu de travail renseigné).
+ * v1.25 : un véhicule affecté au commerce (garageBatimentId) ajoute ses
+ * postes ambulant — les employés du fourgon sont payés par la boutique
+ * qui l'abrite (le facteur du bureau de poste, la camionnette de livraison).
+ */
 export function employesDuCommerce(etat: Etat, batimentId: string): Pnj[] {
   return etat.pnjs.filter(
-    (p) => p.statut === "prive" && p.travailBatimentId === batimentId,
+    (p) =>
+      p.statut === "prive" &&
+      (p.travailBatimentId === batimentId ||
+        (p.travailBatimentId !== null &&
+          (etat.vehicules ?? []).some(
+            (v) =>
+              v.id === p.travailBatimentId &&
+              v.garageBatimentId === batimentId &&
+              v.etat !== "sinistre",
+          ))),
   );
 }
 

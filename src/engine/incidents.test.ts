@@ -7,9 +7,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createMondeDefaut,
   emprunterVille,
   modifierVille,
+  nouveauBatiment,
   nouveauPnj,
+  nouveauVehicule,
   supprimerPnj
 } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
@@ -99,6 +102,9 @@ test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caiss
 
 test("incendie avec budget : les réparations encaissées par le BTP local restent en ville", () => {
   let m = createMondeDemonstration();
+  // v1.25 : témoin hermétique — sans flotte, le BTP n'encaisse que les
+  // réparations d'incendie (l'essence et les collisions ont leurs tests).
+  m.vehicules = [];
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 50000000 });
   neutraliserCourses(m, "chef d'entreprise BTP");
   const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
@@ -243,4 +249,124 @@ test("déterminisme : même jour, mêmes événements, toujours", () => {
   const a = passerJour(m);
   const b = passerJour(m);
   assert.equal(JSON.stringify(a), JSON.stringify(b));
+});
+
+// ---------- v1.25 : les véhicules — collisions, vols, engins de service ----------
+
+test("collision (v1.25) : le BTP local répare, le véhicule reste en service, la monnaie reste en ville", () => {
+  // Témoin : un atelier, son patron, un camion municipal qui roule (sans
+  // consommation pour isoler la collision). Les figurines comptent dans
+  // la règle d'échelle des incidents (R × P × K / 10000 / 365).
+  const base = calme(createMondeDefaut());
+  const atelier = nouveauBatiment({ nom: "Atelier du coin", type: "commerce", vocation: "btp" });
+  const dario = nouveauPnj({ prenom: "Dario", nom: "Costa", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: atelier.id, revenuIndicatif: 5500, budgetAchat: 0, compte: 0 });
+  const figurines = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) =>
+    nouveauPnj({ prenom: "Figurante" + i, nom: "Témoin", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 0 }),
+  );
+  let monde = {
+    ...base,
+    batiments: [atelier],
+    pnjs: [dario, ...figurines],
+    vehicules: [nouveauVehicule({ nom: "Camion de pompiers", categorie: "municipal", role: "pompiers", valeur: 200000, essenceJour: 0 })],
+  };
+  monde = modifierVille(monde, { coeffIntensite: 100000, budgetVille: 50000000 });
+  const avant = monnaieEnCircuit(monde);
+  const j1 = passerJour(monde);
+  const collisions = j1.journal.filter((e) => e.type === "incident" && e.texte.includes("Collision au carrefour"));
+  assert.equal(collisions.length, 1, "une collision est racontée");
+  assert.ok(collisions[0].texte.includes("réparés dans la foulée"), "le véhicule est réparé sur place");
+  assert.ok(collisions[0].texte.includes("sur le budget de la ville"), "la ville paie pour sa flotte");
+  const veh = j1.vehicules![0];
+  assert.equal(veh.etat, "bon", "pas sinistré");
+  assert.equal(veh.valeur, 200000, "réparé intégralement : aucune valeur perdue");
+  assert.ok(j1.pnjs[0].compte > 0, "l'atelier encaisse les réparations");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé");
+  assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte");
+});
+
+test("collision (v1.25) : sans BTP en ville, le véhicule reste sinistré sur le bas-côté", () => {
+  const figurines = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) =>
+    nouveauPnj({ prenom: "Figurante" + i, nom: "Témoin", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 0 }),
+  );
+  let monde = {
+    ...createMondeDefaut(),
+    pnjs: figurines,
+    vehicules: [nouveauVehicule({ nom: "Caisse à roulettes", categorie: "prive", valeur: 100000, essenceJour: 0 })],
+  };
+  monde = modifierVille(monde, { coeffIntensite: 100000 });
+  const j1 = passerJour(monde);
+  const collisions = j1.journal.filter((e) => e.type === "incident" && e.texte.includes("Collision au carrefour"));
+  assert.equal(collisions.length, 1, "une collision est racontée");
+  assert.ok(collisions[0].texte.includes("aucune entreprise de BTP en ville"), "le défaut de service est raconté");
+  const veh = j1.vehicules![0];
+  assert.equal(veh.etat, "sinistre", "le véhicule reste marqué");
+  assert.ok(veh.valeur < 100000, "la valeur patrimoniale a fondu");
+  assert.equal(j1.budgetVille, monde.budgetVille, "aucune réparation : rien à payer");
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé");
+});
+
+test("camion de pompiers (v1.25) : en service, la moitié des dégâts du feu est évitée", () => {
+  let sans = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000, budgetVille: 50000000 });
+  sans.vehicules = [];
+  const avec = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000, budgetVille: 50000000 });
+  const jSans = passerJour(sans);
+  const jAvec = passerJour(avec);
+  const degatsFeu = (j: ReturnType<typeof passerJour>) =>
+    j.journal
+      .filter((e) => e.type === "incident" && e.texte.includes("s'embrase"))
+      .reduce((s, e) => s - (e.montant ?? 0), 0);
+  assert.ok(degatsFeu(jSans) > 0, "au moins un incendie");
+  assert.ok(
+    degatsFeu(jAvec) < degatsFeu(jSans),
+    "le camion contient le feu : " + degatsFeu(jAvec) + " < " + degatsFeu(jSans),
+  );
+  assert.ok(jAvec.journal.some((e) => e.texte.includes("déverse ses lances")), "l'effet du camion est raconté");
+  assert.ok(
+    !jSans.journal.some((e) => e.texte.includes("déverse ses lances")),
+    "sans flotte, pas d'effet camion",
+  );
+});
+
+test("vol de voiture (v1.25) : sans fourgon, transfert de propriété — le patrimoine change de main, pas la monnaie", () => {
+  // Témoin : la ville de démonstration, mais la flotte municipale est
+  // retirée — plus de fourgon : le milieu s'y met.
+  const m = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000, budgetVille: 50000000 });
+  m.vehicules = m.vehicules!.filter((v) => v.categorie === "prive");
+  const avant = monnaieEnCircuit(m);
+  const proprietaires = new Map(m.vehicules!.map((v) => [v.id, v.proprietairePnjId]));
+  const j1 = passerJour(m);
+  const vol = j1.journal.find((e) => e.type === "incident" && e.texte.includes("Vol de voiture : "));
+  assert.ok(vol, "le vol est raconté");
+  assert.ok(vol!.texte.includes("transfert de propriété"), "le mécanisme est raconté");
+  const volee = j1.vehicules!.find((v) => v.proprietairePnjId !== proprietaires.get(v.id));
+  assert.ok(volee, "un véhicule a changé de propriétaire");
+  const voleur = j1.pnjs.find((p) => p.id === volee!.proprietairePnjId)!;
+  assert.ok(vol!.texte.includes(voleur.prenom + " " + voleur.nom), "le voleur roule désormais dedans");
+  assert.equal(volee!.gangId, voleur.gangId ?? null, "le butin rejoint le gang du voleur");
+  assert.ok((voleur.casier ?? 0) >= 1, "le casier se remplit");
+  assert.equal(vol!.montant, -volee!.valeur, "la perte patrimoniale est racontée");
+  assert.equal(monnaieEnCircuit(j1), avant, "pas une pièce ne quitte la ville (monde fermé)");
+});
+
+test("fourgon en service (v1.25) : cambriolage et vol de voiture déjoués — arrestation sur le fait", () => {
+  // Trois policiers mobilisables : la patrouille couvre toute gravité,
+  // le fourgon municipal roule (essence payée sur place).
+  const m = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000, budgetVille: 50000000 });
+  m.pnjs.push(
+    nouveauPnj({ prenom: "Brigitte", nom: "Renfort", age: 30, genre: "F", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", revenuIndicatif: 5300 }),
+    nouveauPnj({ prenom: "Camille", nom: "Renfort", age: 31, genre: "F", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", revenuIndicatif: 5300 }),
+  );
+  const proprietaires = new Map(m.vehicules!.map((v) => [v.id, v.proprietairePnjId]));
+  const j1 = passerJour(m);
+  assert.ok(
+    j1.journal.some((e) => e.texte.includes("la patrouille le surprend à temps, rien de volé")),
+    "cambriolage déjoué : arrestation sur le fait",
+  );
+  assert.ok(j1.journal.some((e) => e.texte.includes("Vol de voiture déjoué")), "vol de voiture déjoué");
+  assert.ok(j1.pnjs.some((p) => (p.arreteJusqua ?? 0) > 0), "un malfaiteur est détenu");
+  assert.ok(
+    j1.vehicules!.every((v) => v.proprietairePnjId === proprietaires.get(v.id)),
+    "aucune voiture ne change de main",
+  );
+  assert.equal(j1.sortiesCumulees, 0, "monde fermé");
 });

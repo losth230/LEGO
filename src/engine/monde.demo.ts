@@ -4,19 +4,19 @@
 // ville riche reste le banc d'essai des tests moteur (économie, incidents,
 // milieu criminel, migrations). Rien ici n'est appelé par l'app.
 
-import type { Batiment, Etat, Pnj } from "./types.ts";
+import type { Batiment, Etat, Pnj, Vehicule } from "./types.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
-import { budgetAleatoire, nouveauBatiment, nouveauPnj, reinitialiserIds } from "./monde.ts";
+import { budgetAleatoire, nouveauBatiment, nouveauPnj, nouveauVehicule, reinitialiserIds } from "./monde.ts";
 
 const PRENOMS_F = "Adèle:Camille:Delphine:Émilie:Fantine:Gabrielle:Hélène:Inès:Juliette:Louise:Manon:Nora:Océane:Paloma:Rosa:Sylvie:Tiphaine:Véra:Yasmine:Zoé:Brigitte:Élodie:Léa:Karima:Fatou".split(":");
 const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:Ibrahim:Jules:Kévin:Léo:Marco:Nicolas:Oscar:Pierre:Quentin:Raphaël:Sacha:Tanguy:Ulysse:Victor:Xavier:Yann:Zaïd:Jean:Karim:Mario".split(":");
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
 
-/** La ville de démonstration : 15 bâtiments, 59 figurines (monde fermé 2026-11-06,
- * brigade municipale v1.21, bureau de poste v1.22). Supprimée de l'application
- * en v1.23 (arbitrage Thibaut : le monde par défaut est nu) — elle reste la
- * terre d'essai des tests moteur. */
+/** La ville de démonstration : 15 bâtiments, 59 figurines, 7 véhicules (monde
+ * fermé 2026-11-06, brigade municipale v1.21, bureau de poste v1.22, flotte v1.25).
+ * Supprimée de l'application en v1.23 (arbitrage Thibaut : le monde par défaut
+ * est nu) — elle reste la terre d'essai des tests moteur. */
 export function createMondeDemonstration(): Etat {
   reinitialiserIds();
 
@@ -188,8 +188,30 @@ export function createMondeDemonstration(): Etat {
     p.budgetAchat = budgetAleatoire(p.revenuIndicatif);
   }
 
+  // Véhicules (v1.25, arbitrage Thibaut 2026-11-08) : la flotte municipale
+  // (camion de pompiers, fourgon de police, camion de propreté, ambulance)
+  // roule tant qu'il y a du carburant acheté sur place ; les privés
+  // appartiennent à des figurines — volables par le milieu. La caravane de
+  // l'étudiant loge, la camionnette de Mario ajoute un poste ambulant à la
+  // friterie (les capacités des véhicules s'ajoutent à leur garage).
+  const idJean = pnjs.find((x) => x.prenom === "Jean")!.id;
+  const idMario = pnjs.find((x) => x.prenom === "Mario")!.id;
+  const idEtudiant = pnjs.find((x) => x.metier === "étudiant")!.id;
+  const vehicules: Vehicule[] = [
+    nouveauVehicule({ nom: "Camion de pompiers « Lanceur »", categorie: "municipal", role: "pompiers", quartier: "Nord", valeur: 300000, essenceJour: 800, garageBatimentId: idCaserne }),
+    nouveauVehicule({ nom: "Fourgon de police", categorie: "municipal", role: "police", quartier: "Centre", valeur: 180000, essenceJour: 600, garageBatimentId: idPolice }),
+    nouveauVehicule({ nom: "Camion de propreté de la voirie", categorie: "municipal", role: "proprete", quartier: "Centre", valeur: 120000, essenceJour: 700, garageBatimentId: idMairie }),
+    nouveauVehicule({ nom: "Ambulance de l'hôpital", categorie: "municipal", role: "sante", quartier: "Nord", valeur: 200000, essenceJour: 600, garageBatimentId: idHopital }),
+    nouveauVehicule({ nom: "Voiture de Jean", categorie: "prive", quartier: "Centre", valeur: 90000, essenceJour: 300, garageBatimentId: idBoulangerie, proprietairePnjId: idJean }),
+    nouveauVehicule({ nom: "Camionnette de Mario", categorie: "prive", quartier: "Port", valeur: 60000, essenceJour: 400, capacitePostes: 1, garageBatimentId: idFriterie, proprietairePnjId: idMario }),
+    nouveauVehicule({ nom: "Caravane de l'étudiant", categorie: "prive", quartier: "Port", valeur: 40000, essenceJour: 100, capaciteLogements: 2, proprietairePnjId: idEtudiant }),
+  ];
+  // L'étudiant vit dans sa caravane (capacité logement d'un véhicule, v1.25).
+  const etudiant = pnjs.find((x) => x.metier === "étudiant")!;
+  etudiant.batimentId = vehicules[6].id;
+
   return {
-    schemaVersion: 8,
+    schemaVersion: 10,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
@@ -209,13 +231,14 @@ export function createMondeDemonstration(): Etat {
     params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP, coeffIntensite: COEFF_INTENSITE_DEFAUT },
     pnjs,
     batiments,
+    vehicules,
     journal: [
       {
         jour: 0,
         type: "systeme",
         texte:
-          "Jour 0 : " + pnjs.length + " figurines et " + batiments.length +
-          " bâtiments attendent que la ville s'anime. Appuie sur « Passer un jour ».",
+          "Jour 0 : " + pnjs.length + " figurines, " + batiments.length + " bâtiments et " +
+          vehicules.length + " véhicules attendent que la ville s'anime. Appuie sur « Passer un jour ».",
       },
     ],
   };

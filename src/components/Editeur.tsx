@@ -4,6 +4,7 @@
 
 import { CarteVille } from "./EditeurCarteVille.tsx";
 import { CarteBatiments } from "./EditeurBatiments.tsx";
+import { CarteVehicules } from "./EditeurVehicules.tsx";
 import { CarteGangs } from "./EditeurGangs.tsx";
 import { CartePnjs } from "./EditeurPnjs.tsx";
 
@@ -12,6 +13,7 @@ export function Editeur() {
     <div className="grille-editeur">
       <CarteVille />
       <CarteBatiments />
+      <CarteVehicules />
       <CarteGangs />
       <CartePnjs />
     </div>

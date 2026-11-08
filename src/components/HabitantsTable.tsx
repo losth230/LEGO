@@ -19,10 +19,19 @@ function nomComplet(p: Pnj): string {
 
 function Fiche({ pnj }: { pnj: Pnj }) {
   const { etat } = useStore();
-  const bat = etat.batiments.find((b) => b.id === pnj.batimentId);
+  // v1.25 : le logement ou le lieu de travail peut être un véhicule (caravane,
+  // fourgon affecté) — la fiche résout les deux mondes.
+  const vehicules = etat.vehicules ?? [];
+  const bat = etat.batiments.find((b) => b.id === pnj.batimentId) ??
+    vehicules.find((v) => v.id === pnj.batimentId);
+  const logeDansVehicule = vehicules.some((v) => v.id === pnj.batimentId);
   const travail = pnj.travailBatimentId
-    ? etat.batiments.find((b) => b.id === pnj.travailBatimentId)
+    ? etat.batiments.find((b) => b.id === pnj.travailBatimentId) ??
+      vehicules.find((v) => v.id === pnj.travailBatimentId)
     : null;
+  const travailleDansVehicule = pnj.travailBatimentId
+    ? vehicules.some((v) => v.id === pnj.travailBatimentId)
+    : false;
   const taux = etat.params.tauxImpotBp;
   const gang = gangDe(etat, pnj);
   const detenu = (pnj.arreteJusqua ?? 0) > etat.jour;
@@ -36,10 +45,12 @@ function Fiche({ pnj }: { pnj: Pnj }) {
             Quartier : {bat ? bat.quartier : "sans attache"}
             <br />
             Logement/service : {bat ? bat.nom : "sans bâtiment"}
+            {logeDansVehicule ? <span className="mute"> (véhicule)</span> : null}
             {travail ? (
               <>
                 <br />
                 Lieu de travail : {travail.nom}
+                {travailleDansVehicule ? <span className="mute"> (véhicule affecté)</span> : null}
               </>
             ) : null}
           </div>

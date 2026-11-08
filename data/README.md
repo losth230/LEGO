@@ -1,8 +1,10 @@
 # data/ — Référentiel de valeurs réelles
 
-**[referentiel.json](referentiel.json)** (v1.16, 2026-11-06) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire). Chaque valeur porte sa source, son année et son calcul ; les évolutions de cadrage sont datées dans le README racine (§9).
+**[referentiel.json](referentiel.json)** (v1.17, 2026-11-08) : toutes les valeurs de calibration de la simulation, extraites de sources publiques françaises (Licence Ouverte v2 / Etalab sauf mention contraire). Chaque valeur porte sa source, son année et son calcul ; les évolutions de cadrage sont datées dans le README racine (§9).
 
 ### Fil des versions du référentiel
+
+- **v1.17 (2026-11-08)** : **les véhicules** (v1.25) — incident `evenements.vol_vehicule` (18,95 vols de voiture pour 10 000 hab./an, SSMSI : ~130 000 vols avec violences ou menaces en France) ; incident `evenements.collision_vehicule` (15 pour 10 000 hab./an, taux de jeu assumé) ; domaine `vehicules` : essence de référence 8 L/jour, part des dégâts de collision 0,10 de la valeur.
 
 - **v1.16 (2026-11-06)** : retour au **grade unique pour le corps Mairie** (adjoint technique, 48,30 L/jour) — la propreté n'a pas besoin de grades multiples (arbitrage Thibaut v1.22) ; les grades agent de maîtrise et technicien territorial (v1.15) sont retirés et reconvertis en adjoint technique au chargement des sauvegardes.
 - **v1.15 (2026-11-06)** : le corps **Mairie** passe de 1 à 3 grades — adjoint technique (48,30 L/jour), **agent de maîtrise** (55,00) et **technicien territorial** (61,70) — grilles FPT emploi-collectivites (point d'indice 4,92278 €, net ≈ brut × 0,794) : les agents municipaux (balayeurs, éboueurs, chefs d'équipe) existent enfin (v1.21 ; le monde par défaut embauche une brigade de 3).

@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useStore } from "../state/store.tsx";
-import type { Pnj, Statut } from "../engine/types.ts";
+import type { Etat, Pnj, Statut, Vehicule } from "../engine/types.ts";
 import { TRAITS_PNJ } from "../engine/types.ts";
 import {
   salaireJourL,
@@ -23,6 +23,16 @@ import {
 } from "./EditeurCommuns.tsx";
 
 // ---------- figurines ----------
+
+/** Véhicules pouvant loger des figurines (caravane, roulotte) — v1.25. */
+function vehiculesLogeables(etat: Etat): Vehicule[] {
+  return (etat.vehicules ?? []).filter((v) => v.capaciteLogements > 0);
+}
+
+/** Véhicules offrant des postes de travail (fourgon affecté) — v1.25. */
+function vehiculesEmployeurs(etat: Etat): Vehicule[] {
+  return (etat.vehicules ?? []).filter((v) => v.capacitePostes > 0);
+}
 
 function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
   const { etat, majEtat } = useStore();
@@ -126,7 +136,7 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
             </Champ>
           ) : null}
           {statut === "prive" ? (
-            <Champ label="Lieu de travail (commerce — le salaire privé est le revenu indicatif)">
+            <Champ label="Lieu de travail (commerce ou véhicule affecté — le salaire privé est le revenu indicatif)">
               <select className="input" value={travailId} onChange={(e) => setTravailId(e.target.value)}>
                 <option value="">— sans emploi —</option>
                 {etat.batiments
@@ -134,14 +144,20 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
                   .map((b) => (
                     <option key={b.id} value={b.id}>{b.nom}</option>
                   ))}
+                {vehiculesEmployeurs(etat).map((v) => (
+                  <option key={v.id} value={v.id}>{v.nom} (véhicule)</option>
+                ))}
               </select>
             </Champ>
           ) : null}
-          <Champ label="Bâtiment">
+          <Champ label="Bâtiment (ou véhicule : caravane)">
             <select className="input" value={batimentId} onChange={(e) => setBatimentId(e.target.value)}>
               <option value="">— aucun —</option>
               {etat.batiments.map((b) => (
                 <option key={b.id} value={b.id}>{b.nom}</option>
+              ))}
+              {vehiculesLogeables(etat).map((v) => (
+                <option key={v.id} value={v.id}>{v.nom} (véhicule)</option>
               ))}
             </select>
           </Champ>
@@ -258,7 +274,7 @@ export function CartePnjs() {
           </Champ>
         ) : null}
         {statut === "prive" ? (
-          <Champ label="Lieu de travail (commerce — le salaire privé est le revenu indicatif)">
+          <Champ label="Lieu de travail (commerce ou véhicule affecté — le salaire privé est le revenu indicatif)">
             <select className="input" value={travailId} onChange={(e) => setTravailId(e.target.value)}>
               <option value="">— sans emploi —</option>
               {etat.batiments
@@ -266,14 +282,20 @@ export function CartePnjs() {
                 .map((b) => (
                   <option key={b.id} value={b.id}>{b.nom}</option>
                 ))}
+              {vehiculesEmployeurs(etat).map((v) => (
+                <option key={v.id} value={v.id}>{v.nom} (véhicule)</option>
+              ))}
             </select>
           </Champ>
         ) : null}
-        <Champ label="Bâtiment">
+        <Champ label="Bâtiment (ou véhicule : caravane)">
           <select className="input" value={batimentId} onChange={(e) => setBatimentId(e.target.value)}>
             <option value="">— aucun —</option>
             {etat.batiments.map((b) => (
               <option key={b.id} value={b.id}>{b.nom}</option>
+            ))}
+            {vehiculesLogeables(etat).map((v) => (
+              <option key={v.id} value={v.id}>{v.nom} (véhicule)</option>
             ))}
           </select>
         </Champ>

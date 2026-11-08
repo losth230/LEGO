@@ -4,10 +4,14 @@
 // les panneaux qui en ont besoin — plus de liste en parallèle.
 
 import { type ReactNode } from "react";
-import type { EtatBatiment, TypeBatiment, Vocation } from "../engine/types.ts";
+import type { CategorieVehicule, EtatBatiment, RoleVehicule, TypeBatiment, Vocation } from "../engine/types.ts";
 
 export const TYPES_BATIMENT: TypeBatiment[] = ["habitation", "commerce", "service_public"];
 export const ETATS_BATIMENT: EtatBatiment[] = ["neuf", "bon", "degrade", "sinistre"];
+
+// v1.25 : la ville roule — catégories et rôles des véhicules.
+export const CATEGORIES_VEHICULE: CategorieVehicule[] = ["municipal", "prive"];
+export const ROLES_VEHICULE: RoleVehicule[] = ["pompiers", "police", "proprete", "sante"];
 
 /** Vocations des commerces (monde 100 % fermé, 2026-11-06 ; pas de vocation
  * « prison » : les détenus sont gardés au commissariat, correction 3.10). */

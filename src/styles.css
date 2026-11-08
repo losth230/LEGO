@@ -271,6 +271,11 @@ tr:hover td {
   color: var(--rouge);
   border-color: var(--rouge);
 }
+.badge-essence {
+  color: var(--jaune-texte);
+  border-color: var(--jaune);
+  background: rgba(255, 212, 0, 0.10);
+}
 .badge-achats {
   border-color: var(--vert);
   color: var(--vert);

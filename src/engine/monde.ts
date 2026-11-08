@@ -2,12 +2,13 @@
 // Monnaie en centimes ; budget d'achat par défaut = consommation de référence
 // (INSEE) pour un revenu médian ; comptes initiaux réalistes et modifiables.
 
-import type { Batiment, Etat, Gang, Pnj } from "./types.ts";
+import type { Batiment, Etat, Gang, Pnj, Vehicule } from "./types.ts";
 import {
   ACHAT_REFERENCE_L,
   BUDGET_FACTEUR_MAX,
   BUDGET_FACTEUR_MIN,
   COEFF_INTENSITE_DEFAUT,
+  ESSENCE_REFERENCE_L,
   TAUX_IMPOT_DEFAUT_BP,
   montantL,
 } from "./referentiel.ts";
@@ -103,6 +104,29 @@ export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Bati
 }
 
 /**
+ * Usine à véhicule (v1.25) : identifiant séquentiel, carburant de référence
+ * du référentiel par défaut. Municipal : un rôle (effets de jeu) ; privé :
+ * un propriétaire figurine (volable par le milieu).
+ */
+export function nouveauVehicule(p: Partial<Vehicule> & { nom: string }): Vehicule {
+  return {
+    id: p.id ?? nouvelId("veh"),
+    nom: p.nom,
+    categorie: p.categorie ?? "prive",
+    role: p.role ?? null,
+    quartier: p.quartier ?? "Centre",
+    valeur: p.valeur ?? 150000,
+    etat: p.etat ?? "bon",
+    essenceJour: p.essenceJour ?? Math.round(ESSENCE_REFERENCE_L * 100),
+    capaciteLogements: p.capaciteLogements ?? 0,
+    capacitePostes: p.capacitePostes ?? 0,
+    proprietairePnjId: p.proprietairePnjId ?? null,
+    gangId: p.gangId ?? null,
+    garageBatimentId: p.garageBatimentId ?? null,
+  };
+}
+
+/**
  * Réinitialise les identifiants séquentiels (la ville de démonstration
  * reconstruite pour les tests repart à pnj-001/bat-001).
  */
@@ -117,7 +141,7 @@ export function reinitialiserIds(): void {
  * monde.demo.ts : retirée du jeu, elle reste la terre d'essai des tests. */
 export function createMondeDefaut(): Etat {
   return {
-    schemaVersion: 8,
+    schemaVersion: 10,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
@@ -131,12 +155,13 @@ export function createMondeDefaut(): Etat {
     params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP, coeffIntensite: COEFF_INTENSITE_DEFAUT },
     pnjs: [],
     batiments: [],
+    vehicules: [],
     journal: [
       {
         jour: 0,
         type: "systeme",
         texte:
-          "Jour 0 : un terrain nu et 5 000 L en caisse — aucun habitant, aucun bâtiment, aucun gang. Bricke-en-Provence attend ses premiers coups de crayon : ouvre l'éditeur et bâtis ta ville.",
+          "Jour 0 : un terrain nu et 5 000 L en caisse — aucun habitant, aucun bâtiment, aucun véhicule, aucun gang. Bricke-en-Provence attend ses premiers coups de crayon : ouvre l'éditeur et bâtis ta ville.",
       },
     ],
   };
@@ -227,6 +252,56 @@ export function supprimerBatiment(etat: Etat, id: string): Etat {
       parti.nom + " ferme et s'efface du paysage." +
         (emploisPerdus > 0 ? " Ses " + emploisPerdus + " employé(s) se retrouvent sans emploi." : ""),
     );
+  return e;
+}
+
+// ---------- Mutateurs de véhicules (v1.25 : l'éditeur construit la flotte) ----------
+
+export function ajouterVehicule(etat: Etat, veh: Vehicule): Etat {
+  const e = structuredClone(etat);
+  const garage = veh.garageBatimentId
+    ? e.batiments.find((b) => b.id === veh.garageBatimentId)
+    : null;
+  raconter(
+    e,
+    veh.categorie === "municipal"
+      ? veh.nom + " rejoint la flotte municipale" +
+        (garage ? " et range au garage de " + garage.nom : "") +
+        (veh.role ? " — poste " + veh.role + " assuré tant qu'il roule." : ".")
+      : veh.nom + " entre en ville" +
+        (garage ? " et se gare à " + garage.nom : "") +
+        (veh.capacitePostes > 0
+          ? " — ses " + veh.capacitePostes + " poste(s) de travail ambulant" +
+            (garage ? " s'ajoutent à ceux de " + garage.nom : " sont à pourvoir") + "."
+          : veh.capaciteLogements > 0
+            ? " — il peut loger " + veh.capaciteLogements + " figurine(s) (roulotte)."
+            : "."),
+  );
+  e.vehicules = [...(e.vehicules ?? []), veh];
+  return e;
+}
+
+export function modifierVehicule(etat: Etat, id: string, patch: Partial<Vehicule>): Etat {
+  const e = structuredClone(etat);
+  const i = (e.vehicules ?? []).findIndex((v) => v.id === id);
+  if (i >= 0) e.vehicules![i] = { ...e.vehicules![i], ...patch, id };
+  return e;
+}
+
+export function supprimerVehicule(etat: Etat, id: string): Etat {
+  const e = structuredClone(etat);
+  const parti = (e.vehicules ?? []).find((v) => v.id === id);
+  e.vehicules = (e.vehicules ?? []).filter((v) => v.id !== id);
+  // Une caravane logeait peut-être des figurines, un fourgon employait :
+  // rien ne pend à un véhicule disparu.
+  e.pnjs = e.pnjs.map((p) =>
+    p.batimentId === id
+      ? { ...p, batimentId: null }
+      : p.travailBatimentId === id
+        ? { ...p, travailBatimentId: null }
+        : p,
+  );
+  if (parti) raconter(e, parti.nom + " quitte la ville. Bonne route !");
   return e;
 }
 

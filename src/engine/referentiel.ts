@@ -121,6 +121,14 @@ export const CHANCE_REDEMPTION_SANS = refNombre("penitentiaire.chance_redemption
 export const TAUX_EMPRUNT_PCT = refNombre("economie.taux_emprunt_collectivites.valeur", 3.54);
 
 /**
+ * Véhicules (v1.25, arbitrage Thibaut 2026-11-08) : carburant de référence
+ * par jour de route (L) et part de la valeur d'un véhicule détruite par
+ * point de gravité d'une collision (réparations au BTP local).
+ */
+export const ESSENCE_REFERENCE_L = refNombre("vehicules.essence_reference.valeur", 8);
+export const PART_DEGATS_COLLISION = refNombre("vehicules.part_degats_collision.valeur", 0.10);
+
+/**
  * Part maximale des recettes d'un commerce redistribuée en salaires (phase 3.6) :
  * la marge patronale conserve 12 % du flux — marge sur le flux, jamais le stock.
  */

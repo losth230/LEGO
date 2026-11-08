@@ -44,6 +44,9 @@ test("flux : un commerce redistribue le jour même, seul le patron garde sa marg
   const monde: Etat = {
     ...base,
     batiments: [boutique],
+    // v1.25 : le témoin reste hermétique — pas de flotte, donc pas d'essence
+    // dans les recettes (l'essence redistribuée a ses propres tests).
+    vehicules: [],
     pnjs: [
       nouveauPnj({ prenom: "Jeanne", nom: "Test", statut: "commercant", batimentId: boutique.id, revenuIndicatif: 6000, compte: 0 }),
       nouveauPnj({ prenom: "Alban", nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
@@ -90,6 +93,9 @@ test("flux : sur-embauche et caisses vides — prorata, salaires impayés, faill
   const monde: Etat = {
     ...base,
     batiments: [boutique],
+    // v1.25 : le témoin reste hermétique — pas de flotte, donc pas d'essence
+    // dans les recettes (l'essence redistribuée a ses propres tests).
+    vehicules: [],
     pnjs: [
       nouveauPnj({ prenom: "Jeanne", nom: "Test", statut: "commercant", batimentId: boutique.id, revenuIndicatif: 6000, compte: 0 }),
       // Cinq employés à 57,75 L/j : 288,75 L dus pour ~193 L de recettes.
