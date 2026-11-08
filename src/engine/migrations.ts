@@ -8,7 +8,7 @@ import type { Etat, Pnj, Vocation } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 8;
+export const SCHEMA_VERSION_ETAT = 9;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -145,8 +145,26 @@ const GRADES_RETIRES: Record<string, string> = {
     // sont gardés au commissariat. Un bâtiment sauvegardé sous v1.14 avec
     // l'ancienne vocation « prison » redevient une boutique ordinaire.
     const vocationBrute = (x as Partial<{ vocation?: unknown }>).vocation;
+    // Migration v8 -> v9 (v1.24) : la capacité unique se dédouble — un
+    // bâtiment peut à la fois loger des figurines et employer du monde.
+    // L'ancienne valeur est répartie selon le type (habitation -> logements,
+    // commerce et service public -> postes), jamais perdue.
+    const capaciteBrute = (x as Partial<{ capacite?: unknown }>).capacite;
+    const capacite = typeof capaciteBrute === "number" ? capaciteBrute : 0;
+    const logementsBrut = (x as Partial<{ capaciteLogements?: unknown }>).capaciteLogements;
+    const postesBrut = (x as Partial<{ capacitePostes?: unknown }>).capacitePostes;
+    const habitation = x.type === "habitation";
     return {
-      ...x,
+      id: typeof x.id === "string" ? x.id : "",
+      nom: typeof x.nom === "string" ? x.nom : "",
+      type: x.type,
+      quartier: typeof x.quartier === "string" ? x.quartier : "Centre",
+      valeur: typeof x.valeur === "number" ? x.valeur : 0,
+      etat: x.etat,
+      coutFonctionnement: typeof x.coutFonctionnement === "number" ? x.coutFonctionnement : 0,
+      capaciteLogements:
+        typeof logementsBrut === "number" ? logementsBrut : habitation ? capacite : 0,
+      capacitePostes: typeof postesBrut === "number" ? postesBrut : habitation ? 0 : capacite,
       vocation:
         vocationBrute === "prison" ? null : ((vocationBrute as Vocation | null) ?? null),
     };

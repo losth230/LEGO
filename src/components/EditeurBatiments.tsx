@@ -57,7 +57,8 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
   const [fonctionnement, setFonctionnement] = useState(versL(b.coutFonctionnement));
   const [type, setType] = useState<TypeBatiment>(b.type);
   const [etatBat, setEtatBat] = useState<EtatBatiment>(b.etat);
-  const [capacite, setCapacite] = useState(b.capacite.toString());
+  const [capaciteLogements, setCapaciteLogements] = useState(b.capaciteLogements.toString());
+  const [capacitePostes, setCapacitePostes] = useState(b.capacitePostes.toString());
   const [vocation, setVocation] = useState<Vocation | null>(b.vocation ?? null);
 
   const enregistrer = () => {
@@ -69,7 +70,8 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
         etat: etatBat,
         valeur: nombreL(valeur),
         coutFonctionnement: nombreL(fonctionnement),
-        capacite: Number.isFinite(Number(capacite)) ? Number(capacite) : 0,
+        capaciteLogements: Number.isFinite(Number(capaciteLogements)) ? Number(capaciteLogements) : 0,
+        capacitePostes: Number.isFinite(Number(capacitePostes)) ? Number(capacitePostes) : 0,
         vocation: type === "commerce" ? vocation : null,
       }),
     );
@@ -133,8 +135,11 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
           <Champ label="Coût de fonctionnement/jour (L)">
             <input className="input" value={fonctionnement} onChange={(e) => setFonctionnement(e.target.value)} />
           </Champ>
-          <Champ label="Capacité">
-            <input className="input" value={capacite} onChange={(e) => setCapacite(e.target.value)} />
+          <Champ label="Logements">
+            <input className="input" value={capaciteLogements} onChange={(e) => setCapaciteLogements(e.target.value)} />
+          </Champ>
+          <Champ label="Postes de travail">
+            <input className="input" value={capacitePostes} onChange={(e) => setCapacitePostes(e.target.value)} />
           </Champ>
           <Champ label="État">
             <select className="input" value={etatBat} onChange={(e) => setEtatBat(e.target.value as EtatBatiment)}>
@@ -157,7 +162,8 @@ export function CarteBatiments() {
   const [quartier, setQuartier] = useState("Centre");
   const [valeur, setValeur] = useState("3000");
   const [fonctionnement, setFonctionnement] = useState("0");
-  const [capacite, setCapacite] = useState("4");
+  const [capaciteLogements, setCapaciteLogements] = useState("4");
+  const [capacitePostes, setCapacitePostes] = useState("0");
   const [vocation, setVocation] = useState<Vocation | null>(null);
 
   const ajouter = () => {
@@ -171,7 +177,8 @@ export function CarteBatiments() {
           quartier: quartier.trim() === "" ? "Centre" : quartier.trim(),
           valeur: nombreL(valeur),
           coutFonctionnement: nombreL(fonctionnement),
-          capacite: Number.isFinite(Number(capacite)) ? Number(capacite) : 0,
+          capaciteLogements: Number.isFinite(Number(capaciteLogements)) ? Number(capaciteLogements) : 0,
+          capacitePostes: Number.isFinite(Number(capacitePostes)) ? Number(capacitePostes) : 0,
           vocation: type === "commerce" ? vocation : null,
         }),
       ),
@@ -219,8 +226,11 @@ export function CarteBatiments() {
         <Champ label="Fonctionnement/jour (L)">
           <input className="input" value={fonctionnement} onChange={(e) => setFonctionnement(e.target.value)} />
         </Champ>
-        <Champ label="Capacité">
-          <input className="input" value={capacite} onChange={(e) => setCapacite(e.target.value)} />
+        <Champ label="Logements">
+          <input className="input" value={capaciteLogements} onChange={(e) => setCapaciteLogements(e.target.value)} />
+        </Champ>
+        <Champ label="Postes de travail">
+          <input className="input" value={capacitePostes} onChange={(e) => setCapacitePostes(e.target.value)} />
         </Champ>
         <button className="bouton" onClick={ajouter}>Ajouter</button>
       </div>

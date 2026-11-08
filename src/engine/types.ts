@@ -100,8 +100,10 @@ export interface Batiment {
   etat: EtatBatiment;
   /** Coût de fonctionnement quotidien en centimes (services publics) — acheté sur place si une boutique est ouverte, sinon non dépensé (circuit fermé). */
   coutFonctionnement: number;
-  /** Capacité : logements (habitation) ou postes de travail (commerce, service). */
-  capacite: number;
+  /** Capacités séparées (v1.24) : un bâtiment peut à la fois loger des
+   * figurines (batimentId) et offrir des postes de travail (travailBatimentId). */
+  capaciteLogements: number;
+  capacitePostes: number;
   /** Vocation du commerce (2026-11-06) : null = boutique de consommation ; sinon service local (santé, BTP, banque). */
   vocation?: Vocation | null;
 }

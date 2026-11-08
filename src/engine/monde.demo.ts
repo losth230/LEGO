@@ -21,28 +21,28 @@ export function createMondeDemonstration(): Etat {
   reinitialiserIds();
 
   const batiments: Batiment[] = [
-    nouveauBatiment({ nom: "Mairie de Bricke-en-Provence", type: "service_public", quartier: "Centre", valeur: 1200000, etat: "neuf", coutFonctionnement: 2000, capacite: 6 }),
-    nouveauBatiment({ nom: "Poste de police", type: "service_public", quartier: "Centre", valeur: 800000, coutFonctionnement: 1500, capacite: 4 }),
-    nouveauBatiment({ nom: "Caserne de pompiers", type: "service_public", quartier: "Nord", valeur: 900000, coutFonctionnement: 1500, capacite: 6 }),
-    nouveauBatiment({ nom: "Le Fournil Doré (boulangerie)", type: "commerce", quartier: "Centre", valeur: 400000, capacite: 2 }),
-    nouveauBatiment({ nom: "Chez Mario (friterie)", type: "commerce", quartier: "Port", valeur: 250000, capacite: 2 }),
-    nouveauBatiment({ nom: "Quincaillerie du Port", type: "commerce", quartier: "Port", valeur: 300000, capacite: 2 }),
+    nouveauBatiment({ nom: "Mairie de Bricke-en-Provence", type: "service_public", quartier: "Centre", valeur: 1200000, etat: "neuf", coutFonctionnement: 2000, capacitePostes: 6 }),
+    nouveauBatiment({ nom: "Poste de police", type: "service_public", quartier: "Centre", valeur: 800000, coutFonctionnement: 1500, capacitePostes: 4 }),
+    nouveauBatiment({ nom: "Caserne de pompiers", type: "service_public", quartier: "Nord", valeur: 900000, coutFonctionnement: 1500, capacitePostes: 6 }),
+    nouveauBatiment({ nom: "Le Fournil Doré (boulangerie)", type: "commerce", quartier: "Centre", valeur: 400000, capacitePostes: 2 }),
+    nouveauBatiment({ nom: "Chez Mario (friterie)", type: "commerce", quartier: "Port", valeur: 250000, capacitePostes: 2 }),
+    nouveauBatiment({ nom: "Quincaillerie du Port", type: "commerce", quartier: "Port", valeur: 300000, capacitePostes: 2 }),
     // Services locaux à vocation (monde 100 % fermé, arbitrage 2026-11-06) :
     // sans eux, aucune mécanique liée (soins, réparations, emprunts).
-    nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacite: 4, vocation: "sante" }),
-    nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacite: 4, vocation: "btp" }),
-    nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacite: 2, vocation: "banque" }),
+    nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacitePostes: 4, vocation: "sante" }),
+    nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacitePostes: 4, vocation: "btp" }),
+    nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacitePostes: 2, vocation: "banque" }),
     // Bureau de poste (v1.22, arbitrage Thibaut : entreprise privée) : La
     // Poste n'est pas municipale — le receveur tient la boutique, la ville
     // ne paie rien, le facteur est salarié payé par le flux du soir.
-    nouveauBatiment({ nom: "Bureau de poste de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 300000, capacite: 2 }),
+    nouveauBatiment({ nom: "Bureau de poste de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 300000, capacitePostes: 2 }),
     // Phase 3.10 (correction Thibaut 2026-11-06) : les détenus sont gardés
     // au Poste de police, pas dans un bâtiment dédié — pas de maison d'arrêt.
-    nouveauBatiment({ nom: "Les Terrasses (immeuble)", type: "habitation", quartier: "Centre", valeur: 1500000, capacite: 16 }),
-    nouveauBatiment({ nom: "Maison des Dupont", type: "habitation", quartier: "Nord", valeur: 350000, capacite: 4 }),
-    nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capacite: 20 }),
-    nouveauBatiment({ nom: "Maison de la Colline", type: "habitation", quartier: "Nord", valeur: 300000, capacite: 6 }),
-    nouveauBatiment({ nom: "Caserne militaire du Sud", type: "service_public", quartier: "Sud", valeur: 1100000, etat: "neuf", coutFonctionnement: 3000, capacite: 8 }),
+    nouveauBatiment({ nom: "Les Terrasses (immeuble)", type: "habitation", quartier: "Centre", valeur: 1500000, capaciteLogements: 16 }),
+    nouveauBatiment({ nom: "Maison des Dupont", type: "habitation", quartier: "Nord", valeur: 350000, capaciteLogements: 4 }),
+    nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capaciteLogements: 20 }),
+    nouveauBatiment({ nom: "Maison de la Colline", type: "habitation", quartier: "Nord", valeur: 300000, capaciteLogements: 6 }),
+    nouveauBatiment({ nom: "Caserne militaire du Sud", type: "service_public", quartier: "Sud", valeur: 1100000, etat: "neuf", coutFonctionnement: 3000, capacitePostes: 8 }),
   ];
 
   const idMairie = batiments[0].id;

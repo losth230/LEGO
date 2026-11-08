@@ -96,7 +96,8 @@ export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Bati
     valeur: p.valeur ?? 500000,
     etat: p.etat ?? "bon",
     coutFonctionnement: p.coutFonctionnement ?? 0,
-    capacite: p.capacite ?? 0,
+    capaciteLogements: p.capaciteLogements ?? 0,
+    capacitePostes: p.capacitePostes ?? 0,
     vocation: p.vocation ?? null,
   };
 }

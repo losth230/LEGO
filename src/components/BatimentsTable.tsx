@@ -37,7 +37,8 @@ export function BatimentsTable() {
             <th>Quartier</th>
             <th className="col-nombre">Valeur</th>
             <th className="col-nombre">Fonctionnement/j</th>
-            <th>Occupants</th>
+            <th>Logés</th>
+            <th>Postes</th>
             <th>État</th>
           </tr>
         </thead>
@@ -78,7 +79,11 @@ function LigneBatiment({ batiment: b }: { batiment: Batiment }) {
       </td>
       <td>
         {occupants.length}
-        {b.type === "habitation" ? <span className="mute"> / {b.capacite}</span> : null}
+        {b.capaciteLogements > 0 ? <span className="mute"> / {b.capaciteLogements}</span> : null}
+      </td>
+      <td>
+        {etat.pnjs.filter((p) => p.travailBatimentId === b.id).length}
+        {b.capacitePostes > 0 ? <span className="mute"> / {b.capacitePostes}</span> : null}
       </td>
       <td>{ETIQUETTES_ETAT[b.etat]}</td>
     </tr>

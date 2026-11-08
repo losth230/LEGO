@@ -11,7 +11,8 @@ import type {
 
 import {
   createMondeDefaut,
-  modifierVille
+  modifierVille,
+  nouveauBatiment
 } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
 
@@ -265,7 +266,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
   assert.equal(m.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
-  assert.equal(m.schemaVersion, 8, "v1 -> v8 : schema à jour");
+  assert.equal(m.schemaVersion, 9, "v1 -> v9 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -287,7 +288,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
-  assert.equal(v5.schemaVersion, 8, "v5 -> v8 : schema à jour");
+  assert.equal(v5.schemaVersion, 9, "v5 -> v9 : schema à jour");
   // v5 -> v6 : la vocation des bâtiments existants est complétée à null
   // (boutique de consommation par défaut), jamais devinée.
   const v5bat = migrerEtat({
@@ -299,19 +300,51 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
       { id: "b2", nom: "Mairie", type: "service_public" },
     ],
   });
-  assert.equal(v5bat.schemaVersion, 8, "v5 -> v8 : schema à jour");
+  assert.equal(v5bat.schemaVersion, 9, "v5 -> v9 : schema à jour");
   assert.ok(
     v5bat.batiments.every((b) => b.vocation === null),
     "v5 -> v6 : vocation des bâtiments complétée (boutique par défaut)",
   );
   assert.equal(v5bat.batiments.length, 2, "les bâtiments du joueur sont conservés");
+  assert.ok(
+    v5bat.batiments.every((x) => x.capaciteLogements === 0 && x.capacitePostes === 0),
+    "v8 -> v9 : capacités absentes complétées à 0/0, jamais devinées",
+  );
   // v6 -> v7 : le crime ne détruit plus la monnaie (volsCumules) ; le taux
   // par défaut passe de 10 % à 30 % — une ville restée à l'ancien défaut
   // monte au nouveau taux, un taux choisi reste le sien.
   const v6defaut = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 1000, coeffIntensite: 2 } });
-  assert.equal(v6defaut.schemaVersion, 8, "v6 -> v8 : schema à jour");
+  assert.equal(v6defaut.schemaVersion, 9, "v6 -> v9 : schema à jour");
   assert.equal(v6defaut.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
   assert.equal(v6defaut.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP, "v6 -> v7 : l'ancien défaut 10 % devient 30 %");
   const v6choisi = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 555, coeffIntensite: 2 } });
   assert.equal(v6choisi.params.tauxImpotBp, 555, "v6 -> v7 : le taux choisi par le joueur est conservé");
+});
+
+test("capacités séparées (v1.24) : un bâtiment peut loger et employer à la fois", () => {
+  const mixte = nouveauBatiment({
+    nom: "Immeuble du Fournil",
+    type: "commerce",
+    capaciteLogements: 4,
+    capacitePostes: 2,
+  });
+  assert.equal(mixte.capaciteLogements, 4, "logements au-dessus de la boutique");
+  assert.equal(mixte.capacitePostes, 2, "postes de travail au rez-de-chaussée");
+  // Migration v8 -> v9 : l'ancienne capacité unique est répartie selon le
+  // type (habitation -> logements, commerce et service -> postes), jamais perdue.
+  const vieux = migrerEtat({
+    schemaVersion: 8,
+    batiments: [
+      { id: "b1", nom: "Maison des Dupont", type: "habitation", capacite: 4 },
+      { id: "b2", nom: "Le Fournil Doré", type: "commerce", capacite: 2 },
+    ],
+  });
+  assert.equal(vieux.schemaVersion, 9, "v8 -> v9 : schema à jour");
+  const maison = vieux.batiments.find((x) => x.id === "b1")!;
+  assert.equal(maison.capaciteLogements, 4, "habitation : la capacité devient des logements");
+  assert.equal(maison.capacitePostes, 0, "habitation : aucun poste inventé");
+  const boulangerie = vieux.batiments.find((x) => x.id === "b2")!;
+  assert.equal(boulangerie.capacitePostes, 2, "commerce : la capacité devient des postes");
+  assert.equal(boulangerie.capaciteLogements, 0, "commerce : aucun logement inventé");
+  assert.ok(!("capacite" in maison), "l'ancien champ capacite disparaît");
 });

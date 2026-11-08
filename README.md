@@ -1,6 +1,6 @@
 # 🏙️ Simulateur de ville LEGO — Cahier des charges
 
-> **Statut :** v1.23 — cadrage figé (v1.0, 2026-11-05) ; phases 1 → 3.10 poussées ; **69 tests moteur PASS** ; référentiel v1.16 ; schéma de sauvegarde v8 ; monnaie du jeu : **le LEGO (L)** ; site : https://losth230.github.io/LEGO/
+> **Statut :** v1.24 — cadrage figé (v1.0, 2026-11-05) ; phases 1 → 3.10 poussées ; **70 tests moteur PASS** ; référentiel v1.16 ; schéma de sauvegarde v9 ; monnaie du jeu : **le LEGO (L)** ; site : https://losth230.github.io/LEGO/
 >
 > **Fil des versions** (feuille de route en §8, décisions datées en §9) :
 >
@@ -16,6 +16,7 @@
 | 2026-11-06 | **v1.21** : agents municipaux (brigade propreté, corps Mairie à trois grades — référentiel v1.15) |
 | 2026-11-06 | **v1.22** : grade unique Mairie (référentiel v1.16), bureau de poste privé dans le monde par défaut (receveur + facteur) |
 | 2026-11-06 | **v1.23** : monde par défaut vide (ville nue), la ville de démonstration devient un fichier de tests |
+| 2026-11-08 | **v1.24** : capacité des bâtiments dédoublée (logements + postes de travail), schéma v9 |
 >
 > **Repo :** `losth230/LEGO` — ce README sert de cahier des charges vivant.
 
@@ -232,6 +233,7 @@ La ville LEGO est **une échelle très réduite** (les figurines nommées, quelq
 | 2026-11-06 | **v1.21 : les agents municipaux existent enfin (brigade propreté)** — arbitrage Thibaut (« on a oublié les balayeurs, éboueurs… ») : le corps Mairie du référentiel passe de 1 à 3 grades (adjoint technique 48,30 → agent de maîtrise 55,00 → technicien territorial 61,70 L/jour, grilles FPT 2025 emploi-collectivites, point d'indice 4,92278 € — référentiel v1.15) ; le monde par défaut embauche une brigade de 3 (Gérard le balayeur, Solène l'éboueuse, Robert le chef d'équipe de la voirie) : **55 → 58 figurines, 6 → 9 agents publics, charges 439,20 → 590,80 L/jour** (le solde structurel reste ~+2 280 L/jour en moyenne le premier jour, la marge à 30 jours tombe ~43 000 → ~41 000 L : la ville s'enrichit toujours d'elle-même, un peu moins vite — un pas vers la tension de jeu) ; les agents municipaux ne gardent rien (aucun corps de sécurité), l'éditeur propose les trois grades automatiquement (générés depuis le référentiel) ; 64 tests moteur PASS |
 | 2026-11-06 | **v1.22 : le facteur est un salarié du privé, la Mairie n'a qu'un grade** — arbitrage Thibaut (« pas besoin de différents grades pour la propreté, ni pour la mairie ») : le corps Mairie revient au grade unique **adjoint technique 48,30 L/jour** (référentiel v1.16 ; une sauvegarde v1.21 avec agent de maîtrise ou technicien territorial est reconvertie au chargement) ; Robert reste chef d'équipe de la voirie, au grade unique — soldes de la brigade 151,60 → 144,90 L/jour ; **le bureau de poste est une entreprise privée** (La Poste n'est pas municipale : arbitrage Thibaut « patron + employés ») — le receveur Philippe tient la boutique, la factrice Nora est payée par le flux du soir (49,30 L/jour, SMIC 2025 ≈ 1 480 € net, convention d'entreprise La Poste IDCC 5516), la ville ne paie rien : **58 → 59 figurines, 14 → 15 bâtiments, monnaie 226 300 → 232 230 L, charges 590,80 → 584,10 L/jour** ; 66 tests moteur PASS |
 | 2026-11-06 | **v1.23 : la ville démarre nue — plus rien n'est imposé (arbitrage Thibaut « aucune figurine, aucun bâtiment, rien »)** : `createMondeDefaut()` ne contient plus ni PNJ, ni bâtiment, ni gang — un terrain nu, 5 000 L en caisse et une entrée de journal qui invite à ouvrir l'éditeur ; toute la ville se construit dans l'éditeur (les mécaniques sans service dorment, comme prévu en 3.7) ; **Bricke-en-Provence (15 bâtiments / 59 figurines, Corbeaux du Sud compris) déménage dans `monde.demo.ts`**, une fixture utilisée par les tests uniquement — rien n'est importé par l'application ; les fallbacks de migration (état corrompu, version inconnue) donnent la ville nue ; bouton Réinitialiser reformulé (« Repartir d'une ville nue ») ; 69 tests moteur PASS |
+| 2026-11-08 | **v1.24 : la capacité unique des bâtiments se dédouble (demande Thibaut « un bâtiment peut à la fois héberger des PNJ et être un lieu de travail »)** : chaque bâtiment porte `capaciteLogements` (figurines résidentes, lien `batimentId`) et `capacitePostes` (postes de travail, lien `travailBatimentId`) — un commerce peut loger ses employés au-dessus de la boutique ; schéma v8 → **v9** : l'ancienne `capacite` est répartie selon le type (habitation → logements, commerce et service public → postes), jamais perdue, jamais doublée ; l'éditeur propose deux champs (Logements, Postes de travail) et le tableau Bâtiments affiche deux colonnes (Logés, Postes) ; `contratBatiment` rejoint les contrats de formes au runtime ; 70 tests moteur PASS |
 
 ### Questions ouvertes
 
