@@ -2,6 +2,8 @@
 // mêmes capacités que les bâtiments (logements, postes de travail).
 // v1.27 : plus de création instantanée — un véhicule entre en ville en
 // chantier, c'est la station-service qui l'assemble.
+// v1.28 : un engin de chantier (municipal ou privé à sa figurine) produit
+// selon son efficacité, réglable sur sa fiche.
 
 import { useState } from "react";
 import { useStore } from "../state/store.tsx";
@@ -41,13 +43,14 @@ function LigneVehiculeEdit({ vehicule: v }: { vehicule: Vehicule }) {
   const [postes, setPostes] = useState(v.capacitePostes.toString());
   const [proprietaire, setProprietaire] = useState(v.proprietairePnjId ?? "");
   const [garage, setGarage] = useState(v.garageBatimentId ?? "");
+  const [efficacite, setEfficacite] = useState(v.efficacite?.toString() ?? "");
 
   const enregistrer = () => {
     majEtat(
       modifierVehicule(etat, v.id, {
         nom: nom.trim() === "" ? v.nom : nom.trim(),
         categorie,
-        role: categorie === "municipal" ? role : null,
+        role: categorie === "municipal" ? role : role === "chantier" ? "chantier" : null,
         quartier: quartier.trim() === "" ? "Centre" : quartier.trim(),
         valeur: nombreL(valeur),
         etat: etatVeh,
@@ -56,6 +59,10 @@ function LigneVehiculeEdit({ vehicule: v }: { vehicule: Vehicule }) {
         capacitePostes: Number.isFinite(Number(postes)) ? Math.max(0, Number(postes)) : 0,
         proprietairePnjId: categorie === "prive" && proprietaire !== "" ? proprietaire : null,
         garageBatimentId: garage === "" ? null : garage,
+        efficacite:
+          role === "chantier" && Number.isFinite(Number(efficacite)) && Number(efficacite) >= 1
+            ? Math.round(Number(efficacite))
+            : undefined,
       }),
     );
     setOuvert(false);
@@ -114,6 +121,22 @@ function LigneVehiculeEdit({ vehicule: v }: { vehicule: Vehicule }) {
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
+            </Champ>
+          ) : (
+            <Champ label="Engin de chantier (v1.28 : produit sur le chantier, à son propriétaire)">
+              <select
+                className="input"
+                value={role === "chantier" ? "chantier" : ""}
+                onChange={(e) => setRole((e.target.value ? "chantier" : null) as RoleVehicule | null)}
+              >
+                <option value="">— non —</option>
+                <option value="chantier">engin de chantier</option>
+              </select>
+            </Champ>
+          )}
+          {role === "chantier" ? (
+            <Champ label="Efficacité (travaux/jour sur le chantier — vide = 2)">
+              <input className="input" value={efficacite} onChange={(e) => setEfficacite(e.target.value)} />
             </Champ>
           ) : null}
           <Champ label="Quartier">
@@ -183,6 +206,7 @@ export function CarteVehicules() {
   const [postes, setPostes] = useState("0");
   const [proprietaire, setProprietaire] = useState("");
   const [garage, setGarage] = useState("");
+  const [efficacite, setEfficacite] = useState("");
   // v1.27 : le véhicule entre en ville en chantier — la station-service
   // l'assemble (onglet 🏗 Chantiers).
   const [travauxTotal, setTravauxTotal] = useState(TRAVAUX_DEFAUT.toString());
@@ -198,7 +222,7 @@ export function CarteVehicules() {
         nouveauVehicule({
           nom: nom.trim(),
           categorie,
-          role: categorie === "municipal" ? role : null,
+          role: categorie === "municipal" ? role : role === "chantier" ? "chantier" : null,
           quartier: quartier.trim() === "" ? "Centre" : quartier.trim(),
           valeur: nombreL(valeur),
           essenceJour: Math.max(0, nombreL(essence)),
@@ -206,6 +230,10 @@ export function CarteVehicules() {
           capacitePostes: Number.isFinite(Number(postes)) ? Math.max(0, Number(postes)) : 0,
           proprietairePnjId: categorie === "prive" && proprietaire !== "" ? proprietaire : null,
           garageBatimentId: garage === "" ? null : garage,
+          efficacite:
+            role === "chantier" && Number.isFinite(Number(efficacite)) && Number(efficacite) >= 1
+              ? Math.round(Number(efficacite))
+              : undefined,
         }),
         {
           travauxTotal: Number.isFinite(Number(travauxTotal)) && Number(travauxTotal) >= 1
@@ -251,6 +279,22 @@ export function CarteVehicules() {
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
+          </Champ>
+        ) : (
+          <Champ label="Engin de chantier (v1.28 : produira selon son efficacité, pour sa figurine)">
+            <select
+              className="input"
+              value={role === "chantier" ? "chantier" : ""}
+              onChange={(e) => setRole((e.target.value ? "chantier" : null) as RoleVehicule | null)}
+            >
+              <option value="">— non —</option>
+              <option value="chantier">engin de chantier</option>
+            </select>
+          </Champ>
+        )}
+        {role === "chantier" ? (
+          <Champ label="Efficacité (travaux/jour sur le chantier — vide = 2)">
+            <input className="input" value={efficacite} onChange={(e) => setEfficacite(e.target.value)} />
           </Champ>
         ) : null}
         <Champ label="Quartier">

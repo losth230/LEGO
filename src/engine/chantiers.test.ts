@@ -1,10 +1,10 @@
 // Tests chantiers (v1.27, arbitrage Thibaut 2026-11-08) : plus rien ne se
 // crée instantanément — bâtiments au BTP, véhicules à la station-service,
-// durée = valeur de travaux (1 ouvrier = 1/jour, engin = 2/jour), coût
-// réglé au prorata au fil de l'eau (ville pour un public, figurine pour
-// un privé), un seul chantier avance par jour (FIFO, priorisable) et
-// l'amorçage à la main (1/jour, sans paiement) permet à la ville nue de
-// bâtir son premier BTP. Exécution : npm test.
+// durée = valeur de travaux (1 ouvrier = 1/jour, engin = son efficacité,
+// v1.28 — défaut 2), coût réglé au prorata au fil de l'eau (ville pour un
+// public, figurine pour un privé), un seul chantier avance par jour (FIFO,
+// priorisable) et l'amorçage à la main (1/jour, sans paiement) permet à la
+// ville nue de bâtir son premier BTP. Exécution : npm test.
 
 import test from "node:test";
 
@@ -35,15 +35,27 @@ import { boutiquesOuvertes } from "./economie.ts";
 import { migrerEtat } from "./migrations.ts";
 import {
   coutChantier,
+  efficaciteEngin,
   PRODUCTION_ENGIN,
   PRODUCTION_OUVRIER,
   TRAVAUX_DEFAUT,
 } from "./chantiers.ts";
 import { calme, entrees } from "./outils-test.ts";
 
-/** Le BTP de la ville de démonstration (gérant Dario, 4 postes). */
+/** Le BTP de la ville de démonstration (patronne Samantha, 4 postes —
+ * v1.28 : l'équipe Didier-Thomas et ses engins en font le chantier témoin). */
 function idBtp(m: Etat): string {
   return m.batiments.find((b) => b.vocation === "btp")!.id;
+}
+
+/** Vider le BTP de ses employés et de ses engins (isolation des tests). */
+function btpVeuf(m: Etat): Etat {
+  const btp = m.batiments.find((b) => b.vocation === "btp")!.id;
+  return {
+    ...m,
+    pnjs: m.pnjs.map((p) => (p.travailBatimentId === btp ? { ...p, travailBatimentId: null } : p)),
+    vehicules: (m.vehicules ?? []).filter((v) => v.role !== "chantier"),
+  };
 }
 
 /** La station-service de la démonstration (gérant Marco). */
@@ -102,8 +114,10 @@ test("amorçage : sans constructeur en ville, le chantier avance à la main (1/j
 });
 
 test("chantier : le BTP au travail — ouvriers ET engins produisent, acompte au prorata", () => {
+  // v1.28 : la démo embarque l'équipe du BTP — Didier et Thomas (2 ouvriers)
+  // avec leurs engins (bétonnière efficacité 1, tractopelle efficacité 2) ;
+  // la pelleteuse municipale ajoutée produit au défaut (2).
   let m = createMondeDemonstration();
-  m = embaucher(m, idBtp(m), 3);
   m = ajouterVehicule(
     m,
     nouveauVehicule({ nom: "Pelleteuse du chantier", categorie: "municipal", role: "chantier", essenceJour: 0, valeur: 100000 }),
@@ -112,12 +126,12 @@ test("chantier : le BTP au travail — ouvriers ET engins produisent, acompte au
     m,
     nouveauBatiment({ nom: "Pavillon du Parc", type: "habitation", valeur: 300000 }),
   );
-  const production = 3 * PRODUCTION_OUVRIER + 1 * PRODUCTION_ENGIN; // 5 travaux
+  const production = 2 * PRODUCTION_OUVRIER + (1 + 2) + 1 * PRODUCTION_ENGIN; // 7 travaux
   const cout = coutChantier(300000);
   const avant = monnaieEnCircuit(m);
   const j1 = passerJour(m);
   const c = j1.chantiers![0];
-  assert.equal(c.travauxFaits, production, "3 ouvriers + 1 engin ayant roulé = 5 travaux");
+  assert.equal(c.travauxFaits, production, "2 ouvriers + bétonnière (1) + tractopelle (2) + pelleteuse (2) = 7 travaux");
   assert.equal(c.coutPaye, Math.round((cout * production) / TRAVAUX_DEFAUT), "acompte au prorata de l'avancement");
   assert.ok(
     entrees(1, "chantier", j1.journal).some((e) => e.texte.includes("réglés par la ville")),
@@ -126,16 +140,33 @@ test("chantier : le BTP au travail — ouvriers ET engins produisent, acompte au
   assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte : l'acompte reste en ville");
 });
 
+test("efficacité (v1.28) : chaque engin produit selon sa fiche — bétonnière 1, tractopelle 2", () => {
+  // La ville de démonstration telle quelle : le BTP de Samantha avance
+  // avec ses deux ouvriers et leurs engins, sans rien embaucher de plus.
+  const m = lancerChantierBatiment(
+    createMondeDemonstration(),
+    nouveauBatiment({ nom: "Maison des Maçons", type: "habitation", valeur: 300000 }),
+  );
+  const j1 = passerJour(m);
+  const c = j1.chantiers![0];
+  assert.equal(c.travauxFaits, 2 * PRODUCTION_OUVRIER + 1 + 2, "Didier + Thomas + bétonnière (1) + tractopelle (2) = 5 travaux");
+  assert.equal(efficaciteEngin(m.vehicules!.find((v) => v.nom === "Bétonnière de Didier")!), 1, "la bétonnière produit 1 travail/jour");
+  assert.equal(efficaciteEngin(m.vehicules!.find((v) => v.nom === "Tractopelle de Thomas")!), 2, "le tractopelle en produit 2");
+  assert.equal(efficaciteEngin(nouveauVehicule({ nom: "Engin sans fiche", role: "chantier" })), PRODUCTION_ENGIN, "sans fiche : défaut 2, jamais muet ni négatif");
+});
+
 test("chantier : la livraison éveille la cible (capacités actives) et vide la file", () => {
   let m = createMondeDemonstration();
   m = embaucher(m, idBtp(m), 3);
   m = lancerChantierBatiment(
     m,
     nouveauBatiment({ nom: "Atelier du coin", type: "habitation", valeur: 200000 }),
-    { travauxTotal: 4 },
+    { travauxTotal: 10 },
   );
   const j1 = passerJour(m);
-  assert.equal(j1.chantiers!.length, 1, "3 travaux sur 4 : pas encore livré");
+  // v1.28 : 5 ouvriers (3 embauchés + l'équipe démo) + les engins (1 + 2) = 8 travaux.
+  assert.equal(j1.chantiers!.length, 1, "8 travaux sur 10 : pas encore livré");
+  assert.equal(j1.chantiers![0].travauxFaits, 8, "l'équipe au complet produit 8 travaux");
   assert.equal(j1.batiments.find((b) => b.nom === "Atelier du coin")!.enConstruction, true, "toujours en chantier");
   const j2 = passerJour(j1);
   assert.equal(j2.chantiers!.length, 0, "livré : le chantier quitte la file");
@@ -152,7 +183,9 @@ test("chantier : la livraison éveille la cible (capacités actives) et vide la 
 // ---------- Effectifs et moyens ----------
 
 test("chantier : BTP tenu mais sans ouvrier — le chantier attend, rien n'est payé", () => {
-  let m = createMondeDemonstration();
+  // v1.28 : isolation — l'équipe du BTP est dégagée (Didier, Thomas renvoyés,
+  // leurs engins retirés) : la patronne seule ne pose pas de briques.
+  let m = btpVeuf(createMondeDemonstration());
   m = lancerChantierBatiment(
     m,
     nouveauBatiment({ nom: "Villa des Cyprès", type: "habitation", valeur: 300000 }),
@@ -169,7 +202,9 @@ test("chantier : BTP tenu mais sans ouvrier — le chantier attend, rien n'est p
 });
 
 test("chantier : un engin qui n'a pas roulé ne produit pas (il roule à l'essence de la station)", () => {
-  let m = createMondeDemonstration();
+  // v1.28 : isolation — sans les engins du BTP, seule la grue sinistrée
+  // et l'ouvrier embauché jouent.
+  let m = btpVeuf(createMondeDemonstration());
   m = embaucher(m, idBtp(m), 1);
   m = ajouterVehicule(
     m,
@@ -192,7 +227,9 @@ test("chantier privé : la figurine commanditaire règle les acomptes, pas la vi
   const villa = () => nouveauBatiment({ nom: "Villa de Jean", type: "habitation", valeur: 300000 });
   const pourJean = lancerChantierBatiment(embaucher(base, idBtp(base), 3), villa(), { payeurPnjId: jean.id });
   const pourLaVille = lancerChantierBatiment(embaucher(base, idBtp(base), 3), villa());
-  const acompte = Math.round((coutChantier(300000) * 3) / TRAVAUX_DEFAUT); // 3 travaux le jour 1
+  // v1.28 : 8 travaux le jour 1 — 3 embauchés + Didier + Thomas, et les
+  // engins (bétonnière 1 + tractopelle 2).
+  const acompte = Math.round((coutChantier(300000) * 8) / TRAVAUX_DEFAUT);
   const j1p = passerJour(pourJean);
   const j1v = passerJour(pourLaVille);
   assert.equal(j1p.chantiers![0].payeurPnjId, jean.id, "le chantier porte son commanditaire");
@@ -220,7 +257,7 @@ test("chantier : faute de budget, le chantier marque une pause — puis reprend"
     "la pause est racontée",
   );
   const j2 = passerJour(modifierVille(j1, { budgetVille: 1000000 }));
-  assert.equal(j2.chantiers![0].travauxFaits, 3, "les caisses reviennent, les travaux reprennent");
+  assert.equal(j2.chantiers![0].travauxFaits, 8, "les caisses reviennent, les travaux reprennent");
 });
 
 // ---------- La file : un chantier à la fois, priorisable ----------
@@ -233,7 +270,7 @@ test("chantiers : un seul avance par jour (FIFO) et le maître du jeu peut prior
   const j1 = passerJour(m);
   const ecole = j1.chantiers!.find((c) => cibleNom(j1, c) === "École A")!;
   const creche = j1.chantiers!.find((c) => cibleNom(j1, c) === "Crèche B")!;
-  assert.equal(ecole.travauxFaits, 3, "le premier de la file avance");
+  assert.equal(ecole.travauxFaits, 8, "le premier de la file avance");
   assert.equal(creche.travauxFaits, 0, "le second attend son tour");
   assert.ok(
     entrees(1, "chantier", j1.journal).some((e) => e.texte.includes("attendent leur tour")),
@@ -242,8 +279,8 @@ test("chantiers : un seul avance par jour (FIFO) et le maître du jeu peut prior
   const j2 = passerJour(prioriserChantier(j1, creche.id));
   const creche2 = j2.chantiers!.find((c) => c.id === creche.id)!;
   const ecole2 = j2.chantiers!.find((c) => c.id === ecole.id)!;
-  assert.equal(creche2.travauxFaits, 3, "priorisée : c'est elle qui avance");
-  assert.equal(ecole2.travauxFaits, 3, "l'autre ne bouge pas");
+  assert.equal(creche2.travauxFaits, 8, "priorisée : c'est elle qui avance");
+  assert.equal(ecole2.travauxFaits, 8, "l'autre ne bouge pas");
   assert.ok(
     j2.journal.some((e) => e.type === "systeme" && e.texte.includes("priorise")),
     "la priorisation est racontée",
@@ -260,7 +297,9 @@ function cibleNom(e: Etat, c: { cibleBatimentId: string | null; cibleVehiculeId:
 // ---------- Véhicules : la station-service construit ----------
 
 test("chantier véhicule : la station-service assemble, le véhicule en construction ne consomme rien", () => {
-  let m = createMondeDemonstration();
+  // v1.28 : isolation — sans l'équipe du BTP, seuls les mécaniciens de la
+  // station travaillent sur le chantier.
+  let m = btpVeuf(createMondeDemonstration());
   const chargesAvant = chargesJournalieres(m);
   m = lancerChantierVehicule(
     m,
@@ -347,9 +386,9 @@ test("chantiers : un bâtiment en construction n'est ni boutique ni service ni c
   assert.equal(chargesJournalieres(m), chargesAvant, "pas de fonctionnement facturé pour un chantier");
 });
 
-// ---------- Migration v11 -> v12 ----------
+// ---------- Migrations v11 / v12 -> v13 ----------
 
-test("migration v11 -> v12 : la file des chantiers est filtrée, jamais inventée", () => {
+test("migration v11 -> v13 : la file des chantiers est filtrée, jamais inventée", () => {
   const demo = createMondeDemonstration();
   const valide = {
     id: "cha-001",
@@ -367,11 +406,39 @@ test("migration v11 -> v12 : la file des chantiers est filtrée, jamais inventé
     schemaVersion: 11,
     chantiers: [valide, null, 42, { id: "" }, { id: "tordu", jour: "hier" }] as unknown as typeof demo.chantiers,
   });
-  assert.equal(v11.schemaVersion, 12, "v11 -> v12 : schema à jour");
+  assert.equal(v11.schemaVersion, 13, "v11 -> v13 : schema à jour");
   assert.equal(v11.chantiers!.length, 1, "seul le chantier bien formé est conservé");
   assert.equal(v11.chantiers![0].travauxFaits, 30, "l'avancement est conservé");
   // Un bâtiment v11 (sans le champ) est forcément achevé.
   assert.equal(v11.batiments.every((b) => b.enConstruction !== true), true, "les bâtiments existants restent livrés");
   const nue = migrerEtat({ schemaVersion: 11, jour: 3 });
   assert.equal(nue.chantiers!.length, 0, "une vieille sauvegarde n'a pas de file");
+});
+
+test("migration v12 -> v13 : l'efficacité d'un engin n'est jamais inventée", () => {
+  const demo = createMondeDemonstration();
+  const engin = (id: string, e: unknown) => ({
+    ...demo.vehicules![0],
+    id,
+    nom: "Engin témoin",
+    categorie: "municipal",
+    role: "chantier",
+    proprietairePnjId: null,
+    gangId: null,
+    garageBatimentId: null,
+    enConstruction: undefined,
+    efficacite: e,
+  });
+  const v12 = migrerEtat({
+    ...demo,
+    schemaVersion: 12,
+    vehicules: [engin("veh-trois", 3), engin("veh-un", 1), engin("veh-tordu", "beaucoup"), engin("veh-zero", 0)] as unknown as typeof demo.vehicules,
+  });
+  assert.equal(v12.schemaVersion, 13, "v12 -> v13 : schema à jour");
+  assert.equal(v12.vehicules!.length, 4, "les engins migrent");
+  assert.equal(v12.vehicules![0].efficacite, 3, "une fiche valable est conservée");
+  assert.equal(v12.vehicules![1].efficacite, 1, "même la plus petite fiche");
+  assert.equal(v12.vehicules![2].efficacite, undefined, "une valeur tordue est jetée");
+  assert.equal(v12.vehicules![3].efficacite, undefined, "un zéro est jeté");
+  assert.equal(efficaciteEngin(v12.vehicules![2]), 2, "sans fiche, l'engin produit 2 (défaut)");
 });

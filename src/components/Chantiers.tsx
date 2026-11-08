@@ -6,7 +6,8 @@
 import { useStore } from "../state/store.tsx";
 import type { Chantier } from "../engine/types.ts";
 import { montantL } from "../engine/referentiel.ts";
-import { constructeurDu, nomCible, payeurDe } from "../engine/chantiers.ts";
+import { PRODUCTION_OUVRIER, constructeurDu, efficaciteEngin, nomCible, payeurDe } from "../engine/chantiers.ts";
+import { employesDuCommerce } from "../engine/economie.ts";
 import { prioriserChantier } from "../engine/monde.ts";
 
 export function Chantiers() {
@@ -17,8 +18,9 @@ export function Chantiers() {
       <h2>🏗 Chantiers ({file.length})</h2>
       <p className="mute">
         Rien n'apparaît fini : les bâtiments se construisent au BTP, les véhicules à la
-        station-service — 1 travail par ouvrier et par jour, 2 par engin de chantier qui a
-        roulé. Sans constructeur en ville, l'ouvrage avance à la main (1 travail/jour, sans
+        station-service — 1 travail par ouvrier et par jour, et chaque engin de chantier
+        produit selon son efficacité (fiche du véhicule, 2 par défaut). Sans constructeur
+        en ville, l'ouvrage avance à la main (1 travail/jour, sans
         paiement). Le coût se règle au prorata de l'avancement : la ville pour un acteur
         public, la figurine commanditaire pour un privé. Un seul chantier avance par jour,
         dans l'ordre de la file.
@@ -56,6 +58,14 @@ function CarteChantier({
   const payeur = payeurDe(etat, c);
   const pct = Math.min(100, Math.round((c.travauxFaits / Math.max(1, c.travauxTotal)) * 100));
   const restant = c.coutCentimes - c.coutPaye;
+  // v1.28 : potentiel de l'équipe — ouvriers du constructeur + efficacité
+  // des engins de chantier aptes (les sinistrés et les véhicules encore en
+  // atelier ne produisent pas, et un engin sans essence ne roule pas).
+  const ouvriers = constructeur ? employesDuCommerce(etat, constructeur.bat.id).length : 0;
+  const engins = (etat.vehicules ?? []).filter(
+    (v) => v.role === "chantier" && v.enConstruction !== true && v.etat !== "sinistre",
+  );
+  const potentiel = ouvriers * PRODUCTION_OUVRIER + engins.reduce((n, v) => n + efficaciteEngin(v), 0);
   return (
     <section className="chantier-carte">
       <header>
@@ -68,6 +78,15 @@ function CarteChantier({
             ? "construit par " + constructeur.bat.nom
             : "sans constructeur en ville : à la main, 1 travail/jour sans paiement"}
         </p>
+        {rang === 0 && constructeur ? (
+          <p className="mute">
+            Équipe du jour (si tout le monde roule) : {potentiel} travaux — {ouvriers}{" "}
+            ouvrier(s) × 1
+            {engins.length > 0
+              ? " + " + engins.length + " engin(s) (eff. " + engins.map(efficaciteEngin).join(" + ") + ")"
+              : ""}
+          </p>
+        ) : null}
       </header>
       <div className="chantier-progression">
         <div className="chantier-barre">

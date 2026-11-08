@@ -3,17 +3,18 @@
 // véhicules à la station-service. La durée d'un chantier n'est pas un
 // nombre de jours mais une VALEUR DE TRAVAUX (défaut 100) : un ouvrier
 // du constructeur produit 1 travail/jour, un engin de chantier ayant
-// roulé en produit 2. Le coût se règle au fur et à mesure, au prorata
-// de l'avancement — la ville paie pour un acteur public, la figurine
-// commanditaire pour un acteur privé (monde fermé : le constructeur
-// encaisse, son flux du soir redistribue).
+// roulé en produit son EFFICACITÉ (v1.28, défaut 2 — la bétonnière de
+// la démo produit 1, son tractopelle 2). Le coût se règle au fur et à
+// mesure, au prorata de l'avancement — la ville paie pour un acteur
+// public, la figurine commanditaire pour un acteur privé (monde fermé :
+// le constructeur encaisse, son flux du soir redistribue).
 // Amorçage : sans constructeur en ville, le chantier avance « à la main »
 // (1 travail/jour, coups de main bénévoles, sans paiement) — sinon la
 // ville nue ne pourrait jamais bâtir son premier BTP.
 // Un seul chantier avance par jour : le premier de la file (FIFO) ;
 // le maître du jeu peut en prioriser un autre (mutateur monde).
 
-import type { Batiment, Chantier, Etat, JournalEntree, Pnj } from "./types.ts";
+import type { Batiment, Chantier, Etat, JournalEntree, Pnj, Vehicule } from "./types.ts";
 import { employesDuCommerce, serviceLocal } from "./economie.ts";
 import { montantL } from "./referentiel.ts";
 
@@ -21,12 +22,20 @@ import { montantL } from "./referentiel.ts";
 export const TRAVAUX_DEFAUT = 100;
 /** Un ouvrier du constructeur produit 1 travail par jour. */
 export const PRODUCTION_OUVRIER = 1;
-/** Un engin de chantier ayant roulé produit 2 travaux par jour. */
+/** v1.28 : chaque engin de chantier porte sa propre efficacité (travaux/
+ * jour quand il a roulé) — 2 reste le défaut d'un engin sans fiche. */
 export const PRODUCTION_ENGIN = 2;
 /** Sans constructeur en ville : le chantier avance à la main, 1 travail/jour, sans paiement. */
 export const PRODUCTION_MANOEUVRANCE = 1;
 /** Le chantier coûte la moitié de la valeur de la cible (défaut, éditable au lancement). */
 export const PART_COUT_CONSTRUCTION = 0.5;
+
+/** L'efficacité d'un engin de chantier (v1.28) : sa fiche si elle est
+ * lisible (entier ≥ 1), sinon le défaut 2 — jamais d'engin muet ou négatif. */
+export function efficaciteEngin(v: Vehicule): number {
+  const e = v.efficacite;
+  return typeof e === "number" && Number.isInteger(e) && e >= 1 ? e : PRODUCTION_ENGIN;
+}
 
 /** Coût par défaut d'un chantier : la moitié de la valeur de la cible (centimes). */
 export function coutChantier(valeurCentimes: number): number {
@@ -78,7 +87,8 @@ export function constructeurDu(etat: Etat, chantier: Chantier): { bat: Batiment;
 
 /**
  * Production du jour pour un chantier : les employés du constructeur
- * (1 travail chacun) et les engins de chantier ayant roulé (2 chacun).
+ * (1 travail chacun) et les engins de chantier ayant roulé (leur
+ * efficacité propre, v1.28 — défaut 2).
  * Sans constructeur en ville : à la main, 1 travail/jour sans paiement.
  */
 export function productionJournee(
@@ -91,13 +101,15 @@ export function productionJournee(
     return { production: PRODUCTION_MANOEUVRANCE, employes: 0, engins: 0, constructeur: null };
   }
   const employes = employesDuCommerce(etat, constructeur.bat.id).length;
-  const engins = (etat.vehicules ?? []).filter(
+  const enginsRoulent = (etat.vehicules ?? []).filter(
     (v) => v.role === "chantier" && totaux.roulent.has(v.id),
-  ).length;
+  );
   return {
-    production: employes * PRODUCTION_OUVRIER + engins * PRODUCTION_ENGIN,
+    production:
+      employes * PRODUCTION_OUVRIER +
+      enginsRoulent.reduce((somme, v) => somme + efficaciteEngin(v), 0),
     employes,
-    engins,
+    engins: enginsRoulent.length,
     constructeur,
   };
 }

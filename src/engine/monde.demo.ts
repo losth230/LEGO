@@ -13,10 +13,11 @@ const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:I
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
 
-/** La ville de démonstration : 16 bâtiments, 60 figurines, 7 véhicules (monde
+/** La ville de démonstration : 16 bâtiments, 62 figurines, 9 véhicules (monde
  * fermé 2026-11-06, brigade municipale v1.21, bureau de poste v1.22, flotte
- * et station-service v1.25 — arbitrage Thibaut : c'est la station qui gère
- * la pompe et les accidents, pas le BTP).
+ * et station-service v1.25, équipe et engins du BTP v1.28 — bétonnière
+ * efficacité 1, tractopelle efficacité 2 — arbitrage Thibaut : c'est la
+ * station qui gère la pompe et les accidents, pas le BTP).
  * Supprimée de l'application en v1.23 (arbitrage Thibaut : le monde par défaut
  * est nu) — elle reste la terre d'essai des tests moteur. */
 export function createMondeDemonstration(): Etat {
@@ -93,7 +94,7 @@ export function createMondeDemonstration(): Etat {
   // Services locaux à vocation (monde 100 % fermé, 2026-11-06) : santé,
   // BTP, banque. Sans gérant, le service est fermé et sa mécanique dort.
   pnjs.push(nouveauPnj({ prenom: "Sofia", nom: "Marchand", age: 44, genre: "F", metier: "cheffe de l'hôpital", statut: "commercant", batimentId: idHopital, revenuIndicatif: 7500, compte: 750000 }));
-  pnjs.push(nouveauPnj({ prenom: "Dario", nom: "Costa", age: 39, genre: "M", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: idBtp, revenuIndicatif: 5500, compte: 550000 }));
+  pnjs.push(nouveauPnj({ prenom: "Samantha", nom: "Faure", age: 41, genre: "F", metier: "cheffe d'entreprise BTP", statut: "commercant", batimentId: idBtp, revenuIndicatif: 5500, compte: 550000 }));
   pnjs.push(nouveauPnj({ prenom: "Émile", nom: "Verne", age: 51, genre: "M", metier: "banquier", statut: "commercant", batimentId: idBanque, revenuIndicatif: 8000, compte: 800000 }));
   // Station-service (v1.25) : le pompiste-garagiste tient la pompe officielle
   // et l'atelier — l'essence de la flotte et les réparations des collisions
@@ -190,6 +191,13 @@ export function createMondeDemonstration(): Etat {
     }
   }
 
+  // Équipe du BTP (v1.28, demande Thibaut) : deux ouvriers qui arrivent
+  // avec leurs engins — la petite bétonnière de Didier (efficacité 1
+  // travail/jour) et le tractopelle de Thomas (efficacité 2). Poussés en
+  // fin de liste : les indices des autres figurines ne bougent pas.
+  pnjs.push(nouveauPnj({ prenom: "Didier", nom: "Marchand", age: 45, genre: "M", metier: "maçon au BTP", statut: "prive", batimentId: immeubles[2], travailBatimentId: idBtp, revenuIndicatif: 4930 }));
+  pnjs.push(nouveauPnj({ prenom: "Thomas", nom: "Lambert", age: 33, genre: "M", metier: "conducteur d'engins au BTP", statut: "prive", batimentId: immeubles[2], travailBatimentId: idBtp, revenuIndicatif: 4930 }));
+
   // Budgets d'achat aléatoires au départ (arbitrage Thibaut 2026-11-06) :
   // chaque figurine tire une loi log-uniforme entre ×0,5 et ×10 son revenu
   // indicatif — total non recalé, chaque partie démarre différemment.
@@ -208,6 +216,8 @@ export function createMondeDemonstration(): Etat {
   const idJean = pnjs.find((x) => x.prenom === "Jean")!.id;
   const idMario = pnjs.find((x) => x.prenom === "Mario")!.id;
   const idEtudiant = pnjs.find((x) => x.metier === "étudiant")!.id;
+  const idDidier = pnjs.find((x) => x.prenom === "Didier")!.id;
+  const idThomas = pnjs.find((x) => x.prenom === "Thomas")!.id;
   const vehicules: Vehicule[] = [
     nouveauVehicule({ nom: "Camion de pompiers « Lanceur »", categorie: "municipal", role: "pompiers", quartier: "Nord", valeur: 300000, essenceJour: 800, garageBatimentId: idCaserne }),
     nouveauVehicule({ nom: "Fourgon de police", categorie: "municipal", role: "police", quartier: "Centre", valeur: 180000, essenceJour: 600, garageBatimentId: idPolice }),
@@ -216,13 +226,19 @@ export function createMondeDemonstration(): Etat {
     nouveauVehicule({ nom: "Voiture de Jean", categorie: "prive", quartier: "Centre", valeur: 90000, essenceJour: 300, garageBatimentId: idBoulangerie, proprietairePnjId: idJean }),
     nouveauVehicule({ nom: "Camionnette de Mario", categorie: "prive", quartier: "Port", valeur: 60000, essenceJour: 400, capacitePostes: 1, garageBatimentId: idFriterie, proprietairePnjId: idMario }),
     nouveauVehicule({ nom: "Caravane de l'étudiant", categorie: "prive", quartier: "Port", valeur: 40000, essenceJour: 100, capaciteLogements: 2, proprietairePnjId: idEtudiant }),
+    // Engins de chantier du BTP (v1.28, demande Thibaut) : la petite
+    // bétonnière de Didier produit 1 travail/jour sur le chantier en
+    // cours, le tractopelle de Thomas en produit 2 — chacun roule à son
+    // essence (payée par son propriétaire à la station-service).
+    nouveauVehicule({ nom: "Bétonnière de Didier", categorie: "prive", role: "chantier", efficacite: 1, quartier: "Sud", valeur: 50000, essenceJour: 200, garageBatimentId: idBtp, proprietairePnjId: idDidier }),
+    nouveauVehicule({ nom: "Tractopelle de Thomas", categorie: "prive", role: "chantier", efficacite: 2, quartier: "Sud", valeur: 120000, essenceJour: 300, garageBatimentId: idBtp, proprietairePnjId: idThomas }),
   ];
   // L'étudiant vit dans sa caravane (capacité logement d'un véhicule, v1.25).
   const etudiant = pnjs.find((x) => x.metier === "étudiant")!;
   etudiant.batimentId = vehicules[6].id;
 
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,

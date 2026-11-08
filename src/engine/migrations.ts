@@ -8,7 +8,7 @@ import type { Arbitrage, Chantier, Etat, Pnj, Vehicule, Vocation } from "./types
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 12;
+export const SCHEMA_VERSION_ETAT = 13;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -207,6 +207,15 @@ const GRADES_RETIRES: Record<string, string> = {
           : null,
       // Migration v11 -> v12 (v1.27) : un véhicule existant est achevé.
       enConstruction: v.enConstruction === true,
+      // Migration v12 -> v13 (v1.28, efficacité des engins) : l'efficacité
+      // n'est gardée que si elle est lisible (entier ≥ 1) — un engin de
+      // chantier sans fiche produit au défaut (2), jamais inventé ici.
+      efficacite:
+        typeof (v as Partial<{ efficacite?: unknown }>).efficacite === "number" &&
+        Number.isInteger((v as Partial<{ efficacite?: number }>).efficacite) &&
+        (v as Partial<{ efficacite?: number }>).efficacite! >= 1
+          ? (v as Partial<{ efficacite?: number }>).efficacite
+          : undefined,
     };
   });
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;

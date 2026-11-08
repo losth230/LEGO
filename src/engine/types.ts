@@ -74,6 +74,10 @@ export interface Vehicule {
   /** v1.27 : en construction à la station-service — pas d'essence, pas de
    * rôle, pas de capacité active tant que le chantier n'est pas livré. */
   enConstruction?: boolean;
+  /** v1.28 : travaux/jour produits sur le chantier en cours par un engin de
+   * chantier (rôle « chantier ») qui a roulé — défaut PRODUCTION_ENGIN (2).
+   * Ex. démo : la petite bétonnière de Didier (1), le tractopelle de Thomas (2). */
+  efficacite?: number;
 }
 
 export interface Pnj {

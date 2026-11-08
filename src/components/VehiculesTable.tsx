@@ -4,6 +4,7 @@
 import { useStore } from "../state/store.tsx";
 import type { EtatBatiment, RoleVehicule, Vehicule } from "../engine/types.ts";
 import { montantL } from "../engine/referentiel.ts";
+import { efficaciteEngin } from "../engine/chantiers.ts";
 
 const ETIQUETTES_ETAT: Record<EtatBatiment, string> = {
   neuf: "neuf",
@@ -87,10 +88,20 @@ function LigneVehicule({ vehicule: v }: { vehicule: Vehicule }) {
         {v.categorie === "municipal" ? (
           <>
             <span className="badge badge-agent">Municipal</span>{" "}
-            {v.role ? <span className="badge badge-vocation">{LIBELLES_ROLE[v.role]}</span> : null}
+            {v.role ? (
+              <span className="badge badge-vocation">
+                {LIBELLES_ROLE[v.role]}
+                {v.role === "chantier" ? " (eff. " + efficaciteEngin(v) + ")" : ""}
+              </span>
+            ) : null}
           </>
         ) : (
-          <span className="badge badge-prive">Privé</span>
+          <>
+            <span className="badge badge-prive">Privé</span>
+            {v.role === "chantier" ? (
+              <span className="badge badge-vocation"> 🏗 Engin de chantier (eff. {efficaciteEngin(v)})</span>
+            ) : null}
+          </>
         )}
         {gang ? <span className="badge badge-incident"> 🥷 {gang.nom}</span> : null}
       </td>

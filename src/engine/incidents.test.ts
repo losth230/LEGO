@@ -75,11 +75,18 @@ test("K géant : le jour 1 déborde d'incidents", () => {
 
 test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caisses vides ne réparent rien", () => {
   let m = createMondeDemonstration();
+  // v1.28 : l'équipe du BTP (Didier, Thomas) est dégagée pour isoler les
+  // réparations — sans masse salariale, la patronne ne touche qu'aux incendies.
+  const idBtp = m.batiments.find((b) => b.vocation === "btp")!.id;
+  m = {
+    ...m,
+    pnjs: m.pnjs.map((p) => (p.travailBatimentId === idBtp ? { ...p, travailBatimentId: null } : p)),
+  };
   for (const p of gardePompiers(m)) m = supprimerPnj(m, p.id);
   // ville pauvre : la réparation ne pourra pas suivre, le sinistre marque le bâtiment
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 100 });
-  neutraliserCourses(m, "chef d'entreprise BTP");
-  const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
+  neutraliserCourses(m, "cheffe d'entreprise BTP");
+  const patronneAvant = m.pnjs.find((p) => p.metier === "cheffe d'entreprise BTP")!.compte;
   const notifie = passerJour(m);
   // v1.26 : le maître du jeu tranche après le règlement du soir — les
   // caisses sont vides au moment de la décision, rien à réparer.
@@ -96,18 +103,18 @@ test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caiss
     "le BTP ne répare pas sans être payé",
   );
   assert.equal(j1.sortiesCumulees, 0, "monde fermé : rien ne part vers l'extérieur");
-  const dario = j1.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!;
-  const retenuDario = j1.journal
+  const patronne = j1.pnjs.find((p) => p.metier === "cheffe d'entreprise BTP")!;
+  const retenuPatronne = j1.journal
     .filter(
       (e) =>
         e.type === "incident" &&
-        e.texte.includes("Dario Costa") &&
+        e.texte.includes("Samantha Faure") &&
         (e.texte.includes("Cambriolage") || e.texte.includes("Accident") || e.texte.includes("Guerre de gangs")),
     )
     .reduce((s, e) => s + (e.montant ?? 0), 0);
   assert.equal(
-    dario.compte,
-    darioAvant + retenuDario,
+    patronne.compte,
+    patronneAvant + retenuPatronne,
     "aucune réparation payée : les caisses étaient vides",
   );
   const base = new Map(m.batiments.map((b) => [b.id, b.valeur]));
@@ -123,29 +130,36 @@ test("incendie avec budget : les réparations encaissées par le BTP local reste
   // v1.25 : témoin hermétique — sans flotte, le BTP n'encaisse que les
   // réparations d'incendie (l'essence et les collisions ont leurs tests).
   m.vehicules = [];
+  // v1.28 : sans équipe (Didier, Thomas), pas de masse salariale — la
+  // patronne n'encaisse que les réparations, au centime.
+  const idBtp = m.batiments.find((b) => b.vocation === "btp")!.id;
+  m = {
+    ...m,
+    pnjs: m.pnjs.map((p) => (p.travailBatimentId === idBtp ? { ...p, travailBatimentId: null } : p)),
+  };
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 50000000 });
-  neutraliserCourses(m, "chef d'entreprise BTP");
-  const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
+  neutraliserCourses(m, "cheffe d'entreprise BTP");
+  const patronneAvant = m.pnjs.find((p) => p.metier === "cheffe d'entreprise BTP")!.compte;
   const j1 = resoudreArbitrages(passerJour(m));
   const degatsFeux = j1.journal
     .filter((e) => e.type === "incident" && e.texte.includes("s'embrase"))
     .reduce((s, e) => s - (e.montant ?? 0), 0);
   assert.ok(degatsFeux > 0, "au moins un incendie");
-  const retenuDario = j1.journal
+  const retenuPatronne = j1.journal
     .filter(
       (e) =>
         e.type === "incident" &&
-        e.texte.includes("Dario Costa") &&
+        e.texte.includes("Samantha Faure") &&
         (e.texte.includes("Cambriolage") || e.texte.includes("Accident") || e.texte.includes("Guerre de gangs")),
     )
     .reduce((s, e) => s + (e.montant ?? 0), 0);
-  const dario = j1.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!;
+  const patronne = j1.pnjs.find((p) => p.metier === "cheffe d'entreprise BTP")!;
   // v1.26 : le maître du jeu tranche entre deux jours — la réparation est
   // créditée directement au BTP, hors du flux du soir (la marge sera
   // imposée au prochain règlement qui la touchera, pas à la résolution).
   assert.equal(
-    dario.compte,
-    darioAvant + degatsFeux + retenuDario,
+    patronne.compte,
+    patronneAvant + degatsFeux + retenuPatronne,
     "le BTP de la ville encaisse les réparations",
   );
   assert.equal(j1.sortiesCumulees, 0, "monde fermé");

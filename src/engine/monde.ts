@@ -125,6 +125,8 @@ export function nouveauVehicule(p: Partial<Vehicule> & { nom: string }): Vehicul
     proprietairePnjId: p.proprietairePnjId ?? null,
     gangId: p.gangId ?? null,
     garageBatimentId: p.garageBatimentId ?? null,
+    // v1.28 : efficacité d'un engin de chantier (travaux/jour), défaut 2 au moteur.
+    efficacite: p.efficacite,
   };
 }
 
@@ -143,7 +145,7 @@ export function reinitialiserIds(): void {
  * monde.demo.ts : retirée du jeu, elle reste la terre d'essai des tests. */
 export function createMondeDefaut(): Etat {
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,

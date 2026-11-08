@@ -103,6 +103,10 @@ function contratVehicule(v: Vehicule, ou: string): void {
     ou + " : garageBatimentId");
   assert.ok(v.enConstruction === undefined || typeof v.enConstruction === "boolean",
     ou + " : enConstruction");
+  assert.ok(
+    v.efficacite === undefined || (typeof v.efficacite === "number" && Number.isInteger(v.efficacite) && v.efficacite >= 1),
+    ou + " : efficacite (entier >= 1 ou absente)",
+  );
 }
 
 /** Vérifie qu'un arbitrage respecte les formes déclarées dans types.ts (v1.26). */
@@ -175,7 +179,7 @@ test("contrat : la ville de démonstration respecte les formes de types.ts", () 
   for (const p of m.pnjs) contratPnj(p, "ville de démonstration");
   for (const x of m.batiments) contratBatiment(x, "ville de démonstration");
   for (const v of m.vehicules ?? []) contratVehicule(v, "ville de démonstration");
-  assert.equal(m.vehicules!.length, 7, "démonstration : 7 véhicules (4 engins municipaux, 3 privés)");
+  assert.equal(m.vehicules!.length, 9, "démonstration : 9 véhicules (4 engins municipaux, 3 privés, 2 engins de chantier du BTP v1.28)");
   assert.equal(
     m.vehicules!.filter((v) => v.categorie === "municipal").length,
     4,
