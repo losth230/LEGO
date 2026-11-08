@@ -632,11 +632,11 @@ test("magasin de village (v1.31) : station-service ET supérette dans le même c
   assert.equal(essence[0].montant, 700, "le plein de la fourgonnette");
   const achats = entrees(1, "achats", j1.journal);
   assert.equal(achats.length, 1, "les courses du jour sont racontées");
-  assert.ok(achats[0].montant > 0, "le comptoir du même commerce encaisse les courses");
+  assert.ok((achats[0].montant ?? 0) > 0, "le comptoir du même commerce encaisse les courses");
   assert.ok(achats[0].texte.includes("Relais du Sud"), "le relais raconte ses ventes au comptoir");
   assert.equal(
     j1.recettesCommerce![relais.id],
-    700 + achats[0].montant,
+    700 + (achats[0].montant ?? 0),
     "essence et courses rejoignent la même caisse du soir",
   );
   assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte : l'argent a seulement circulé");
