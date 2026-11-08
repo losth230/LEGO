@@ -3,10 +3,27 @@
 // import { modifierVille } from "./monde.ts";
 
 import type { Etat, JournalEntree } from "./types.ts";
-import { modifierVille } from "./monde.ts";
+import { modifierVille, resoudreArbitrage } from "./monde.ts";
 
 export function entrees(jour: number, type: string, j: JournalEntree[]): JournalEntree[] {
   return j.filter((e) => e.jour === jour && e.type === type);
+}
+
+/**
+ * Résout tous les arbitrages en attente avec l'issue attendue (v1.26) :
+ * les tests qui vérifient le récit des incidents rejouent l'issue que la
+ * simulation aurait jouée d'elle-même. `choix` permet de forcer une issue
+ * par type d'incident (ex. { vol_vehicule: "vole" }) pour tester le pire.
+ */
+export function resoudreArbitrages(etat: Etat, choix?: Record<string, string>): Etat {
+  let e = etat;
+  for (const arb of etat.arbitrages ?? []) {
+    const attendu = arb.propositions.find((p) => p.attendu)?.id ?? arb.propositions[0]?.id;
+    const propositionId = (choix ?? {})[arb.type] ?? attendu;
+    if (propositionId === undefined) continue;
+    e = resoudreArbitrage(e, arb.id, propositionId);
+  }
+  return e;
 }
 
 /** K = 1 : probabilités d'incident quasi nulles, pour isoler l'économie. */

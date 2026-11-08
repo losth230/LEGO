@@ -7,18 +7,22 @@
 // -> essence des véhicules (v1.25 : carburant acheté à la station-service,
 // sans station ou sans argent le véhicule ne roule pas et son rôle dort)
 // -> intérêts (banque locale) -> achats (budget effectif modulé par les
-// traits, phase 3.10) -> incidents de la journée (frais d'hôpital,
-// réparations bâtiments au BTP local, véhicules à la station-service,
-// victimes pondérées par les traits)
+// traits, phase 3.10) -> incidents de la journée (v1.26 : tirés et
+// NOTIFIÉS — le maître du jeu tranche l'issue dans l'onglet Arbitrages ;
+// sans réponse sous 3 jours, la pire issue s'impose seule ; les faits —
+// engins, renforts, hôpital — se rejouent sur les moyens du jour de
+// l'incident)
 // -> libérations et rédemptions (phase 3.10) -> redistribution du flux le soir.
 // Monde 100 % fermé (2026-11-06) : aucune sortie documentée, tout reste
 // dans le circuit (la seule création monétaire : les emprunts, vers la
 // banque locale ; les seules pertes : le crime et l'usure non réparée).
 
 import type {
+  Arbitrage,
   Batiment,
   Etat,
   JournalEntree,
+  MoyensArbitrage,
   Pnj,
   RoleVehicule,
   Vehicule,
@@ -28,20 +32,16 @@ import {
   CHANCE_REDEMPTION_SANS,
   COUT_EMPLOYE_PRIVE_L,
   FRAIS_DETENTION_L,
-  PART_DEGATS_COLLISION,
   PART_SALARIALE_FLUX,
   TAUX_IMPOT_DEFAUT_BP,
   gradeConnu,
   salaireJourL
 } from "./referentiel.ts";
 import {
-  forceCriminelle,
-  gangDe,
   gardeArmee,
   gardePolice,
   gardePompiers,
   generateurPour,
-  quartierAdjacent,
   tirerIncidents,
 } from "./evenements.ts";
 
@@ -54,9 +54,10 @@ import {
   employesDuCommerce,
   repartir,
   impotSur,
-  coefficientRenfort,
+  posteDePolice,
   budgetAchat
 } from "./economie.ts";
+import { appliquerArbitrage, creerArbitrage, idPire } from "./arbitrages.ts";
 // Ré-exports de compatibilité : les 12 helpers purs vivent dans economie.ts
 // (extraction du 2026-11-06), les imports existants continuent de marcher.
 export {
@@ -142,16 +143,6 @@ function etapeSalaires(etat: Etat, totaux: Totaux): JournalEntree[] {
   }
   totaux.villeSansLeSou = etat.budgetVille === 0;
   return secours;
-}
-
-// Le poste de police de la ville (bâtiment public) : c'est là que les
-// détenus sont gardés (correction Thibaut 2026-11-06, pas de bâtiment
-// dédié). Sans poste, l'arrestation se joue en assignation à résidence
-// et la ville ne verse aucune prime de garde.
-function posteDePolice(etat: Etat): Batiment | undefined {
-  return etat.batiments.find(
-    (b) => b.type === "service_public" && /police|commissariat/i.test(b.nom),
-  );
 }
 
 function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
@@ -441,12 +432,6 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
 
 // ---------- Incidents et services (phase 2, §4.2) ----------
 
-/** Frais médicaux d'un accident : 30 L × gravité, doublés si secours insuffisants. */
-function fraisMedicaux(gravite: number, secoursJustes: boolean, plafondCompte: number): number {
-  const base = gravite * 3000 * (secoursJustes ? 2 : 1);
-  return Math.min(base, plafondCompte);
-}
-
 /**
  * Rédemption (phase 3.10, arbitrage Thibaut 2026-11-06) : remplace le
  * premier trait criminel de la figurine (cupide, puis opportuniste, puis
@@ -466,9 +451,13 @@ export function racheter(pnj: Pnj): string | null {
 }
 
 /**
- * Déroule les incidents du jour : chaque incident mobilise la garde du
- * service concerné (effectif requis = gravité), puis applique dégâts,
- * vols et frais, et raconte le tout pour le journal. Modifie e et totaux.
+ * Notifie les incidents du jour (v1.26, arbitrage Thibaut 2026-11-08) : la
+ * simulation tire les incidents — probabilités du référentiel inchangées —
+ * mais ne tranche PLUS l'issue. Chaque incident devient un arbitrage en
+ * attente : le maître du jeu choisit l'issue dans l'onglet Arbitrages, le
+ * jeu applique les L de l'issue choisie. Sans réponse au bout de
+ * DELAI_ARBITRAGE_JOURS jours, la pire issue s'impose d'elle-même
+ * (passage d'expiration du règlement quotidien).
  */
 function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
   const entrees: JournalEntree[] = [];
@@ -502,365 +491,38 @@ function etapeIncidents(etat: Etat, totaux: Totaux): JournalEntree[] {
   const pompiers = gardePompiers(etat);
   const armee = gardeArmee(etat);
 
+  // Photographie des moyens de la ville au moment des incidents (v1.26) :
+  // la résolution — éventuellement des jours plus tard — rejoue l'issue
+  // avec les moyens du jour de l'incident, jamais ceux du jour de la
+  // résolution. Les engins ne comptent que s'ils ont roulé ce jour-là.
+  const moyens: MoyensArbitrage = {
+    pompiers: pompiers.length,
+    police: police.length,
+    armee: armee.length,
+    camionPompiers: enginDeService(etat, totaux, "pompiers") !== undefined,
+    fourgonPolice: enginDeService(etat, totaux, "police") !== undefined,
+    camionProprete: enginDeService(etat, totaux, "proprete") !== undefined,
+    ambulance: enginDeService(etat, totaux, "sante") !== undefined,
+    btpBatimentId: serviceLocal(etat, "btp")?.bat.id ?? null,
+    santeBatimentId: serviceLocal(etat, "sante")?.bat.id ?? null,
+    stationBatimentId: serviceLocal(etat, "garage")?.bat.id ?? null,
+    commissariat: posteDePolice(etat) !== undefined,
+  };
+  // La file des arbitrages en attente : les incidents notifiés attendent
+  // le maître du jeu — la partie continue, rien ne se joue tout seul.
+  const file = (etat.arbitrages ??= []);
   for (const inc of tirerIncidents(etat, etat.jour)) {
     totaux.incidentsJour += 1;
-    const renfort = armee.length >= 2 && inc.gravite === 3;
-    if (inc.type === "incendie") {
-      const bat = etat.batiments.find((b) => b.id === inc.cibleId);
-      if (!bat) continue;
-      const dispo = pompiers.length;
-      // v1.25 : le camion de pompiers en service contient la moitié des
-      // dégâts — sans lui, la garde compte, mais à la bassine.
-      const camionPompiers = enginDeService(etat, totaux, "pompiers");
-      const part = dispo >= inc.gravite ? 0.02 : dispo > 0 ? 0.08 : 0.2;
-      const degats = Math.round(
-        bat.valeur * part * inc.gravite *
-        coefficientRenfort(inc.gravite, armee.length) *
-        (camionPompiers ? 0.5 : 1),
-      );
-      const nomPompiers = dispo + (dispo > 1 ? " pompiers" : " pompier");
-      let texte =
-        bat.nom + " s'embrase au petit matin" +
-        (dispo === 0
-          ? " — aucun pompier dans la ville : les voisins forment une chaîne de seaux, mais "
-          : dispo >= inc.gravite
-            ? " : " +
-              (dispo === 1 ? "1 pompier en vient à bout" : nomPompiers + " en viennent à bout") +
-              " avant midi, "
-            : " : " + nomPompiers + " contre un feu de gravité " + inc.gravite + ", les flammes ne cèdent que vers midi, ") +
-        fmt(degats) + " de dégâts" +
-        (renfort ? " — la garnison déploie engins et bras, le sinistre est contenu" : "") +
-        (camionPompiers ? " — " + camionPompiers.nom + " déverse ses lances : la moitié des dégâts est évitée" : "");
-      // Monde 100 % fermé (2026-11-06) : la remise en état est payée à
-      // l'entreprise de BTP locale (recette redistribuée le soir). Sans BTP
-      // en ville, pas de réparation : le bâtiment reste marqué, rien ne sort.
-      const btp = serviceLocal(etat, "btp");
-      const repare = btp ? Math.min(degats, etat.budgetVille) : 0;
-      if (btp && repare > 0) {
-        etat.budgetVille -= repare;
-        btp.gerant.compte += repare;
-        totaux.encaissements.set(
-          btp.bat.id,
-          (totaux.encaissements.get(btp.bat.id) ?? 0) + repare,
-        );
-      }
-      totaux.degatsJour += degats;
-      if (repare >= degats) {
-        texte +=
-          " — réparés dans la foulée par " + (btp ? btp.bat.nom : "une entreprise locale") +
-          " pour " + fmt(repare) + " : l'argent reste en ville.";
-        entrees.push({ jour: etat.jour, type: "incident", texte, montant: -degats });
-      } else {
-        bat.valeur -= degats - repare;
-        bat.etat = dispo === 0 ? "sinistre" : "degrade";
-        texte +=
-          !btp
-            ? " — aucune entreprise de BTP en ville : les dégâts resteront marqués."
-            : repare > 0
-              ? " — les caisses n'ont payé que " + fmt(repare) + ", le bâtiment reste marqué."
-              : " — les caisses sont vides, le bâtiment reste marqué.";
-        entrees.push({ jour: etat.jour, type: "incident", texte, montant: -degats });
-      }
-    } else if (inc.type === "cambriolage") {
-      const cible = etat.pnjs.find((p) => p.id === inc.cibleId);
-      if (!cible) continue;
-      const voleur = etat.pnjs.find((p) => p.id === inc.voleurId);
-      if (!voleur) continue; // pas de voleur crédible en ville : pas de vol
-      // Signature de gang (phase 3.9) : le milieu se raconte dans le journal.
-      const gangVoleur = gangDe(etat, voleur);
-      const signature = gangVoleur ? " — signé " + gangVoleur.nom : "";
-      const butin = Math.min(Math.round(cible.compte * 0.15 * inc.gravite), cible.compte);
-      const dispo = police.length;
-      // v1.25 : l'arrestation sur le fait exige un fourgon en service —
-      // sans lui, la patrouille voit le voleur filer sans pouvoir l'embarquer.
-      const fourgon = enginDeService(etat, totaux, "police");
-      if (dispo >= inc.gravite && fourgon) {
-        // Rien de volé — et le malfaiteur est arrêté sur le fait (phase 3.9) :
-        // le casier se remplit, la détention au commissariat le neutralise
-        // quelques jours (3 × gravité), le monde reste fermé.
-        voleur.casier = (voleur.casier ?? 0) + 1;
-        const duree = 3 * inc.gravite;
-        voleur.arreteJusqua = etat.jour + duree;
-        // Correction Thibaut 2026-11-06 : les détenus sont gardés au
-        // commissariat (le poste de police de la ville), pas dans un
-        // bâtiment dédié. Sans poste en ville : assignation à résidence.
-        const commissariat = posteDePolice(etat);
-        entrees.push({
-          jour: etat.jour,
-          type: "incident",
-          texte:
-            "Un cambrioleur rôde chez " + cible.prenom + " " + cible.nom +
-            " : la patrouille le surprend à temps, rien de volé — " +
-            voleur.prenom + " " + voleur.nom + " est arrêté sur le fait" + signature +
-            ", " + duree + " jour" + (duree > 1 ? "s" : "") +
-            (commissariat ? " au " + commissariat.nom : " d'assignation à résidence") +
-            ".",
-        });
-      } else {
-        const volBrut = dispo > 0 ? Math.floor(butin / 2) : butin;
-        const vol = Math.round(volBrut * coefficientRenfort(inc.gravite, armee.length));
-        // Monde 100 % fermé (arbitrage 2026-11-06) : le crime ne détruit plus
-        // la monnaie — le butin change de poche, il rejoint le voleur,
-        // un figurant de la ville. Aucune perte, aucune disparition.
-        cible.compte -= vol;
-        voleur.compte += vol;
-        etat.volsCumules += vol;
-        totaux.volsJour += vol;
-        // Le casier se remplit même quand la police arrive trop tard :
-        // la récidive pèsera sur les tirages futurs (phase 3.9).
-        voleur.casier = (voleur.casier ?? 0) + 1;
-        entrees.push({
-          jour: etat.jour,
-          type: "incident",
-          texte:
-            "Cambriolage chez " + cible.prenom + " " + cible.nom + " : " +
-            (dispo >= inc.gravite
-              ? "la patrouille le voit filer — sans fourgon en service, impossible de l'intercepter : le voleur s'envole avec la moitié du butin"
-              : dispo > 0
-                ? "la patrouille arrive trop tard, le voleur s'envole avec la moitié du butin"
-                : "aucune patrouille pour lui couper la route") +
-            (renfort ? " — patrouille Vigipirate de la garnison en renfort, une partie du butin est récupérée" : "") +
-            " — " + fmt(vol) + " passés dans la poche de " + voleur.prenom + " " + voleur.nom +
-            " : le butin reste en ville (monde fermé)." + signature,
-          montant: -vol,
-        });
-      }
-    } else if (inc.type === "guerre_gangs") {
-      // Affrontement criminel (phase 3.9, arbitrage Thibaut 2026-11-06) :
-      // deux factions rivales se disputent le terrain. Le pillage ne fait
-      // changer la monnaie que de poche ; le gang vainqueur étend son
-      // territoire d'un quartier adjacent, le gang perdant recule.
-      const agresseur = etat.pnjs.find((p) => p.id === inc.agresseurId);
-      const defenseur = etat.pnjs.find((p) => p.id === inc.defenseurId);
-      if (!agresseur || !defenseur) continue;
-      const aleaGuerre = generateurPour(etat.jour * 7 + 13); // flux dédié, déterministe
-      const forceA = forceCriminelle(etat, agresseur);
-      const forceD = forceCriminelle(etat, defenseur);
-      const vainqueur = aleaGuerre() * (forceA + forceD) < forceA ? agresseur : defenseur;
-      const perdant = vainqueur === agresseur ? defenseur : agresseur;
-      const pillage = Math.min(Math.round(perdant.compte * 0.1 * inc.gravite), perdant.compte);
-      perdant.compte -= pillage;
-      vainqueur.compte += pillage;
-      // Transfert criminel interne : tracé comme les butins, monde fermé.
-      etat.volsCumules += pillage;
-      totaux.volsJour += pillage;
-      etat.affrontementsCumules = (etat.affrontementsCumules ?? 0) + 1;
-      agresseur.casier = (agresseur.casier ?? 0) + 1;
-      defenseur.casier = (defenseur.casier ?? 0) + 1;
-      const quartiersVille = [...new Set(etat.batiments.map((b) => b.quartier))];
-      const gangV = gangDe(etat, vainqueur);
-      const gangP = gangDe(etat, perdant);
-      let consigne = "";
-      if (gangV && gangV !== gangP) {
-        const conquete = quartierAdjacent(gangV, quartiersVille);
-        if (conquete) {
-          gangV.quartiers.push(conquete);
-          consigne += " " + gangV.nom + " étendent leur emprise sur le quartier " + conquete + ".";
-        }
-      }
-      if (gangP && gangP !== gangV && gangP.quartiers.length > 1) {
-        const perdu = gangP.quartiers.pop();
-        if (perdu) consigne += " " + gangP.nom + " reculent du quartier " + perdu + ".";
-      }
-      const etiquette = (x: Pnj): string => {
-        const g = gangDe(etat, x);
-        return x.prenom + " " + x.nom + (g ? " (" + g.nom + ")" : " (indépendant)");
-      };
-      entrees.push({
-        jour: etat.jour,
-        type: "incident",
-        texte:
-          "Guerre de gangs : " + etiquette(agresseur) + " attaque " + etiquette(defenseur) +
-          " au grand jour. " + etiquette(vainqueur) + " remporte l'affrontement et pille " +
-          fmt(pillage) +
-          (pillage === 0 ? " — la cagnotte adverse était vide" : "") +
-          " : la monnaie reste en ville (monde fermé)." + consigne,
-        montant: -pillage,
-      });
-    } else if (inc.type === "collision") {
-      // v1.25 : une collision urbaine sinistre un véhicule de la ville.
-      // Les réparations vont à la STATION-SERVICE (vocation « garage »,
-      // arbitrage Thibaut 2026-11-08 : c'est elle qui gère les accidents,
-      // pas le BTP — payées par la ville pour la flotte, par le
-      // propriétaire pour un privé — plafonnées à sa caisse) ; sans
-      // station-service, le véhicule reste marqué, comme un bâtiment. Un
-      // camion de propreté en service évite le doublement des dégâts
-      // (chaussée et carrosserie à remettre en état) ; gravité ≥ 2 : un
-      // passager lié au véhicule est blessé, facturé à l'hôpital local
-      // (doubler sans ambulance en service). Monde fermé : tout reste en
-      // ville.
-      const veh = (etat.vehicules ?? []).find((v) => v.id === inc.cibleId);
-      if (!veh) continue;
-      const camionProprete = enginDeService(etat, totaux, "proprete");
-      const ambulance = enginDeService(etat, totaux, "sante");
-      const station = serviceLocal(etat, "garage");
-      const sante = serviceLocal(etat, "sante");
-      const degats = Math.round(
-        veh.valeur * PART_DEGATS_COLLISION * inc.gravite * (camionProprete ? 1 : 2),
-      );
-      const payeurVille = veh.categorie === "municipal";
-      const proprietaire = payeurVille
-        ? null
-        : etat.pnjs.find((p) => p.id === veh.proprietairePnjId) ?? null;
-      const caisse = payeurVille ? etat.budgetVille : proprietaire?.compte ?? 0;
-      const repare = station ? Math.min(degats, caisse) : 0;
-      if (station && repare > 0) {
-        if (payeurVille) etat.budgetVille -= repare;
-        else if (proprietaire) proprietaire.compte -= repare;
-        station.gerant.compte += repare;
-        totaux.encaissements.set(
-          station.bat.id,
-          (totaux.encaissements.get(station.bat.id) ?? 0) + repare,
-        );
-      }
-      // Blessé (gravité ≥ 2) : un passager lié au véhicule — logé ou affecté.
-      let texteBlesse = "";
-      if (inc.gravite >= 2) {
-        const passagers = etat.pnjs.filter(
-          (p) => p.batimentId === veh.id || p.travailBatimentId === veh.id,
-        );
-        const blesse = passagers[0];
-        if (blesse && sante) {
-          const fraisBrut = Math.round(fraisMedicaux(inc.gravite, !ambulance, blesse.compte));
-          const frais = Math.min(fraisBrut, blesse.compte);
-          if (frais > 0) {
-            blesse.compte -= frais;
-            sante.gerant.compte += frais;
-            totaux.encaissements.set(
-              sante.bat.id,
-              (totaux.encaissements.get(sante.bat.id) ?? 0) + frais,
-            );
-            totaux.fraisMedicauxJour += frais;
-            texteBlesse =
-              " " + blesse.prenom + " " + blesse.nom + ", passager, est soigné pour " +
-              fmt(frais) + " à " + sante.bat.nom +
-              (!ambulance ? " (sans ambulance, les frais doublent)" : " (emmené par " + ambulance!.nom + ")") + ".";
-          }
-        }
-      }
-      if (repare >= degats) {
-        entrees.push({
-          jour: etat.jour,
-          type: "incident",
-          texte:
-            "Collision au carrefour : " + veh.nom + " terminera la journée au garage — " +
-            fmt(degats) + " de dégâts" +
-            (!camionProprete ? " (doublés : pas de camion de propreté, la chaussée attend)" : "") +
-            " réparés dans la foulée par " + (station ? station.bat.nom : "l'atelier local") +
-            (payeurVille ? " sur le budget de la ville" : " aux frais de " + (proprietaire?.prenom ?? "son") + " " + (proprietaire?.nom ?? "propriétaire")) +
-            " : l'argent reste en ville (monde fermé)." + texteBlesse,
-          montant: -degats,
-        });
-      } else {
-        veh.valeur -= degats - repare;
-        veh.etat = "sinistre";
-        entrees.push({
-          jour: etat.jour,
-          type: "incident",
-          texte:
-            "Collision au carrefour : " + veh.nom + " est bon pour la casse — " +
-            (!station
-              ? "aucune station-service en ville : il restera sinistré sur le bas-côté."
-              : "les caisses n'ont payé que " + fmt(repare) + " de réparations (" + station.bat.nom + "), le véhicule reste sinistré.") +
-            (!camionProprete ? " Les dégâts avaient doublé faute de camion de propreté." : "") +
-            texteBlesse,
-          montant: -degats,
-        });
-      }
-    } else if (inc.type === "vol_vehicule") {
-      // v1.25 : vol d'automobile (SSMSI, référentiel v1.17) — le butin est
-      // le véhicule lui-même : transfert de propriété, la monnaie ne bouge
-      // pas (monde fermé, perte patrimoniale). Déjoué si la police couvre la
-      // gravité ET qu'un fourgon est en service ; sinon le voleur est tout
-      // au plus identifié (casier), jamais arrêté sans fourgon.
-      const veh = (etat.vehicules ?? []).find((v) => v.id === inc.cibleId);
-      if (!veh) continue;
-      const voleur = etat.pnjs.find((p) => p.id === inc.voleurId);
-      if (!voleur) continue;
-      const gangVoleur = gangDe(etat, voleur);
-      const signature = gangVoleur ? " — signé " + gangVoleur.nom : "";
-      const dispo = police.length;
-      const fourgon = enginDeService(etat, totaux, "police");
-      if (dispo >= inc.gravite && fourgon) {
-        voleur.casier = (voleur.casier ?? 0) + 1;
-        const duree = 3 * inc.gravite;
-        voleur.arreteJusqua = etat.jour + duree;
-        const commissariat = posteDePolice(etat);
-        entrees.push({
-          jour: etat.jour,
-          type: "incident",
-          texte:
-            "Vol de voiture déjoué : " + voleur.prenom + " " + voleur.nom +
-            " forçait le contact de " + veh.nom + " quand la patrouille, fourgon en tête, le ceinture sur le fait" +
-            (commissariat ? " — " + duree + " jour(s) au " + commissariat.nom : " — " + duree + " jour(s) d'assignation à résidence") +
-            "." + signature,
-        });
-      } else {
-        voleur.casier = (voleur.casier ?? 0) + 1;
-        const ancienProprio = etat.pnjs.find((p) => p.id === veh.proprietairePnjId);
-        // Transfert de propriété : le véhicule change de main, pas un
-        // centime de la masse monétaire — le patrimoine, lui, voyage.
-        veh.proprietairePnjId = voleur.id;
-        veh.gangId = voleur.gangId ?? null;
-        entrees.push({
-          jour: etat.jour,
-          type: "incident",
-          texte:
-            "Vol de voiture : " + veh.nom +
-            (ancienProprio ? " de " + ancienProprio.prenom + " " + ancienProprio.nom : "") +
-            " disparaît dans la nuit — " + voleur.prenom + " " + voleur.nom + " roule désormais dedans" +
-            (dispo >= inc.gravite
-              ? " (la patrouille l'a identifié, mais sans fourgon en service, personne pour l'embarquer)"
-              : "") +
-            " : transfert de propriété, pas une pièce ne quitte la ville (monde fermé)." + signature,
-          montant: -veh.valeur,
-        });
-      }
-    } else {
-      const victime = etat.pnjs.find((p) => p.id === inc.cibleId);
-      if (!victime) continue;
-      const dispo = pompiers.length;
-      const sante = serviceLocal(etat, "sante");
-      // Monde 100 % fermé (2026-11-06) : les soins sont facturés par le
-      // service de santé local (recette redistribuée le soir). Sans hôpital
-      // en ville, pas de mécanique de santé — aucune facture.
-      // v1.25 : sans ambulance en service, les secours dépannent et les
-      // frais doublent (le blessé mal évacué s'aggrave).
-      const ambulance = enginDeService(etat, totaux, "sante");
-      const fraisBrut = Math.round(
-        fraisMedicaux(inc.gravite, dispo < inc.gravite || !ambulance, victime.compte) *
-          coefficientRenfort(inc.gravite, armee.length),
-      );
-      const frais = Math.min(Math.min(fraisBrut, victime.compte), sante ? fraisBrut : 0);
-      if (sante && frais > 0) {
-        victime.compte -= frais;
-        sante.gerant.compte += frais;
-        totaux.encaissements.set(
-          sante.bat.id,
-          (totaux.encaissements.get(sante.bat.id) ?? 0) + frais,
-        );
-        totaux.fraisMedicauxJour += frais;
-      }
-      entrees.push({
-        jour: etat.jour,
-        type: "incident",
-        texte:
-          "Accident devant la " + (etat.batiments[0]?.nom ?? "mairie") + " : " +
-          victime.prenom + " " + victime.nom +
-          (dispo === 0
-            ? " est raccompagné par les voisins, faute de secours"
-            : dispo >= inc.gravite
-              ? " est dégagé en dix minutes par les pompiers"
-              : " attend les secours, l'effectif est juste") +
-          (renfort ? " — la garnison lève un poste de secours, les frais sont contenus" : "") +
-          (ambulance ? " — " + ambulance.nom + " l'emmène vers les soins" : "") +
-          (sante
-            ? " — " + fmt(frais) + " de soins facturés à " + sante.bat.nom + " : l'argent reste en ville."
-            : " — aucun service de santé en ville : personne pour facturer les soins.") +
-          (sante && frais === 0 ? " (la victime n'avait pas un centime)" : ""),
-        montant: frais === 0 ? 0 : -frais,
-      });
-    }
+    const arb = creerArbitrage(etat, inc, moyens, file.length);
+    if (!arb) continue; // cible ou auteur disparu : rien à arbitrer
+    file.push(arb);
+    entrees.push({
+      jour: etat.jour,
+      type: "arbitrage",
+      texte:
+        "⚠️ " + arb.titre + " (gravité " + arb.gravite + ") — le maître du jeu tranche (onglet Arbitrages) ; sans réponse, la pire issue s'imposera le jour " +
+        arb.expireLe + ".",
+    });
   }
   return entrees;
 }
@@ -1002,6 +664,9 @@ function journaliserJour(
       (totaux.incidentsJour > 0
         ? " (" + totaux.incidentsJour + " incident(s) dans la journée)"
         : "") +
+      ((etat.arbitrages?.length ?? 0) > 0
+        ? " — " + (etat.arbitrages?.length ?? 0) + " arbitrage(s) attendent le maître du jeu (onglet Arbitrages)"
+        : "") +
       ".",
     montant: solde,
   });
@@ -1084,12 +749,38 @@ export function passerJour(etat: Etat): Etat {
   etapeEssence(e, totaux);
   etapeInterets(e, totaux);
   etapeAchats(e, totaux);
-  // Les incidents arrivent dans la journée (frais d'hôpital, réparations du
-  // BTP) : le règlement du soir (flux) les redistribue comme toute recette
-  // du jour — monde fermé, l'argent ne fait que circuler.
+  // Les incidents arrivent dans la journée (frais d'hôpital, réparations)
+  // et sont NOTIFIÉS (v1.26) : le maître du jeu tranche l'issue dans
+  // l'onglet Arbitrages, le règlement du soir (flux) redistribue les
+  // recettes des issues résolues comme tout flux du jour — monde fermé.
+  e.arbitrages ??= [];
   const entreesIncidents = etapeIncidents(e, totaux);
+  // Expiration des arbitrages (v1.26) : sans réponse du maître du jeu au
+  // bout du délai, la pire issue s'impose — les affaires traînées se
+  // soldent au pire, les paiements rejoignent les recettes du soir.
+  const expirations: JournalEntree[] = [];
+  const restants: Arbitrage[] = [];
+  for (const arb of e.arbitrages ?? []) {
+    // Hostile-proof : une entrée tordue de la file (import édité à la main)
+    // est classée sans suite — elle quitte la file sans rien casser.
+    if (arb === null || typeof arb !== "object") continue;
+    if (arb.expireLe > e.jour) {
+      restants.push(arb);
+      continue;
+    }
+    const pire = idPire(arb);
+    if (pire === undefined) continue; // plus d'issue possible : classée sans suite
+    for (const r of appliquerArbitrage(e, arb, pire, totaux)) {
+      expirations.push(
+        r.type === "incident"
+          ? { ...r, texte: "Sans arbitrage du maître du jeu, le pire est arrivé : " + r.texte }
+          : r,
+      );
+    }
+  }
+  e.arbitrages = restants;
   const entreesFlux = etapeSalariesPrives(e, totaux);
-  journaliserJour(e, totaux, entreesFlux, entreesIncidents, entreesSecours);
+  journaliserJour(e, totaux, entreesFlux, [...entreesIncidents, ...expirations], entreesSecours);
   return e;
 }
 

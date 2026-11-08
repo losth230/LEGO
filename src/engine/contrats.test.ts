@@ -6,11 +6,12 @@
 // Exécution : npm test.
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { Batiment, Pnj, Vehicule } from "./types.ts";
-import { createMondeDefaut } from "./monde.ts";
+import type { Arbitrage, Batiment, Pnj, Vehicule } from "./types.ts";
+import { createMondeDefaut, modifierVille } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
 import { migrerEtat } from "./migrations.ts";
 import { passerJour } from "./moteur.ts";
+import { DELAI_ARBITRAGE_JOURS } from "./arbitrages.ts";
 
 /** Vérifie qu'un PNJ respecte les formes déclarées dans types.ts. */
 function contratPnj(p: Pnj, ou: string): void {
@@ -96,6 +97,47 @@ function contratVehicule(v: Vehicule, ou: string): void {
   assert.ok(v.gangId === null || typeof v.gangId === "string", ou + " : gangId");
   assert.ok(v.garageBatimentId === null || typeof v.garageBatimentId === "string",
     ou + " : garageBatimentId");
+}
+
+/** Vérifie qu'un arbitrage respecte les formes déclarées dans types.ts (v1.26). */
+function contratArbitrage(a: Arbitrage, ou: string): void {
+  assert.ok(typeof a.id === "string" && a.id !== "", ou + " : id");
+  assert.ok(typeof a.jour === "number", ou + " : jour");
+  assert.ok(
+    typeof a.expireLe === "number" && a.expireLe === a.jour + DELAI_ARBITRAGE_JOURS,
+    ou + " : expireLe = jour + 3 (le délai du maître du jeu)",
+  );
+  assert.ok(
+    a.type === "incendie" || a.type === "cambriolage" || a.type === "guerre_gangs" ||
+      a.type === "collision" || a.type === "vol_vehicule" || a.type === "accident",
+    ou + " : type",
+  );
+  assert.ok(a.gravite >= 1 && a.gravite <= 3, ou + " : gravité 1-3");
+  assert.ok(Array.isArray(a.propositions) && a.propositions.length >= 1, ou + " : propositions");
+  assert.equal(
+    a.propositions.filter((p) => p.attendu).length,
+    1,
+    ou + " : exactement une issue attendue (la suggestion)",
+  );
+  assert.ok(a.propositions.some((p) => p.pire), ou + " : au moins une pire issue (l'expiration)");
+  for (const p of a.propositions) {
+    assert.ok(typeof p.id === "string" && p.id !== "", ou + " : proposition id");
+    assert.ok(typeof p.libelle === "string" && p.libelle !== "", ou + " : proposition libelle");
+  }
+  const m = a.moyens;
+  assert.ok(m !== null && typeof m === "object", ou + " : moyens");
+  assert.ok(typeof m.pompiers === "number" && typeof m.police === "number" && typeof m.armee === "number",
+    ou + " : effectifs photographiés");
+  assert.ok(
+    typeof m.camionPompiers === "boolean" && typeof m.fourgonPolice === "boolean" &&
+      typeof m.camionProprete === "boolean" && typeof m.ambulance === "boolean",
+    ou + " : engins photographiés",
+  );
+  assert.ok(
+    m.btpBatimentId === null || typeof m.btpBatimentId === "string",
+    ou + " : btpBatimentId",
+  );
+  assert.ok(m.commissariat === undefined || typeof m.commissariat === "boolean", ou + " : commissariat");
 }
 
 test("contrat : la ville de démonstration respecte les formes de types.ts", () => {
@@ -189,4 +231,24 @@ test("contrat : passerJour ne casse aucune forme", () => {
   assert.ok(typeof e.budgetVille === "number" && Number.isFinite(e.budgetVille), "budgetVille");
   assert.ok(typeof e.jour === "number", "jour");
   assert.ok(Array.isArray(e.journal), "journal");
+});
+
+test("contrat : une file d'arbitrages hostile ressort vide ou propre (payloads tordus)", () => {
+  const e = createMondeDemonstration();
+  // v1.26 : la file d'arbitrages n'est pas un tableau -> complétée à vide.
+  (e as unknown as Record<string, unknown>).arbitrages = "pas une liste";
+  let rel = migrerEtat(JSON.parse(JSON.stringify(e)));
+  assert.ok(
+    Array.isArray(rel.arbitrages) && rel.arbitrages.length === 0,
+    "arbitrages non-tableau -> []",
+  );
+  // Des entrées tordues sont filtrées, jamais décodées en force.
+  (e as unknown as Record<string, unknown>).arbitrages = [{ prix: "tordu" }, null, 42];
+  rel = migrerEtat(JSON.parse(JSON.stringify(e)));
+  assert.equal(rel.arbitrages!.length, 0, "arbitrages mal formés filtrés, rien n'est inventé");
+  // Les arbitrages produits par le moteur respectent les formes.
+  const m = modifierVille(e, { coeffIntensite: 100000 });
+  const j1 = passerJour(m);
+  assert.ok((j1.arbitrages ?? []).length >= 2, "des incidents attendent le maître du jeu");
+  for (const a of j1.arbitrages ?? []) contratArbitrage(a, "après 1 jour");
 });

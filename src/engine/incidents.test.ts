@@ -14,12 +14,13 @@ import {
   nouveauBatiment,
   nouveauPnj,
   nouveauVehicule,
+  resoudreArbitrage,
+  supprimerBatiment,
   supprimerPnj
 } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
-  impotSur,
   monnaieEnCircuit,
   passerJour,
   serviceLocal
@@ -34,7 +35,8 @@ import {
 import {
   entrees,
   calme,
-  neutraliserCourses
+  neutraliserCourses,
+  resoudreArbitrages
 } from "./outils-test.ts";
 
 // ---------- Phase 2 : incidents, garde des services ----------
@@ -54,10 +56,21 @@ test("règle d'échelle : R × P × K / 10000 / 365", () => {
 
 test("K géant : le jour 1 déborde d'incidents", () => {
   const m = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000 });
-  const j1 = passerJour(m);
+  const notifie = passerJour(m);
+  // v1.26 : la simulation notifie les incidents mais ne tranche plus —
+  // chaque incident attend son arbitrage dans l'onglet dédié.
+  const attestations = entrees(1, "arbitrage", notifie.journal);
+  assert.ok(attestations.length >= 2, "arbitrages notifiés, obtenu : " + attestations.length);
+  assert.ok(
+    attestations.every((e) => e.texte.includes("le maître du jeu tranche")),
+    "chaque notification convoque le maître du jeu",
+  );
+  // L'arbitrage attendu rejoue l'issue que la simulation aurait jouée.
+  const j1 = resoudreArbitrages(notifie);
   const inc = entrees(1, "incident", j1.journal);
   assert.ok(inc.length >= 2, "incidents attendus, obtenu : " + inc.length);
   assert.ok(j1.journal.some((e) => e.texte.includes("s'embrase")), "l'incendie est raconté");
+  assert.equal((j1.arbitrages ?? []).length, 0, "la file d'arbitrages est vide");
 });
 
 test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caisses vides ne réparent rien", () => {
@@ -67,7 +80,11 @@ test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caiss
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 100 });
   neutraliserCourses(m, "chef d'entreprise BTP");
   const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
-  const j1 = passerJour(m);
+  const notifie = passerJour(m);
+  // v1.26 : le maître du jeu tranche après le règlement du soir — les
+  // caisses sont vides au moment de la décision, rien à réparer.
+  notifie.budgetVille = 0;
+  const j1 = resoudreArbitrages(notifie);
   assert.ok(
     j1.journal.some((e) => e.texte.includes("aucun pompier")),
     "le journal raconte l'absence de pompiers",
@@ -109,7 +126,7 @@ test("incendie avec budget : les réparations encaissées par le BTP local reste
   m = modifierVille(m, { coeffIntensite: 100000, budgetVille: 50000000 });
   neutraliserCourses(m, "chef d'entreprise BTP");
   const darioAvant = m.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!.compte;
-  const j1 = passerJour(m);
+  const j1 = resoudreArbitrages(passerJour(m));
   const degatsFeux = j1.journal
     .filter((e) => e.type === "incident" && e.texte.includes("s'embrase"))
     .reduce((s, e) => s - (e.montant ?? 0), 0);
@@ -123,16 +140,15 @@ test("incendie avec budget : les réparations encaissées par le BTP local reste
     )
     .reduce((s, e) => s + (e.montant ?? 0), 0);
   const dario = j1.pnjs.find((p) => p.metier === "chef d'entreprise BTP")!;
+  // v1.26 : le maître du jeu tranche entre deux jours — la réparation est
+  // créditée directement au BTP, hors du flux du soir (la marge sera
+  // imposée au prochain règlement qui la touchera, pas à la résolution).
   assert.equal(
     dario.compte,
-    darioAvant + degatsFeux - impotSur(degatsFeux, j1.params.tauxImpotBp) + retenuDario,
-    "le BTP de la ville encaisse les réparations, moins l'impôt sur sa marge",
+    darioAvant + degatsFeux + retenuDario,
+    "le BTP de la ville encaisse les réparations",
   );
   assert.equal(j1.sortiesCumulees, 0, "monde fermé");
-  assert.ok(
-    entrees(1, "flux", j1.journal).some((e) => e.texte.includes("Bâtisseurs")),
-    "le BTP raconte sa recette du soir",
-  );
 });
 
 test("accident : les soins sont facturés à l'hôpital local, l'argent reste en ville", () => {
@@ -140,7 +156,7 @@ test("accident : les soins sont facturés à l'hôpital local, l'argent reste en
   m = modifierVille(m, { coeffIntensite: 100000 });
   neutraliserCourses(m, "cheffe de l'hôpital");
   const sofiaAvant = m.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!.compte;
-  const j1 = passerJour(m);
+  const j1 = resoudreArbitrages(passerJour(m));
   const accident = j1.journal.find((e) => e.type === "incident" && e.texte.includes("Accident"));
   assert.ok(accident !== undefined, "un accident est arrivé");
   assert.ok(
@@ -158,10 +174,12 @@ test("accident : les soins sont facturés à l'hôpital local, l'argent reste en
     )
     .reduce((s, e) => s + (e.montant ?? 0), 0);
   const sofia = j1.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!;
+  // v1.26 : résolu par le maître du jeu entre deux jours — crédit direct,
+  // hors du flux du soir.
   assert.equal(
     sofia.compte,
-    sofiaAvant + frais - impotSur(frais, j1.params.tauxImpotBp) + retenuSofia,
-    "l'hôpital encaisse les soins, moins l'impôt sur sa marge du jour",
+    sofiaAvant + frais + retenuSofia,
+    "l'hôpital encaisse les soins",
   );
   assert.equal(j1.sortiesCumulees, 0, "monde fermé");
 });
@@ -171,7 +189,7 @@ test("sans hôpital : aucun service de santé, aucun frais", () => {
   m = modifierVille(m, { coeffIntensite: 100000 });
   const sofia = m.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!;
   m = supprimerPnj(m, sofia.id); // l'hôpital reste, sans gérant il est fermé
-  const j1 = passerJour(m);
+  const j1 = resoudreArbitrages(passerJour(m));
   assert.ok(serviceLocal(j1, "sante") === null, "plus de service de santé tenu");
   const accident = j1.journal.find((e) => e.type === "incident" && e.texte.includes("Accident"));
   assert.ok(accident !== undefined, "un accident est arrivé");
@@ -216,7 +234,7 @@ test("garde au complet : l'incendie est maîtrisé, dégâts légers", () => {
     );
   }
   const m2 = modifierVille(m, { coeffIntensite: 100000 });
-  const j1 = passerJour(m2);
+  const j1 = resoudreArbitrages(passerJour(m2));
   assert.equal(j1.batiments.filter((b) => b.etat === "sinistre").length, 0, "aucun sinistre");
   const feu = j1.journal.find((e) => e.texte.includes("s'embrase"));
   assert.ok(feu !== undefined && feu.texte.includes("avant midi"), "maitrise rapide racontée");
@@ -230,7 +248,7 @@ test("cambriolage sans police : le butin change de poche, rien ne disparaît", (
   for (const p of gardePolice(m)) m = supprimerPnj(m, p.id);
   const avant = monnaieEnCircuit(m);
   const m2 = modifierVille(m, { coeffIntensite: 100000 });
-  const j1 = passerJour(m2);
+  const j1 = resoudreArbitrages(passerJour(m2));
   const vols = j1.journal.filter((e) => e.texte.includes("Cambriolage"));
   assert.ok(vols.length >= 1, "le cambriolage est raconté");
   assert.ok(j1.volsCumules > 0, "butins tracés : " + j1.volsCumules);
@@ -274,7 +292,7 @@ test("collision (v1.25) : la station-service locale répare, le véhicule reste 
   };
   monde = modifierVille(monde, { coeffIntensite: 100000, budgetVille: 50000000 });
   const avant = monnaieEnCircuit(monde);
-  const j1 = passerJour(monde);
+  const j1 = resoudreArbitrages(passerJour(monde));
   const collisions = j1.journal.filter((e) => e.type === "incident" && e.texte.includes("Collision au carrefour"));
   assert.equal(collisions.length, 1, "une collision est racontée");
   assert.ok(collisions[0].texte.includes("réparés dans la foulée"), "le véhicule est réparé sur place");
@@ -297,7 +315,7 @@ test("collision (v1.25) : sans station-service en ville, le véhicule reste sini
     vehicules: [nouveauVehicule({ nom: "Caisse à roulettes", categorie: "prive", valeur: 100000, essenceJour: 0 })],
   };
   monde = modifierVille(monde, { coeffIntensite: 100000 });
-  const j1 = passerJour(monde);
+  const j1 = resoudreArbitrages(passerJour(monde));
   const collisions = j1.journal.filter((e) => e.type === "incident" && e.texte.includes("Collision au carrefour"));
   assert.equal(collisions.length, 1, "une collision est racontée");
   assert.ok(collisions[0].texte.includes("aucune station-service en ville"), "le défaut de service est raconté");
@@ -312,8 +330,8 @@ test("camion de pompiers (v1.25) : en service, la moitié des dégâts du feu es
   let sans = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000, budgetVille: 50000000 });
   sans.vehicules = [];
   const avec = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000, budgetVille: 50000000 });
-  const jSans = passerJour(sans);
-  const jAvec = passerJour(avec);
+  const jSans = resoudreArbitrages(passerJour(sans));
+  const jAvec = resoudreArbitrages(passerJour(avec));
   const degatsFeu = (j: ReturnType<typeof passerJour>) =>
     j.journal
       .filter((e) => e.type === "incident" && e.texte.includes("s'embrase"))
@@ -337,7 +355,7 @@ test("vol de voiture (v1.25) : sans fourgon, transfert de propriété — le pat
   m.vehicules = m.vehicules!.filter((v) => v.categorie === "prive");
   const avant = monnaieEnCircuit(m);
   const proprietaires = new Map(m.vehicules!.map((v) => [v.id, v.proprietairePnjId]));
-  const j1 = passerJour(m);
+  const j1 = resoudreArbitrages(passerJour(m));
   const vol = j1.journal.find((e) => e.type === "incident" && e.texte.includes("Vol de voiture : "));
   assert.ok(vol, "le vol est raconté");
   assert.ok(vol!.texte.includes("transfert de propriété"), "le mécanisme est raconté");
@@ -360,7 +378,7 @@ test("fourgon en service (v1.25) : cambriolage et vol de voiture déjoués — a
     nouveauPnj({ prenom: "Camille", nom: "Renfort", age: 31, genre: "F", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", revenuIndicatif: 5300 }),
   );
   const proprietaires = new Map(m.vehicules!.map((v) => [v.id, v.proprietairePnjId]));
-  const j1 = passerJour(m);
+  const j1 = resoudreArbitrages(passerJour(m));
   assert.ok(
     j1.journal.some((e) => e.texte.includes("la patrouille le surprend à temps, rien de volé")),
     "cambriolage déjoué : arrestation sur le fait",
@@ -372,4 +390,107 @@ test("fourgon en service (v1.25) : cambriolage et vol de voiture déjoués — a
     "aucune voiture ne change de main",
   );
   assert.equal(j1.sortiesCumulees, 0, "monde fermé");
+});
+
+// ---------- v1.26 : les arbitrages du maître du jeu ----------
+
+test("v1.26 : le joueur choisit une autre issue que l'attendue — le jeu applique les L du choix", () => {
+  // Police en nombre ET fourgon en service : l'issue attendue est le vol
+  // déjoué. Le maître du jeu en décide autrement — le voleur s'envole avec
+  // TOUT le butin.
+  let m = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000, budgetVille: 50000000 });
+  m.pnjs.push(
+    nouveauPnj({ prenom: "Brigitte", nom: "Renfort", age: 30, genre: "F", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", revenuIndicatif: 5300 }),
+    nouveauPnj({ prenom: "Camille", nom: "Renfort", age: 31, genre: "F", metier: "policier municipal", statut: "agent_public", grade: "policier_municipal", revenuIndicatif: 5300 }),
+  );
+  const notifie = passerJour(m);
+  const arb = (notifie.arbitrages ?? []).find((a) => a.type === "cambriolage")!;
+  assert.equal(
+    arb.propositions.find((p) => p.attendu)?.id,
+    "dejoue",
+    "l'issue attendue est le cambriolage déjoué (police + fourgon)",
+  );
+  assert.ok(
+    arb.propositions.some((p) => p.id === "butin"),
+    "le pire reste proposé au maître du jeu",
+  );
+  const cibleAvant = notifie.pnjs.find((p) => p.id === arb.ciblePnjId)!.compte;
+  const voleurAvant = notifie.pnjs.find((p) => p.id === arb.voleurPnjId)!.compte;
+  const j1 = resoudreArbitrage(notifie, arb.id, "butin");
+  const vol = j1.journal.find(
+    (e) => e.type === "incident" && e.texte.includes("Cambriolage chez"),
+  )!;
+  assert.ok(vol.texte.includes("s'envole avec tout le butin"), "le choix du joueur est raconté");
+  const montant = -(vol.montant ?? 0);
+  assert.ok(montant > 0, "le butin entier change de poche");
+  assert.equal(
+    j1.pnjs.find((p) => p.id === arb.ciblePnjId)!.compte,
+    cibleAvant - montant,
+    "la cible a perdu le butin entier",
+  );
+  assert.equal(
+    j1.pnjs.find((p) => p.id === arb.voleurPnjId)!.compte,
+    voleurAvant + montant,
+    "le voleur a encaissé le butin entier",
+  );
+  const voleur = j1.pnjs.find((p) => p.id === arb.voleurPnjId)!;
+  assert.equal(voleur.arreteJusqua ?? 0, 0, "pas d'arrestation : le joueur en a décidé ainsi");
+  assert.ok((voleur.casier ?? 0) >= 1, "le casier se remplit même en fuite");
+  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(notifie), "monde fermé : le butin reste en ville");
+});
+
+test("v1.26 : sans arbitrage, la pire issue s'impose au bout de 3 jours", () => {
+  const m = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000 });
+  let e = passerJour(m); // jour 1 : les incidents attendent, expireLe = 4
+  const pendus = (e.arbitrages ?? []).length;
+  assert.ok(pendus >= 2, "des arbitrages attendent le maître du jeu");
+  e = passerJour(e); // jour 2
+  e = passerJour(e); // jour 3
+  assert.ok(
+    e.journal.some(
+      (x) => x.type === "solde" && x.texte.includes("arbitrage(s) attendent le maître du jeu"),
+    ),
+    "le solde rappelle les arbitrages en attente",
+  );
+  assert.ok(
+    (e.arbitrages ?? []).length > pendus,
+    "rien n'a expiré avant le délai : la file grossit au fil des jours",
+  );
+  assert.ok(
+    (e.arbitrages ?? []).some((a) => a.jour === 1),
+    "les arbitrages du jour 1 attendent toujours (expireLe = 4)",
+  );
+  const e4 = passerJour(e); // jour 4 : le délai de jour 1 est écoulé
+  assert.ok(
+    e4.journal.some((x) =>
+      x.type === "incident" && x.texte.includes("Sans arbitrage du maître du jeu, le pire est arrivé : "),
+    ),
+    "la pire issue s'impose seule au matin du jour d'échéance",
+  );
+  assert.ok(
+    (e4.arbitrages ?? []).every((a) => a.jour > 1),
+    "la file ne garde que les arbitrages plus récents",
+  );
+  assert.equal(e4.sortiesCumulees, 0, "même au pire, le monde reste fermé");
+  assert.equal(monnaieEnCircuit(e4), monnaieEnCircuit(e), "conservation exacte, pire compris");
+});
+
+test("v1.26 : un arbitrage périmé est classé sans effet — la ville a changé sous ses pieds", () => {
+  const m = modifierVille(createMondeDemonstration(), { coeffIntensite: 100000 });
+  const notifie = passerJour(m);
+  const arb = (notifie.arbitrages ?? []).find((a) => a.type === "incendie")!;
+  assert.ok(arb !== undefined, "un incendie attend son arbitrage");
+  // Le bâtiment brûlé est rasé avant la décision : plus rien à arbitrer.
+  const sansCible = supprimerBatiment(notifie, arb.cibleBatimentId!);
+  const j1 = resoudreArbitrage(sansCible, arb.id, arb.propositions[0].id);
+  assert.ok(
+    j1.journal.some((e) => e.type === "arbitrage" && e.texte.includes("Affaire classée")),
+    "l'affaire est classée, racontée sans crash",
+  );
+  assert.equal(
+    (j1.arbitrages ?? []).length,
+    (notifie.arbitrages ?? []).length - 1,
+    "l'arbitrage périmé quitte la file",
+  );
+  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(sansCible), "aucun L ne bouge pour une affaire classée");
 });

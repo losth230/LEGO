@@ -4,11 +4,11 @@
 // d'une version à l'autre se contentent de compléter, jamais de jeter
 // une ville en cours (sauf état irrécupérable).
 
-import type { Etat, Pnj, Vehicule, Vocation } from "./types.ts";
+import type { Arbitrage, Etat, Pnj, Vehicule, Vocation } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 10;
+export const SCHEMA_VERSION_ETAT = 11;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -204,6 +204,21 @@ const GRADES_RETIRES: Record<string, string> = {
     };
   });
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;
+  // Migration v10 -> v11 (v1.26, arbitrages du maître du jeu) : les
+  // incidents non arbitrés attendent le joueur — les vieilles sauvegardes
+  // n'ont pas de file d'attente ; un import tordu ne garde que les
+  // arbitrages bien formés (id, jour, échéance, propositions), jamais
+  // devinés.
+  const arbitrages: Arbitrage[] = (Array.isArray(b.arbitrages) ? b.arbitrages : []).filter(
+    (a): a is Arbitrage =>
+      a !== null &&
+      typeof a === "object" &&
+      typeof (a as Partial<Arbitrage>).id === "string" &&
+      (a as Partial<Arbitrage>).id !== "" &&
+      typeof (a as Partial<Arbitrage>).jour === "number" &&
+      typeof (a as Partial<Arbitrage>).expireLe === "number" &&
+      Array.isArray((a as Partial<Arbitrage>).propositions),
+  );
   const recettesCommerce =
     b.recettesCommerce !== null && typeof b.recettesCommerce === "object"
       ? (b.recettesCommerce as Record<string, number>)
@@ -261,6 +276,7 @@ const GRADES_RETIRES: Record<string, string> = {
     pnjs,
     batiments,
     vehicules,
+    arbitrages,
     journal,
     recettesCommerce,
   };

@@ -162,3 +162,26 @@ export function budgetAchat(pnj: Pnj): number {
   coef = Math.min(1.2, Math.max(0.8, coef));
   return Math.round(pnj.budgetAchat * coef);
 }
+
+// ---------- Services publics & soins (v1.26 : partagés avec arbitrages.ts) ----------
+
+/**
+ * Le poste de police de la ville (bâtiment public) : c'est là que les
+ * détenus sont gardés (correction Thibaut 2026-11-06, pas de bâtiment
+ * dédié). Sans poste, l'arrestation se joue en assignation à résidence.
+ */
+export function posteDePolice(etat: Etat): Batiment | undefined {
+  return etat.batiments.find(
+    (b) => b.type === "service_public" && /police|commissariat/i.test(b.nom),
+  );
+}
+
+/**
+ * Frais médicaux d'un accident : 30 L × gravité, doublés si les secours
+ * sont insuffisants (le blessé mal évacué s'aggrave), plafonnés à la
+ * caisse de la victime.
+ */
+export function fraisMedicaux(gravite: number, secoursJustes: boolean, plafondCompte: number): number {
+  const base = gravite * 3000 * (secoursJustes ? 2 : 1);
+  return Math.min(base, plafondCompte);
+}

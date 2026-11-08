@@ -12,6 +12,7 @@ import {
 import type { Etat } from "../engine/types.ts";
 import { migrerEtat } from "../engine/migrations.ts";
 import { passerJour } from "../engine/moteur.ts";
+import { resoudreArbitrage as resoudreArbitrageMonde } from "../engine/monde.ts";
 
 const CLE_STORAGE = "lego-ville-etat-v1";
 
@@ -29,6 +30,7 @@ interface ApiStore {
   etat: Etat;
   majEtat: (nouveau: Etat) => void;
   passerUnJour: () => void;
+  resoudreArbitrage: (arbitrageId: string, propositionId: string) => void;
   reinitialiser: () => void;
   exporter: () => void;
   importerFichier: (fichier: File) => Promise<void>;
@@ -52,6 +54,10 @@ export function FournisseurStore({ children }: { children: ReactNode }) {
       etat,
       majEtat: (nouveau: Etat) => setEtat(nouveau),
       passerUnJour: () => setEtat((e) => passerJour(e)),
+      // v1.26 : le maître du jeu tranche un incident — le jeu applique les L
+      // de l'issue choisie et l'affaire quitte la file.
+      resoudreArbitrage: (arbitrageId: string, propositionId: string) =>
+        setEtat((e) => resoudreArbitrageMonde(e, arbitrageId, propositionId)),
       reinitialiser: () => setEtat(migrerEtat(null)),
       exporter: () => {
         const blob = new Blob([JSON.stringify(etat, null, 2)], {

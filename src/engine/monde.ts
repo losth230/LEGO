@@ -13,6 +13,7 @@ import {
   montantL,
 } from "./referentiel.ts";
 import { serviceLocal } from "./moteur.ts";
+import { appliquerArbitrage } from "./arbitrages.ts";
 
 const REF_ACHAT = Math.round(ACHAT_REFERENCE_L * 100); // 5250 centimes = 52,50 L
 
@@ -141,7 +142,7 @@ export function reinitialiserIds(): void {
  * monde.demo.ts : retirée du jeu, elle reste la terre d'essai des tests. */
 export function createMondeDefaut(): Etat {
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
@@ -156,6 +157,7 @@ export function createMondeDefaut(): Etat {
     pnjs: [],
     batiments: [],
     vehicules: [],
+    arbitrages: [],
     journal: [
       {
         jour: 0,
@@ -302,6 +304,28 @@ export function supprimerVehicule(etat: Etat, id: string): Etat {
         : p,
   );
   if (parti) raconter(e, parti.nom + " quitte la ville. Bonne route !");
+  return e;
+}
+
+// ---------- Arbitrages du maître du jeu (v1.26) ----------
+
+/**
+ * Le maître du jeu tranche un incident en attente (v1.26, arbitrage
+ * Thibaut 2026-11-08) : la simulation ne décide PLUS de l'issue — le
+ * joueur choisit parmi les propositions (l'issue attendue est suggérée,
+ * la pire est marquée), le jeu applique les L de l'issue choisie sur la
+ * photographie des moyens du jour de l'incident, et l'affaire quitte la
+ * file. La partie n'est jamais bloquée : un incident non arbitré attend,
+ * puis la pire issue s'impose au bout du délai.
+ */
+export function resoudreArbitrage(etat: Etat, arbitrageId: string, propositionId: string): Etat {
+  const e = structuredClone(etat);
+  const i = (e.arbitrages ?? []).findIndex((a) => a.id === arbitrageId);
+  if (i < 0) return e;
+  const [arb] = e.arbitrages!.splice(i, 1);
+  for (const r of appliquerArbitrage(e, arb, propositionId)) {
+    e.journal.push(r);
+  }
   return e;
 }
 

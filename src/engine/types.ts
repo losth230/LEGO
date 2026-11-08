@@ -152,6 +152,7 @@ export type TypeJournal =
   | "essence"
   | "flux"
   | "incident"
+  | "arbitrage"
   | "solde"
   | "systeme";
 
@@ -161,6 +162,75 @@ export interface JournalEntree {
   texte: string;
   /** Montant en centimes si pertinent. */
   montant?: number;
+}
+
+/**
+ * Arbitrages du maître du jeu (v1.26, arbitrage Thibaut 2026-11-08) : les
+ * incidents surviennent (probabilités du référentiel inchangées) et sont
+ * notifiés, mais la simulation ne tranche PLUS l'issue — elle calcule les
+ * issues possibles selon les moyens de la ville et offre le choix au
+ * joueur ; le jeu applique les L de l'issue choisie. Non arbitré, un
+ * incident reste en attente ; au bout de DELAI_ARBITRAGE_JOURS jours, la
+ * pire issue s'impose d'elle-même.
+ */
+export type TypeArbitrage = "incendie" | "cambriolage" | "guerre_gangs" | "collision" | "vol_vehicule" | "accident";
+
+/**
+ * Photographie des moyens de la ville AU MOMENT de l'incident : gardes en
+ * poste, engins qui ont roulé ce jour-là, services tenus. La résolution
+ * (éventuellement des jours plus tard) rejoue l'issue avec ces moyens-là.
+ */
+export interface MoyensArbitrage {
+  /** Effectifs de garde (pompiers, police, armée) le jour de l'incident. */
+  pompiers: number;
+  police: number;
+  armee: number;
+  /** Engins municipaux en service (ayant roulé) ce jour-là. */
+  camionPompiers: boolean;
+  fourgonPolice: boolean;
+  camionProprete: boolean;
+  ambulance: boolean;
+  /** Bâtiments des services tenus ce jour-là (BTP, hôpital, station-service). */
+  btpBatimentId: string | null;
+  santeBatimentId: string | null;
+  stationBatimentId: string | null;
+  /** Un poste de police en ville : la détention y est jouée, sinon assignation. */
+  commissariat: boolean;
+}
+
+/** Une issue possible d'un incident — le joueur en choisit une. */
+export interface PropositionArbitrage {
+  /** Clé d'issue (ex. « dejoue », « butin », « ravageur »…). */
+  id: string;
+  /** Texte narratif proposé au joueur (montants indicatifs). */
+  libelle: string;
+  /** Ce que la simulation aurait joué d'elle-même : la suggestion affichée. */
+  attendu: boolean;
+  /** L'issue du pire : celle qui s'impose à l'expiration du délai. */
+  pire: boolean;
+}
+
+/** Un incident survenu, en attente de l'arbitrage du maître du jeu. */
+export interface Arbitrage {
+  id: string;
+  /** Jour de survenance. */
+  jour: number;
+  /** Jour où la pire issue s'impose seule (jour + délai). */
+  expireLe: number;
+  type: TypeArbitrage;
+  /** Titre court (ex. « Cambriolage chez Jean Castella »). */
+  titre: string;
+  /** Gravité 1 (pépin), 2 (grave), 3 (majeur). */
+  gravite: 1 | 2 | 3;
+  cibleBatimentId: string | null;
+  ciblePnjId: string | null;
+  cibleVehiculeId: string | null;
+  /** Auteur tiré (cambriolage, vol de voiture) ou belligérants (guerre). */
+  voleurPnjId: string | null;
+  agresseurPnjId: string | null;
+  defenseurPnjId: string | null;
+  moyens: MoyensArbitrage;
+  propositions: PropositionArbitrage[];
 }
 
 export interface ParamsVille {
@@ -200,6 +270,8 @@ export interface Etat {
   batiments: Batiment[];
   /** Véhicules de la ville (v1.25) — flotte municipale et véhicules privés. */
   vehicules?: Vehicule[];
+  /** Incidents survenus, en attente d'arbitrage du joueur (v1.26). */
+  arbitrages?: Arbitrage[];
   /**
    * Recettes du dernier jour par commerce (centimes) — modèle flux, phase 3.6.
    * Sert au calibrage des effectifs (effectif_max ≈ 0,88 × recettes / 57,75).

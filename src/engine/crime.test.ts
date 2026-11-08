@@ -32,6 +32,10 @@ import {
   profilCriminel
 } from "./evenements.ts";
 
+import {
+  resoudreArbitrages
+} from "./outils-test.ts";
+
 // ---------- Phase 3.9 : cartes d'identité & milieu criminel ----------
 
 /** Neutralise tout profil criminel d'un monde (figurines privées et commerçants). */
@@ -117,14 +121,14 @@ test("arrestation : la police surprend le voleur, il ne vole plus pendant sa dé
     }));
   }
   m = modifierVille(m, { coeffIntensite: 100000 });
-  const j1 = passerJour(m);
+  const j1 = resoudreArbitrages(passerJour(m));
   assert.ok(j1.journal.some((e) => e.texte.includes("arrêté sur le fait")), "l'arrestation est racontée");
   const arrete = j1.pnjs.find((p) => (p.arreteJusqua ?? 0) > j1.jour);
   assert.ok(arrete !== undefined, "le voleur est assigné à résidence");
   assert.ok((arrete!.casier ?? 0) >= 1, "le casier s'est rempli même raté");
   // Pendant toute sa détention, plus personne ne peut voler (une seule criminelle en ville).
   let e = j1;
-  while (e.jour < (arrete!.arreteJusqua ?? 0)) e = passerJour(e);
+  while (e.jour < (arrete!.arreteJusqua ?? 0)) e = resoudreArbitrages(passerJour(e));
   const volsPendant = e.journal.filter(
     (x) => x.texte.includes("Cambriolage chez") && x.jour > j1.jour,
   );
@@ -140,8 +144,8 @@ test("guerre de gangs : pillage interne, territoire, conservation exacte", () =>
   solo.compte = 100000;
   const avant = monnaieEnCircuit(m);
   m = modifierVille(m, { coeffIntensite: 100000 });
-  const j1 = passerJour(m);
-  const guerre = j1.journal.find((e) => e.texte.includes("Guerre de gangs"));
+  const j1 = resoudreArbitrages(passerJour(m));
+  const guerre = j1.journal.find((e) => e.type === "incident" && e.texte.includes("Guerre de gangs"));
   assert.ok(guerre !== undefined, "l'affrontement est raconté");
   assert.equal(j1.affrontementsCumules, 1, "l'affrontement est tracé");
   assert.equal(monnaieEnCircuit(j1), avant, "le pillage ne fait changer la monnaie que de poche");
@@ -166,7 +170,7 @@ test("migration v8 : carte d'identité complétée, le crime continue dans les v
     params: { tauxImpotBp: 3000, coeffIntensite: 1000 },
     pnjs: pnjsV7, batiments: [], journal: [],
   });
-  assert.equal(v8.schemaVersion, 10, "v7 -> v10 : schema à jour");
+  assert.equal(v8.schemaVersion, 11, "v7 -> v11 : schema à jour");
   assert.ok(
     v8.pnjs.every((p) => Array.isArray(p.personnalite) && p.personnalite.length === 2),
     "v7 -> v8 : personnalité attribuée à chaque figurine",
