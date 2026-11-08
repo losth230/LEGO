@@ -65,7 +65,7 @@ function contratBatiment(x: Batiment, ou: string): void {
     ou + " : capacitePostes");
   assert.ok(!("capacite" in x), ou + " : plus de champ capacite (v1.24)");
   assert.ok(x.vocation === undefined || x.vocation === null ||
-    x.vocation === "sante" || x.vocation === "btp" || x.vocation === "banque",
+    x.vocation === "sante" || x.vocation === "btp" || x.vocation === "banque" || x.vocation === "garage",
     ou + " : vocation");
 }
 
@@ -111,9 +111,10 @@ test("contrat : la ville de démonstration respecte les formes de types.ts", () 
   );
   // v1.24 : la capacité de chaque bâtiment de démonstration est répartie
   // selon son type — aucune n'est perdue dans le dédoublement.
+  // v1.25 : la station-service ajoute ses 2 postes (88 -> 90).
   assert.equal(
     m.batiments.reduce((acc, x) => acc + x.capaciteLogements + x.capacitePostes, 0),
-    88,
+    90,
     "démonstration : la somme des capacités est conservée",
   );
 });

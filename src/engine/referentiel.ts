@@ -123,7 +123,8 @@ export const TAUX_EMPRUNT_PCT = refNombre("economie.taux_emprunt_collectivites.v
 /**
  * Véhicules (v1.25, arbitrage Thibaut 2026-11-08) : carburant de référence
  * par jour de route (L) et part de la valeur d'un véhicule détruite par
- * point de gravité d'une collision (réparations au BTP local).
+ * point de gravité d'une collision (réparations à la station-service —
+ * vocation « garage », pas au BTP).
  */
 export const ESSENCE_REFERENCE_L = refNombre("vehicules.essence_reference.valeur", 8);
 export const PART_DEGATS_COLLISION = refNombre("vehicules.part_degats_collision.valeur", 0.10);

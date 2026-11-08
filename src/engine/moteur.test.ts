@@ -45,10 +45,10 @@ import {
   sansEmployePrive
 } from "./outils-test.ts";
 
-test("ville de démonstration : 15 bâtiments, 59 figurines (garnison, brigade, gang et bureau de poste inclus), jour 0", () => {
+test("ville de démonstration : 16 bâtiments, 60 figurines (garnison, brigade, gang et bureau de poste inclus), jour 0", () => {
   const m = createMondeDemonstration();
-  assert.equal(m.batiments.length, 15);
-  assert.equal(m.pnjs.length, 59);
+  assert.equal(m.batiments.length, 16);
+  assert.equal(m.pnjs.length, 60);
   assert.equal(m.jour, 0);
   assert.equal(m.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP);
   const services = m.batiments.filter((b) => b.type === "service_public");
@@ -56,15 +56,18 @@ test("ville de démonstration : 15 bâtiments, 59 figurines (garnison, brigade, 
   const agents = m.pnjs.filter((p) => p.statut === "agent_public");
   assert.equal(agents.length, 9);
   // Monde 100 % fermé : 4 boutiques de consommation (dont le bureau de
-  // poste, v1.22) + 3 services à vocation (hôpital, BTP, banque), chacun
-  // tenu par son gérant. La détention se joue au commissariat (Poste de
-  // police), pas dans un bâtiment dédié.
+  // poste, v1.22) + 4 services à vocation (hôpital, BTP, banque et
+  // station-service — arbitrage Thibaut v1.25 : c'est elle qui gère la
+  // pompe et les accidents, pas le BTP), chacun tenu par son gérant. La
+  // détention se joue au commissariat (Poste de police), pas dans un
+  // bâtiment dédié.
   const boutiques = m.batiments.filter((b) => b.type === "commerce" && !b.vocation);
   assert.equal(boutiques.length, 4);
   assert.ok(serviceLocal(m, "sante") !== null, "l'hôpital est en ville et tenu");
   assert.ok(serviceLocal(m, "btp") !== null, "le BTP est en ville et tenu");
   assert.ok(serviceLocal(m, "banque") !== null, "la banque est en ville et tenue");
-  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 7);
+  assert.ok(serviceLocal(m, "garage") !== null, "la station-service est en ville et tenue");
+  assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 8);
 });
 
 test("monde par défaut (v1.23) : une ville nue, tout se construit dans l'éditeur", () => {
@@ -129,7 +132,7 @@ test("un jour : impôts retenus à la source, salaires versés, sorties tracées
   for (const typeAtt of ["impots", "salaires", "fonctionnement", "achats", "solde"]) {
     assert.equal(entrees(1, typeAtt, j1.journal).length, 1, typeAtt);
   }
-  assert.equal(entrees(1, "flux", j1.journal).length, 4, "quatre boutiques racontent leur flux");
+  assert.equal(entrees(1, "flux", j1.journal).length, 5, "quatre boutiques et la station-service racontent leur flux");
   // Sans employé, un commerce thésaurise : la phase 3.6 le raconte (stock).
   // (Le facteur du bureau de poste est détaché pour ce test : voir plus haut.)
   assert.ok(
@@ -138,8 +141,16 @@ test("un jour : impôts retenus à la source, salaires versés, sorties tracées
   );
   // Recettes du dernier jour persistées (calibrage des effectifs).
   assert.ok(j1.recettesCommerce !== undefined);
-  assert.equal(Object.keys(j1.recettesCommerce!).length, 4);
-  for (const v of Object.values(j1.recettesCommerce!)) assert.ok(v > 70000, "recettes: " + v);
+  assert.equal(Object.keys(j1.recettesCommerce!).length, 5);
+  for (const [id, v] of Object.entries(j1.recettesCommerce!)) {
+    // La station-service (vocation « garage ») n'encaisse que l'essence du
+    // jour (35 L : 27 de flotte + 8 de privés) — pas d'achats de consommation.
+    if (j1.batiments.find((b) => b.id === id)?.vocation === "garage") {
+      assert.ok(v > 0 && v <= 4000, "station : l'essence du jour : " + v);
+    } else {
+      assert.ok(v > 70000, "recettes: " + v);
+    }
+  }
   // Fonctionnement rerouté : la ville achète sur place (montant identique).
   assert.ok(fonct[0].texte.includes("commerces locaux"), "l'achat sur place est raconté");
 });
@@ -266,7 +277,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   const demo = createMondeDemonstration();
   const m = migrerEtat({ ...demo, schemaVersion: 1, jour: 5 });
   assert.equal(m.jour, 5, "le jour est conservé");
-  assert.equal(m.pnjs.length, 59, "les figurines sont conservées");
+  assert.equal(m.pnjs.length, 60, "les figurines sont conservées");
   assert.ok(Array.isArray(m.journal) && Array.isArray(m.pnjs) && Array.isArray(m.batiments));
   assert.ok(typeof m.budgetVille === "number" && typeof m.params.tauxImpotBp === "number");
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
@@ -357,10 +368,12 @@ test("capacités séparées (v1.24) : un bâtiment peut loger et employer à la 
 
 // ---------- v1.25 : les véhicules — essence, monde fermé, migrations ----------
 
-test("essence (v1.25) : le carburant s'achète sur place, la ville et les privés paient", () => {
-  // Monde témoin : une pompe, son pompiste, la flotte et une privée.
+test("essence (v1.25) : le carburant s'achète à la station-service, la ville et les privés paient", () => {
+  // Monde témoin : la station-service (vocation « garage », arbitrage
+  // Thibaut 2026-11-08 : c'est elle qui gère la pompe et les accidents,
+  // pas le BTP), son pompiste, la flotte et une privée.
   const base = calme(createMondeDefaut());
-  const pompe = nouveauBatiment({ nom: "Station-service du Centre", type: "commerce" });
+  const pompe = nouveauBatiment({ nom: "Station-service du Centre", type: "commerce", vocation: "garage" });
   const pompiste = nouveauPnj({ prenom: "Essa", nom: "Pompiste", statut: "commercant", batimentId: pompe.id, revenuIndicatif: 6000, compte: 0 });
   const perrine = nouveauPnj({ prenom: "Perrine", nom: "Volant", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 5000 });
   const monde: Etat = {
@@ -393,7 +406,7 @@ test("essence (v1.25) : le carburant s'achète sur place, la ville et les privé
   assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte : l'argent a seulement circulé");
 });
 
-test("essence (v1.25) : sans boutique ouverte, la flotte dort au garage — rien ne sort", () => {
+test("essence (v1.25) : sans station-service en ville, la flotte dort au garage — rien ne sort", () => {
   const base = calme(createMondeDefaut());
   const monde: Etat = {
     ...base,
@@ -405,7 +418,7 @@ test("essence (v1.25) : sans boutique ouverte, la flotte dort au garage — rien
   assert.equal(essence.length, 1, "la journée sans carburant est racontée");
   assert.equal(essence[0].montant, 0, "pas un centime de carburant dépensé");
   assert.ok(
-    essence[0].texte.includes("aucune boutique ouverte") && essence[0].texte.includes("leurs rôles dorment"),
+    essence[0].texte.includes("aucune station-service en ville") && essence[0].texte.includes("leurs rôles dorment"),
     "l'immobilisation est racontée, le rôle dort",
   );
   assert.equal(j1.budgetVille, monde.budgetVille, "rien dépensé : la pompe ne fait pas crédit");

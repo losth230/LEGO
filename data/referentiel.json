@@ -314,7 +314,7 @@
       "comptage": "taux de jeu (aucune statistique réelle)",
       "annee": 2026,
       "source": "Arbitrage Thibaut 2026-11-08 — les véhicules",
-      "note": "Taux de jeu assumé : une collision urbaine par ~4 jours à 60 figurines (K=1000). Cible : un véhicule roulant de la ville ; dégâts au BTP local, blessés à l'hôpital local (monde fermé)."
+      "note": "Taux de jeu assumé : une collision urbaine par ~4 jours à 60 figurines (K=1000). Cible : un véhicule roulant de la ville ; réparations à la station-service (vocation « garage », arbitrage Thibaut 2026-11-08 : c'est elle qui gère les accidents, pas le BTP), blessés à l'hôpital local (monde fermé)."
     }
   },
   "vehicules": {
@@ -324,14 +324,14 @@
       "unite": "L/jour de carburant pour un véhicule qui tourne",
       "source": "Arbitrage Thibaut 2026-11-08 — les véhicules",
       "annee": 2026,
-      "note": "Ordre de grandeur : un véhicule utilitaire municipal tournant toute la journée (~8 L). Défaut à la création, ajustable par véhicule dans l'éditeur ; un véhicule sinistré ou sans carburant ne roule pas (monde fermé : le carburant s'achète sur place, dans les boutiques ouvertes)."
+      "note": "Ordre de grandeur : un véhicule utilitaire municipal tournant toute la journée (~8 L). Défaut à la création, ajustable par véhicule dans l'éditeur ; un véhicule sinistré ou sans carburant ne roule pas (monde fermé : le carburant s'achète à la station-service — vocation « garage », arbitrage Thibaut 2026-11-08)."
     },
     "part_degats_collision": {
       "valeur": 0.10,
       "unite": "part de la valeur du véhicule par point de gravité",
       "source": "Arbitrage Thibaut 2026-11-08 — les véhicules",
       "annee": 2026,
-      "note": "Une collision coûte 10 % de la valeur du véhicule × gravité (doublés sans camion de propreté en ville : chaussée et carrosserie à remettre en état). Les réparations sont payées au BTP local ; sans BTP, le véhicule reste sinistré."
+      "note": "Une collision coûte 10 % de la valeur du véhicule × gravité (doublés sans camion de propreté en ville : chaussée et carrosserie à remettre en état). Les réparations sont payées à la station-service (vocation « garage », arbitrage Thibaut 2026-11-08) ; sans station-service, le véhicule reste sinistré."
     }
   },
   "services": {

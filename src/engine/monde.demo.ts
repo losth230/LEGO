@@ -13,8 +13,10 @@ const PRENOMS_M = "Antoine:Bastien:Célestin:Damien:Étienne:Félix:Gaël:Hugo:I
 const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imbert:Jouvet:Kaczmarek:Lambert:Marchand:Nguyen:Orsini:Perrin:Quintal:Roussel:Sabatini:Thibault:Ursini:Vasseur:Winkler:Yven:Zeller:Rossi:Benali:Garnier".split(":");
 
 
-/** La ville de démonstration : 15 bâtiments, 59 figurines, 7 véhicules (monde
- * fermé 2026-11-06, brigade municipale v1.21, bureau de poste v1.22, flotte v1.25).
+/** La ville de démonstration : 16 bâtiments, 60 figurines, 7 véhicules (monde
+ * fermé 2026-11-06, brigade municipale v1.21, bureau de poste v1.22, flotte
+ * et station-service v1.25 — arbitrage Thibaut : c'est la station qui gère
+ * la pompe et les accidents, pas le BTP).
  * Supprimée de l'application en v1.23 (arbitrage Thibaut : le monde par défaut
  * est nu) — elle reste la terre d'essai des tests moteur. */
 export function createMondeDemonstration(): Etat {
@@ -43,6 +45,10 @@ export function createMondeDemonstration(): Etat {
     nouveauBatiment({ nom: "Résidence du Stade", type: "habitation", quartier: "Sud", valeur: 900000, capaciteLogements: 20 }),
     nouveauBatiment({ nom: "Maison de la Colline", type: "habitation", quartier: "Nord", valeur: 300000, capaciteLogements: 6 }),
     nouveauBatiment({ nom: "Caserne militaire du Sud", type: "service_public", quartier: "Sud", valeur: 1100000, etat: "neuf", coutFonctionnement: 3000, capacitePostes: 8 }),
+    // Station-service (v1.25, arbitrage Thibaut 2026-11-08) : la pompe
+    // officielle et l'atelier des collisions — c'est elle qui gère les
+    // accidents des véhicules, pas le BTP (qui ne répare que les bâtiments).
+    nouveauBatiment({ nom: "Station-service du Port", type: "commerce", quartier: "Port", valeur: 250000, capacitePostes: 2, vocation: "garage" }),
   ];
 
   const idMairie = batiments[0].id;
@@ -58,6 +64,7 @@ export function createMondeDemonstration(): Etat {
   const immeubles = [batiments[10].id, batiments[11].id, batiments[12].id, batiments[13].id];
   const idStade = immeubles[2]; // Résidence du Stade (Sud) — fief des Corbeaux
   const idCaserneMilitaire = batiments[14].id;
+  const idStation = batiments[15].id;
 
   const pnjs: Pnj[] = [];
 
@@ -88,6 +95,10 @@ export function createMondeDemonstration(): Etat {
   pnjs.push(nouveauPnj({ prenom: "Sofia", nom: "Marchand", age: 44, genre: "F", metier: "cheffe de l'hôpital", statut: "commercant", batimentId: idHopital, revenuIndicatif: 7500, compte: 750000 }));
   pnjs.push(nouveauPnj({ prenom: "Dario", nom: "Costa", age: 39, genre: "M", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: idBtp, revenuIndicatif: 5500, compte: 550000 }));
   pnjs.push(nouveauPnj({ prenom: "Émile", nom: "Verne", age: 51, genre: "M", metier: "banquier", statut: "commercant", batimentId: idBanque, revenuIndicatif: 8000, compte: 800000 }));
+  // Station-service (v1.25) : le pompiste-garagiste tient la pompe officielle
+  // et l'atelier — l'essence de la flotte et les réparations des collisions
+  // passent par lui (arbitrage Thibaut : pas le BTP).
+  pnjs.push(nouveauPnj({ prenom: "Marco", nom: "Tempo", age: 43, genre: "M", metier: "gérant de station-service", statut: "commercant", batimentId: idStation, revenuIndicatif: 4900, compte: 490000 }));
 
   // Bureau de poste (v1.22, arbitrage Thibaut : entreprise privée — La
   // Poste n'est pas municipale) : un patron et son facteur, salariés du

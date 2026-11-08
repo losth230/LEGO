@@ -149,21 +149,23 @@ test("flux : sans boutique ouverte, la ville ne s'équipe pas — rien ne sort (
 test("flux : deux employés au Fournil Doré, la bascule stock vers flux en monde réel", () => {
   const m = calme(createMondeDemonstration());
   const boulangerie = m.batiments.find((b) => b.nom.includes("Fournil"))!.id;
-  // Les habitants commencent à l'indice 17 (après les agents publics et
-  // municipaux, les commerçants, les trois gérants des services à vocation,
+  // Les habitants commencent à l'indice 18 (après les agents publics et
+  // municipaux, les commerçants, les quatre gérants des services à
+  // vocation — la station-service v1.25 s'ajoute à hôpital/BTP/banque —
   // et l'équipe du bureau de poste v1.22 : receveur + facteur).
-  m.pnjs[17] = { ...m.pnjs[17], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
   m.pnjs[18] = { ...m.pnjs[18], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
+  m.pnjs[19] = { ...m.pnjs[19], travailBatimentId: boulangerie, revenuIndicatif: 5775 };
   const j1 = passerJour(m);
   const recettes = j1.recettesCommerce![boulangerie];
   const plafond = Math.round(PART_SALARIALE_FLUX * recettes);
   const entree = entrees(1, "flux", j1.journal).find((e) => e.texte.includes("Fournil"));
   assert.ok(entree !== undefined, "le Fournil raconte sa journée");
   assert.equal(entree!.montant, plafond, "88 % du flux repartent en salaires et primes le soir même");
-  // Les deux autres boutiques sans employé (friterie, quincaillerie)
-  // thésaurisent toujours (raconté) ; le bureau de poste, lui, paie son
-  // facteur (v1.22) : il ne thésaurise pas.
-  assert.equal(entrees(1, "flux", j1.journal).filter((e) => e.texte.includes("stock")).length, 2);
+  // Les deux autres boutiques sans employé (friterie, quincaillerie) et la
+  // station-service (v1.25 : son pompiste n'a pas d'employé, il encaisse
+  // l'essence du jour) thésaurisent (raconté) ; le bureau de poste, lui,
+  // paie son facteur (v1.22) : il ne thésaurise pas.
+  assert.equal(entrees(1, "flux", j1.journal).filter((e) => e.texte.includes("stock")).length, 3);
   const poste = entrees(1, "flux", j1.journal).find((e) => e.texte.includes("Bureau de poste"));
   assert.ok(
     poste !== undefined && !poste.texte.includes("stock"),

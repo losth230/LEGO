@@ -29,12 +29,14 @@ export type TypeBatiment = "habitation" | "commerce" | "service_public";
  * - null : boutique de consommation (achats des habitants, fonctionnement municipal) ;
  * - "sante" : hôpital/clinique — facture les soins des accidents ;
  * - "btp" : entreprise de construction — répare les dégâts d'incendie ;
- * - "banque" : banque locale — prête à la ville, encaisse intérêts et remboursements.
+ * - "banque" : banque locale — prête à la ville, encaisse intérêts et remboursements ;
+ * - "garage" : station-service — vend l'essence et répare les véhicules (v1.25,
+ *   arbitrage Thibaut 2026-11-08 : c'est elle qui gère les accidents, pas le BTP).
  * Phase 3.10 (correction Thibaut 2026-11-06) : la détention se joue au
  * commissariat, pas dans un commerce à vocation — pas de vocation « prison ».
  * Sans service à vocation en ville, aucune activité ni frais lié à ce service.
  */
-export type Vocation = "sante" | "btp" | "banque";
+export type Vocation = "sante" | "btp" | "banque" | "garage";
 
 export type EtatBatiment = "neuf" | "bon" | "degrade" | "sinistre";
 

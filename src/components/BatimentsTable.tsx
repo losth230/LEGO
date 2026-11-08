@@ -17,11 +17,12 @@ const ETIQUETTES_ETAT: Record<EtatBatiment, string> = {
   sinistre: "sinistré",
 };
 
-/** Vocations des commerces (monde 100 % fermé, 2026-11-06). */
+/** Vocations des commerces (monde 100 % fermé, 2026-11-06 ; station-service v1.25). */
 const ETIQUETTES_VOCATION = {
   sante: "Santé",
   btp: "BTP",
   banque: "Banque",
+  garage: "⛽ Station-service",
 } as const;
 
 export function BatimentsTable() {

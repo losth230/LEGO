@@ -154,7 +154,7 @@ test("accident : les soins sont facturés à l'hôpital local, l'argent reste en
       (e) =>
         e.type === "incident" &&
         e.texte.includes("Sofia Marchand") &&
-        (e.texte.includes("Cambriolage") || e.texte.includes("Accident")),
+        (e.texte.includes("Cambriolage") || e.texte.includes("Accident") || e.texte.includes("Guerre de gangs")),
     )
     .reduce((s, e) => s + (e.montant ?? 0), 0);
   const sofia = j1.pnjs.find((p) => p.metier === "cheffe de l'hôpital")!;
@@ -254,20 +254,22 @@ test("déterminisme : même jour, mêmes événements, toujours", () => {
 
 // ---------- v1.25 : les véhicules — collisions, vols, engins de service ----------
 
-test("collision (v1.25) : le BTP local répare, le véhicule reste en service, la monnaie reste en ville", () => {
-  // Témoin : un atelier, son patron, un camion municipal qui roule (sans
-  // consommation pour isoler la collision). Les figurines comptent dans
-  // la règle d'échelle des incidents (R × P × K / 10000 / 365).
+test("collision (v1.25) : la station-service locale répare, le véhicule reste en service, la monnaie reste en ville", () => {
+  // Témoin : une station-service (vocation « garage », arbitrage Thibaut
+  // 2026-11-08 : c'est elle qui gère les accidents, pas le BTP), son
+  // pompiste, un camion municipal qui roule (sans consommation pour isoler
+  // la collision). Les figurines comptent dans la règle d'échelle des
+  // incidents (R × P × K / 10000 / 365).
   const base = calme(createMondeDefaut());
-  const atelier = nouveauBatiment({ nom: "Atelier du coin", type: "commerce", vocation: "btp" });
-  const dario = nouveauPnj({ prenom: "Dario", nom: "Costa", metier: "chef d'entreprise BTP", statut: "commercant", batimentId: atelier.id, revenuIndicatif: 5500, budgetAchat: 0, compte: 0 });
+  const station = nouveauBatiment({ nom: "Station-service du coin", type: "commerce", vocation: "garage" });
+  const tempo = nouveauPnj({ prenom: "Essa", nom: "Pompiste", metier: "gérant de station-service", statut: "commercant", batimentId: station.id, revenuIndicatif: 5500, budgetAchat: 0, compte: 0 });
   const figurines = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) =>
     nouveauPnj({ prenom: "Figurante" + i, nom: "Témoin", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 0 }),
   );
   let monde: Etat = {
     ...base,
-    batiments: [atelier],
-    pnjs: [dario, ...figurines],
+    batiments: [station],
+    pnjs: [tempo, ...figurines],
     vehicules: [nouveauVehicule({ nom: "Camion de pompiers", categorie: "municipal", role: "pompiers", valeur: 200000, essenceJour: 0 })],
   };
   monde = modifierVille(monde, { coeffIntensite: 100000, budgetVille: 50000000 });
@@ -280,12 +282,12 @@ test("collision (v1.25) : le BTP local répare, le véhicule reste en service, l
   const veh = j1.vehicules![0];
   assert.equal(veh.etat, "bon", "pas sinistré");
   assert.equal(veh.valeur, 200000, "réparé intégralement : aucune valeur perdue");
-  assert.ok(j1.pnjs[0].compte > 0, "l'atelier encaisse les réparations");
+  assert.ok(j1.pnjs[0].compte > 0, "la station-service encaisse les réparations");
   assert.equal(j1.sortiesCumulees, 0, "monde fermé");
   assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte");
 });
 
-test("collision (v1.25) : sans BTP en ville, le véhicule reste sinistré sur le bas-côté", () => {
+test("collision (v1.25) : sans station-service en ville, le véhicule reste sinistré sur le bas-côté", () => {
   const figurines = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) =>
     nouveauPnj({ prenom: "Figurante" + i, nom: "Témoin", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 0 }),
   );
@@ -298,7 +300,7 @@ test("collision (v1.25) : sans BTP en ville, le véhicule reste sinistré sur le
   const j1 = passerJour(monde);
   const collisions = j1.journal.filter((e) => e.type === "incident" && e.texte.includes("Collision au carrefour"));
   assert.equal(collisions.length, 1, "une collision est racontée");
-  assert.ok(collisions[0].texte.includes("aucune entreprise de BTP en ville"), "le défaut de service est raconté");
+  assert.ok(collisions[0].texte.includes("aucune station-service en ville"), "le défaut de service est raconté");
   const veh = j1.vehicules![0];
   assert.equal(veh.etat, "sinistre", "le véhicule reste marqué");
   assert.ok(veh.valeur < 100000, "la valeur patrimoniale a fondu");

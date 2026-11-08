@@ -20,6 +20,7 @@ export const VOCATIONS_BATIMENT: Array<{ valeur: Vocation | null; libelle: strin
   { valeur: "sante", libelle: "Santé (facture les soins)" },
   { valeur: "btp", libelle: "BTP (répare les bâtiments)" },
   { valeur: "banque", libelle: "Banque (prête à la ville)" },
+  { valeur: "garage", libelle: "Station-service (vend l'essence, répare les véhicules)" },
 ];
 
 // ---------- petits contrôles ----------

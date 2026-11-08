@@ -119,7 +119,7 @@ function LigneVehiculeEdit({ vehicule: v }: { vehicule: Vehicule }) {
           <Champ label="Valeur (L)">
             <input className="input" value={valeur} onChange={(e) => setValeur(e.target.value)} />
           </Champ>
-          <Champ label="Essence/jour (L) — achetée sur place">
+          <Champ label="Essence/jour (L) — achetée à la station-service">
             <input className="input" value={essence} onChange={(e) => setEssence(e.target.value)} />
           </Champ>
           <Champ label="Logements (caravane, roulotte)">
@@ -244,7 +244,7 @@ export function CarteVehicules() {
         <Champ label="Valeur (L)">
           <input className="input" value={valeur} onChange={(e) => setValeur(e.target.value)} />
         </Champ>
-        <Champ label="Essence/jour (L) — achetée sur place">
+        <Champ label="Essence/jour (L) — achetée à la station-service">
           <input className="input" value={essence} onChange={(e) => setEssence(e.target.value)} />
         </Champ>
         <Champ label="Logements (caravane, roulotte)">

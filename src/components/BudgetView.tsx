@@ -47,7 +47,7 @@ export function BudgetView() {
         </p>
         <p className="mute">
           Carburant du jour (flotte municipale + privés) :{" "}
-          {montantL(montant(dernierJour, "essence", etat.journal))} — la pompe est en ville (monde fermé).
+          {montantL(montant(dernierJour, "essence", etat.journal))} — l'essence s'achète à la station-service (monde fermé).
         </p>
         <p className="mute">
           Taux d'imposition : {((etat.params.tauxImpotBp / 100) * 1).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} %
