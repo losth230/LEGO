@@ -33,9 +33,9 @@ export function createMondeDemonstration(): Etat {
     nouveauBatiment({ nom: "Quincaillerie du Port", type: "commerce", quartier: "Port", valeur: 300000, capacitePostes: 2 }),
     // Services locaux à vocation (monde 100 % fermé, arbitrage 2026-11-06) :
     // sans eux, aucune mécanique liée (soins, réparations, emprunts).
-    nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacitePostes: 4, vocation: "sante" }),
-    nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacitePostes: 4, vocation: "btp" }),
-    nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacitePostes: 2, vocation: "banque" }),
+    nouveauBatiment({ nom: "Hôpital Sainte-Brique", type: "commerce", quartier: "Nord", valeur: 1000000, etat: "neuf", capacitePostes: 4, vocations: ["sante"] }),
+    nouveauBatiment({ nom: "Bâtisseurs du Sud (BTP)", type: "commerce", quartier: "Sud", valeur: 350000, capacitePostes: 4, vocations: ["btp"] }),
+    nouveauBatiment({ nom: "Banque de Bricke-en-Provence", type: "commerce", quartier: "Centre", valeur: 800000, capacitePostes: 2, vocations: ["banque"] }),
     // Bureau de poste (v1.22, arbitrage Thibaut : entreprise privée) : La
     // Poste n'est pas municipale — le receveur tient la boutique, la ville
     // ne paie rien, le facteur est salarié payé par le flux du soir.
@@ -50,7 +50,7 @@ export function createMondeDemonstration(): Etat {
     // Station-service (v1.25, arbitrage Thibaut 2026-11-08) : la pompe
     // officielle et l'atelier des collisions — c'est elle qui gère les
     // accidents des véhicules, pas le BTP (qui ne répare que les bâtiments).
-    nouveauBatiment({ nom: "Station-service du Port", type: "commerce", quartier: "Port", valeur: 250000, capacitePostes: 2, vocation: "garage" }),
+    nouveauBatiment({ nom: "Station-service du Port", type: "commerce", quartier: "Port", valeur: 250000, capacitePostes: 2, vocations: ["garage"] }),
   ];
 
   const idMairie = batiments[0].id;

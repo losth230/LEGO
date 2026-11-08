@@ -25,8 +25,7 @@ export type TraitPnj = (typeof TRAITS_PNJ)[number];
 export type TypeBatiment = "habitation" | "commerce" | "service_public";
 
 /**
- * Vocation d'un commerce (monde 100 % fermé, arbitrage 2026-11-06) :
- * - null : boutique de consommation (achats des habitants, fonctionnement municipal) ;
+ * Vocations d'un commerce (monde 100 % fermé, arbitrage 2026-11-06) :
  * - "sante" : hôpital/clinique — facture les soins des accidents ;
  * - "btp" : entreprise de construction — répare les dégâts d'incendie ;
  * - "banque" : banque locale — prête à la ville, encaisse intérêts et remboursements ;
@@ -35,8 +34,14 @@ export type TypeBatiment = "habitation" | "commerce" | "service_public";
  * Phase 3.10 (correction Thibaut 2026-11-06) : la détention se joue au
  * commissariat, pas dans un commerce à vocation — pas de vocation « prison ».
  * Sans service à vocation en ville, aucune activité ni frais lié à ce service.
+ * v1.31 « Le magasin de village » : un commerce CUMULE les vocations cochées
+ * (station-service + superette, hôpital + banque…) et peut, en plus, vendre
+ * aux habitants (champ `boutique`).
  */
 export type Vocation = "sante" | "btp" | "banque" | "garage";
+
+/** Liste fermée des vocations (v1.31) — sert de filtre aux migrations et au contrat de formes. */
+export const VOCATIONS: Vocation[] = ["sante", "btp", "banque", "garage"];
 
 export type EtatBatiment = "neuf" | "bon" | "degrade" | "sinistre";
 
@@ -151,8 +156,15 @@ export interface Batiment {
    * figurines (batimentId) et offrir des postes de travail (travailBatimentId). */
   capaciteLogements: number;
   capacitePostes: number;
-  /** Vocation du commerce (2026-11-06) : null = boutique de consommation ; sinon service local (santé, BTP, banque). */
-  vocation?: Vocation | null;
+  /** Vocations du commerce (v1.31) : liste des services rendus — chaque
+   * vocation cochée fonctionne de façon indépendante (santé, BTP, banque,
+   * station-service). Liste vide : pas de service local. */
+  vocations: Vocation[];
+  /** v1.31 : le commerce vend AUSSI aux habitants (courses, fonctionnement
+   * municipal) en plus de ses vocations — la supérette de la station-service.
+   * Une ancienne boutique (vocation null) reste boutique ; un ancien service
+   * ne vend pas de courses, comportement inchangé pour les vieilles villes. */
+  boutique: boolean;
   /** v1.27 : en construction au BTP — le bâtiment est visible sur le
    * chantier mais ses capacités dorment (pas de courses, pas de service,
    * pas de fonctionnement, pas d'incident) jusqu'à la livraison. */

@@ -62,7 +62,7 @@ test("ville de démonstration : 16 bâtiments, 62 figurines (garnison, brigade, 
   // pompe et les accidents, pas le BTP), chacun tenu par son gérant. La
   // détention se joue au commissariat (Poste de police), pas dans un
   // bâtiment dédié.
-  const boutiques = m.batiments.filter((b) => b.type === "commerce" && !b.vocation);
+  const boutiques = m.batiments.filter((b) => b.type === "commerce" && b.boutique);
   assert.equal(boutiques.length, 4);
   assert.ok(serviceLocal(m, "sante") !== null, "l'hôpital est en ville et tenu");
   assert.ok(serviceLocal(m, "btp") !== null, "le BTP est en ville et tenu");
@@ -206,7 +206,7 @@ test("un jour : impôts retenus à la source, salaires versés, sorties tracées
   for (const [id, v] of Object.entries(j1.recettesCommerce!)) {
     // La station-service (vocation « garage ») n'encaisse que l'essence du
     // jour (35 L : 27 de flotte + 8 de privés) — pas d'achats de consommation.
-    if (j1.batiments.find((b) => b.id === id)?.vocation === "garage") {
+    if (j1.batiments.find((b) => b.id === id)?.vocations.includes("garage")) {
       assert.ok(v > 0 && v <= 4000, "station : l'essence du jour : " + v);
     } else {
       assert.ok(v > 70000, "recettes: " + v);
@@ -344,7 +344,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
   assert.equal(m.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
-  assert.equal(m.schemaVersion, 14, "v1 -> v14 : schema à jour");
+  assert.equal(m.schemaVersion, 15, "v1 -> v15 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -366,7 +366,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
-  assert.equal(v5.schemaVersion, 14, "v5 -> v14 : schema à jour");
+  assert.equal(v5.schemaVersion, 15, "v5 -> v15 : schema à jour");
   // v5 -> v6 : la vocation des bâtiments existants est complétée à null
   // (boutique de consommation par défaut), jamais devinée.
   const v5bat = migrerEtat({
@@ -378,10 +378,11 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
       { id: "b2", nom: "Mairie", type: "service_public" },
     ],
   });
-  assert.equal(v5bat.schemaVersion, 14, "v5 -> v14 : schema à jour");
+  assert.equal(v5bat.schemaVersion, 15, "v5 -> v15 : schema à jour");
   assert.ok(
-    v5bat.batiments.every((b) => b.vocation === null),
-    "v5 -> v6 : vocation des bâtiments complétée (boutique par défaut)",
+    v5bat.batiments.every((b) => b.vocations.length === 0 &&
+      (b.type === "commerce" ? b.boutique === true : b.boutique === false)),
+    "v5 -> v15 : anciens commerces complétés en boutiques, aucun service inventé (la case boutique ne concerne que les commerces)",
   );
   assert.equal(v5bat.batiments.length, 2, "les bâtiments du joueur sont conservés");
   assert.ok(
@@ -392,7 +393,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   // par défaut passe de 10 % à 30 % — une ville restée à l'ancien défaut
   // monte au nouveau taux, un taux choisi reste le sien.
   const v6defaut = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 1000, coeffIntensite: 2 } });
-  assert.equal(v6defaut.schemaVersion, 14, "v6 -> v14 : schema à jour");
+  assert.equal(v6defaut.schemaVersion, 15, "v6 -> v15 : schema à jour");
   assert.equal(v6defaut.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
   assert.equal(v6defaut.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP, "v6 -> v7 : l'ancien défaut 10 % devient 30 %");
   const v6choisi = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 555, coeffIntensite: 2 } });
@@ -417,7 +418,7 @@ test("capacités séparées (v1.24) : un bâtiment peut loger et employer à la 
       { id: "b2", nom: "Le Fournil Doré", type: "commerce", capacite: 2 },
     ],
   });
-  assert.equal(vieux.schemaVersion, 14, "v8 -> v14 : schema à jour");
+  assert.equal(vieux.schemaVersion, 15, "v8 -> v15 : schema à jour");
   const maison = vieux.batiments.find((x) => x.id === "b1")!;
   assert.equal(maison.capaciteLogements, 4, "habitation : la capacité devient des logements");
   assert.equal(maison.capacitePostes, 0, "habitation : aucun poste inventé");
@@ -434,7 +435,7 @@ test("essence (v1.25) : le carburant s'achète à la station-service, la ville e
   // Thibaut 2026-11-08 : c'est elle qui gère la pompe et les accidents,
   // pas le BTP), son pompiste, la flotte et une privée.
   const base = calme(createMondeDefaut());
-  const pompe = nouveauBatiment({ nom: "Station-service du Centre", type: "commerce", vocation: "garage" });
+  const pompe = nouveauBatiment({ nom: "Station-service du Centre", type: "commerce", vocations: ["garage"] });
   const pompiste = nouveauPnj({ prenom: "Essa", nom: "Pompiste", statut: "commercant", batimentId: pompe.id, revenuIndicatif: 6000, compte: 0 });
   const perrine = nouveauPnj({ prenom: "Perrine", nom: "Volant", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 5000 });
   const monde: Etat = {
@@ -488,7 +489,7 @@ test("essence (v1.25) : sans station-service en ville, la flotte dort au garage 
 
 test("migrations v9 -> v10 (v1.25) : les véhicules sont complétés, jamais inventés", () => {
   const v9 = migrerEtat({ schemaVersion: 9, jour: 4 });
-  assert.equal(v9.schemaVersion, 14, "v9 -> v14 : schema à jour");
+  assert.equal(v9.schemaVersion, 15, "v9 -> v15 : schema à jour");
   assert.deepEqual(v9.vehicules, [], "un état v9 sans véhicules obtient une liste vide, pas une flotte inventée");
   // Payload tordu : un véhicule d'import aux champs manquants est complété
   // au défaut (privé, bon état, essence 0), jamais deviné.
@@ -541,7 +542,7 @@ test("éditeur de véhicules (v1.25) : la caravane loge, on la retire — plus r
 
 test("migrations v10 -> v12 (v1.26) : la file d'arbitrages est complétée, jamais inventée", () => {
   const v10 = migrerEtat({ schemaVersion: 10, jour: 4 });
-  assert.equal(v10.schemaVersion, 14, "v10 -> v14 : schema à jour");
+  assert.equal(v10.schemaVersion, 15, "v10 -> v15 : schema à jour");
   assert.deepEqual(v10.arbitrages, [], "un état v10 sans file d'arbitrages obtient une liste vide");
   // Payload tordu : seuls les arbitrages bien formés traversent la
   // migration — rien n'est décodé en force, rien n'est inventé.
@@ -573,4 +574,114 @@ test("migrations v10 -> v12 (v1.26) : la file d'arbitrages est complétée, jama
   assert.equal(tordu.arbitrages!.length, 1, "seul l'arbitrage bien formé traverse la migration");
   assert.equal(tordu.arbitrages![0].id, "arb-j1-0", "la file valide est conservée telle quelle");
   assert.equal(tordu.arbitrages![0].expireLe, 4, "l'échéance du maître du jeu est conservée");
+});
+
+// ---------- v1.31 : le magasin de village (vocations multiples) ----------
+
+test("vocations multiples (v1.31) : un commerce rend deux services, sans vendre de courses", () => {
+  // L'Hôtel des Bricoles cumule santé ET banque : le même gérant tient les
+  // deux comptoirs (case « boutique » décochée : pas de courses ici).
+  const base = calme(createMondeDefaut());
+  const maison = nouveauBatiment({
+    nom: "Hôtel des Bricoles", type: "commerce", quartier: "Centre",
+    valeur: 800000, capacitePostes: 2, vocations: ["sante", "banque"], boutique: false,
+  });
+  const gerant = nouveauPnj({
+    prenom: "Guy", nom: "Tout-Faire", metier: "patron polyvalent", statut: "commercant",
+    batimentId: maison.id, revenuIndicatif: 6000, budgetAchat: 0, compte: 0,
+  });
+  const monde: Etat = { ...base, batiments: [maison], pnjs: [gerant] };
+  assert.equal(serviceLocal(monde, "sante")?.bat.id, maison.id, "le service santé est rendu");
+  assert.equal(serviceLocal(monde, "banque")?.bat.id, maison.id, "le service banque est rendu par le même commerce");
+  assert.equal(serviceLocal(monde, "btp"), null, "le BTP n'est pas coché : pas de service");
+  const avant = monnaieEnCircuit(monde);
+  const j1 = passerJour(monde);
+  assert.ok(!j1.recettesCommerce?.[maison.id], "sans case boutique, aucune course n'est encaissée");
+  assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte");
+});
+
+test("magasin de village (v1.31) : station-service ET supérette dans le même commerce", () => {
+  // Le Relais cumule la pompe (vocation « garage ») et le comptoir de courses
+  // (case « boutique ») : essence et courses rejoignent la même caisse.
+  const base = calme(createMondeDefaut());
+  const relais = nouveauBatiment({
+    nom: "Le Relais du Sud", type: "commerce", quartier: "Sud",
+    valeur: 250000, capacitePostes: 2, vocations: ["garage"], boutique: true,
+  });
+  const gerante = nouveauPnj({
+    prenom: "Rita", nom: "Comptoir", metier: "gérante du relais", statut: "commercant",
+    batimentId: relais.id, revenuIndicatif: 5500, budgetAchat: 0, compte: 100000,
+  });
+  const acheteur = nouveauPnj({
+    prenom: "Paul", nom: "Poussette", statut: "prive",
+    revenuIndicatif: 4000, budgetAchat: 30000, compte: 30000,
+  });
+  const monde: Etat = {
+    ...base,
+    batiments: [relais],
+    pnjs: [gerante, acheteur],
+    vehicules: [
+      nouveauVehicule({ nom: "Fourgonnette de Rita", categorie: "prive", proprietairePnjId: gerante.id, essenceJour: 700 }),
+    ],
+  };
+  const avant = monnaieEnCircuit(monde);
+  const j1 = passerJour(monde);
+  assert.equal(serviceLocal(j1, "garage")?.bat.id, relais.id, "le relais EST la station-service de la ville");
+  const essence = entrees(1, "essence", j1.journal);
+  assert.equal(essence.length, 1, "l'essence du jour est vendue au relais");
+  assert.equal(essence[0].montant, 700, "le plein de la fourgonnette");
+  const achats = entrees(1, "achats", j1.journal);
+  assert.equal(achats.length, 1, "les courses du jour sont racontées");
+  assert.ok(achats[0].montant > 0, "le comptoir du même commerce encaisse les courses");
+  assert.ok(achats[0].texte.includes("Relais du Sud"), "le relais raconte ses ventes au comptoir");
+  assert.equal(
+    j1.recettesCommerce![relais.id],
+    700 + achats[0].montant,
+    "essence et courses rejoignent la même caisse du soir",
+  );
+  assert.equal(monnaieEnCircuit(j1), avant, "conservation exacte : l'argent a seulement circulé");
+});
+
+test("migration v14 -> v15 (v1.31) : la vocation devient une liste de services, la boutique une case", () => {
+  const demo = createMondeDemonstration();
+  const batV14 = (id: string, nom: string, vocation: unknown) => ({
+    id, nom, type: "commerce", quartier: "Port", valeur: 100000, etat: "bon",
+    coutFonctionnement: 0, capaciteLogements: 0, capacitePostes: 1, vocation,
+  });
+  const v14 = migrerEtat({
+    ...createMondeDefaut(),
+    schemaVersion: 14,
+    jour: 2,
+    batiments: [
+      batV14("bat-station", "Station du Port", "garage"),
+      batV14("bat-boutique", "Supérette du Port", null),
+      batV14("bat-tordu", "Cabinet tordu", "beaucoup"),
+      batV14("bat-prison", "Ancienne prison", "prison"),
+    ] as unknown as typeof demo.batiments,
+  });
+  assert.equal(v14.schemaVersion, 15, "v14 -> v15 : schema à jour");
+  const station = v14.batiments.find((b) => b.id === "bat-station")!;
+  assert.deepEqual(station.vocations, ["garage"], "l'ancienne vocation devient une liste");
+  assert.equal(station.boutique, false, "un ancien service ne vend pas de courses : comportement inchangé");
+  const boutique = v14.batiments.find((b) => b.id === "bat-boutique")!;
+  assert.deepEqual(boutique.vocations, [], "une ancienne boutique n'a aucune vocation");
+  assert.equal(boutique.boutique, true, "elle reste boutique");
+  const tordu = v14.batiments.find((b) => b.id === "bat-tordu")!;
+  assert.deepEqual(tordu.vocations, [], "une vocation tordue est jetée, jamais inventée");
+  const prison = v14.batiments.find((b) => b.id === "bat-prison")!;
+  assert.deepEqual(prison.vocations, [], "la correction v1.15 traverse : « prison » redevient une boutique");
+  assert.equal(prison.boutique, true, "l'ancienne prison vend des courses");
+  assert.ok(v14.batiments.every((b) => !("vocation" in b)), "plus de champ vocation nulle part");
+  // Re-ingestion d'un état v15 : les choix du joueur (vocations multiples,
+  // case boutique) sont conservés au centime près ; une liste tordue est
+  // filtrée sur la liste fermée.
+  const relais = { ...boutique, id: "bat-relais", nom: "Le Relais", vocations: ["garage", "banque"], boutique: true };
+  const relaisTordu = { ...relais, id: "bat-relais-tordu", vocations: ["garage", "sante", "beaucoup"], boutique: "peut-être" };
+  const v15 = migrerEtat({ ...v14, batiments: [...v14.batiments, relais, relaisTordu] as unknown as typeof demo.batiments });
+  const relais2 = v15.batiments.find((b) => b.id === "bat-relais")!;
+  assert.deepEqual(relais2.vocations, ["garage", "banque"], "les vocations multiples sont conservées");
+  assert.equal(relais2.boutique, true, "la case boutique est conservée");
+  const relaisTordu2 = v15.batiments.find((b) => b.id === "bat-relais-tordu")!;
+  assert.deepEqual(relaisTordu2.vocations, ["garage", "sante"], "une liste tordue est filtrée sur la liste fermée");
+  assert.equal(relaisTordu2.boutique, false, "un drapeau tordu retombe au défaut : un service ne vend pas de courses");
 });

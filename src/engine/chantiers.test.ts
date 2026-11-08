@@ -48,12 +48,12 @@ import { calme, entrees } from "./outils-test.ts";
 /** Le BTP de la ville de démonstration (patronne Samantha, 4 postes —
  * v1.28 : l'équipe Didier-Thomas et ses engins en font le chantier témoin). */
 function idBtp(m: Etat): string {
-  return m.batiments.find((b) => b.vocation === "btp")!.id;
+  return m.batiments.find((b) => b.vocations.includes("btp"))!.id;
 }
 
 /** Vider le BTP de ses employés et de ses engins (isolation des tests). */
 function btpVeuf(m: Etat): Etat {
-  const btp = m.batiments.find((b) => b.vocation === "btp")!.id;
+  const btp = m.batiments.find((b) => b.vocations.includes("btp"))!.id;
   return {
     ...m,
     pnjs: m.pnjs.map((p) => (p.travailBatimentId === btp ? { ...p, travailBatimentId: null } : p)),
@@ -63,7 +63,7 @@ function btpVeuf(m: Etat): Etat {
 
 /** La station-service de la démonstration (gérant Marco). */
 function idStation(m: Etat): string {
-  return m.batiments.find((b) => b.vocation === "garage")!.id;
+  return m.batiments.find((b) => b.vocations.includes("garage"))!.id;
 }
 
 /** Embauche n employés privés dans un bâtiment (chantier : les ouvriers du BTP). */
@@ -100,7 +100,7 @@ test("chantier : le lancement marque la cible « en construction » et chiffré 
 test("amorçage : sans constructeur en ville, le chantier avance à la main (1/jour, sans paiement)", () => {
   const m = lancerChantierBatiment(
     createMondeDefaut(),
-    nouveauBatiment({ nom: "Hangar des Bâtisseurs", type: "commerce", valeur: 350000, vocation: "btp" }),
+    nouveauBatiment({ nom: "Hangar des Bâtisseurs", type: "commerce", valeur: 350000, vocations: ["btp"] }),
   );
   const j1 = passerJour(m);
   const c = j1.chantiers![0];
@@ -227,7 +227,7 @@ test("plein impossible (v1.29) : sans station ou sans caisse, l'engin reste à s
   // Sans station-service en ville : la pompe n'existe pas, l'engin municipal
   // à sec ne produit pas et ne dépense rien.
   let m = btpVeuf(createMondeDemonstration());
-  const station = m.batiments.find((b) => b.vocation === "garage")!;
+  const station = m.batiments.find((b) => b.vocations.includes("garage"))!;
   m = supprimerBatiment(m, station.id);
   m = ajouterVehicule(
     m,
@@ -495,9 +495,9 @@ test("chantiers : un bâtiment en construction n'est ni boutique ni service ni c
   assert.equal(chargesJournalieres(m), chargesAvant, "pas de fonctionnement facturé pour un chantier");
 });
 
-// ---------- Migrations v11 / v12 / v13 -> v14 ----------
+// ---------- Migrations v11 / v12 / v13 -> v15 ----------
 
-test("migration v11 -> v14 : la file des chantiers est filtrée, jamais inventée", () => {
+test("migration v11 -> v15 : la file des chantiers est filtrée, jamais inventée", () => {
   const demo = createMondeDemonstration();
   const valide = {
     id: "cha-001",
@@ -515,7 +515,7 @@ test("migration v11 -> v14 : la file des chantiers est filtrée, jamais inventé
     schemaVersion: 11,
     chantiers: [valide, null, 42, { id: "" }, { id: "tordu", jour: "hier" }] as unknown as typeof demo.chantiers,
   });
-  assert.equal(v11.schemaVersion, 14, "v11 -> v14 : schema à jour");
+  assert.equal(v11.schemaVersion, 15, "v11 -> v15 : schema à jour");
   assert.equal(v11.chantiers!.length, 1, "seul le chantier bien formé est conservé");
   assert.equal(v11.chantiers![0].travauxFaits, 30, "l'avancement est conservé");
   // Un bâtiment v11 (sans le champ) est forcément achevé.
@@ -524,7 +524,7 @@ test("migration v11 -> v14 : la file des chantiers est filtrée, jamais inventé
   assert.equal(nue.chantiers!.length, 0, "une vieille sauvegarde n'a pas de file");
 });
 
-test("migration v12 -> v14 : l'efficacité d'un engin n'est jamais inventée", () => {
+test("migration v12 -> v15 : l'efficacité d'un engin n'est jamais inventée", () => {
   const demo = createMondeDemonstration();
   const engin = (id: string, e: unknown) => ({
     ...demo.vehicules![0],
@@ -543,7 +543,7 @@ test("migration v12 -> v14 : l'efficacité d'un engin n'est jamais inventée", (
     schemaVersion: 12,
     vehicules: [engin("veh-trois", 3), engin("veh-un", 1), engin("veh-tordu", "beaucoup"), engin("veh-zero", 0)] as unknown as typeof demo.vehicules,
   });
-  assert.equal(v12.schemaVersion, 14, "v12 -> v14 : schema à jour");
+  assert.equal(v12.schemaVersion, 15, "v12 -> v15 : schema à jour");
   assert.equal(v12.vehicules!.length, 4, "les engins migrent");
   assert.equal(v12.vehicules![0].efficacite, 3, "une fiche valable est conservée");
   assert.equal(v12.vehicules![1].efficacite, 1, "même la plus petite fiche");
@@ -552,7 +552,7 @@ test("migration v12 -> v14 : l'efficacité d'un engin n'est jamais inventée", (
   assert.equal(efficaciteEngin(v12.vehicules![2]), 2, "sans fiche, l'engin produit 2 (défaut)");
 });
 
-test("migration v13 -> v14 : la jauge du réservoir n'est jamais inventée", () => {
+test("migration v13 -> v15 : la jauge du réservoir n'est jamais inventée", () => {
   const demo = createMondeDemonstration();
   const engin = (id: string, c: unknown) => ({
     ...demo.vehicules![0],
@@ -577,7 +577,7 @@ test("migration v13 -> v14 : la jauge du réservoir n'est jamais inventée", () 
       { ...engin("veh-famille", 42), categorie: "prive", role: null },
     ] as unknown as typeof demo.vehicules,
   });
-  assert.equal(v13.schemaVersion, 14, "v13 -> v14 : schema à jour");
+  assert.equal(v13.schemaVersion, 15, "v13 -> v15 : schema à jour");
   assert.equal(v13.vehicules!.length, 5, "les véhicules migrent");
   assert.equal(v13.vehicules![0].carburant, 7, "une jauge lisible est conservée");
   assert.equal(v13.vehicules![1].carburant, 50, "une valeur tordue devient un plein — jamais à sec par accident");

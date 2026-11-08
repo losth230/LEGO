@@ -16,8 +16,9 @@ export const ROLES_VEHICULE: RoleVehicule[] = ["pompiers", "police", "proprete",
 
 /** Vocations des commerces (monde 100 % fermé, 2026-11-06 ; pas de vocation
  * « prison » : les détenus sont gardés au commissariat, correction 3.10). */
-export const VOCATIONS_BATIMENT: Array<{ valeur: Vocation | null; libelle: string }> = [
-  { valeur: null, libelle: "Boutique (consommation)" },
+// v1.31 : les vocations se cochent (un commerce en cumule plusieurs) ; la
+// vente au comptoir (courses) est une case séparée, indépendante des services.
+export const VOCATIONS_BATIMENT: Array<{ valeur: Vocation; libelle: string }> = [
   { valeur: "sante", libelle: "Santé (facture les soins)" },
   { valeur: "btp", libelle: "BTP (répare les bâtiments)" },
   { valeur: "banque", libelle: "Banque (prête à la ville)" },

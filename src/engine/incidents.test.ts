@@ -77,7 +77,7 @@ test("incendie sans pompiers ni budget : le bâtiment reste sinistré, les caiss
   let m = createMondeDemonstration();
   // v1.28 : l'équipe du BTP (Didier, Thomas) est dégagée pour isoler les
   // réparations — sans masse salariale, la patronne ne touche qu'aux incendies.
-  const idBtp = m.batiments.find((b) => b.vocation === "btp")!.id;
+  const idBtp = m.batiments.find((b) => b.vocations.includes("btp"))!.id;
   m = {
     ...m,
     pnjs: m.pnjs.map((p) => (p.travailBatimentId === idBtp ? { ...p, travailBatimentId: null } : p)),
@@ -132,7 +132,7 @@ test("incendie avec budget : les réparations encaissées par le BTP local reste
   m.vehicules = [];
   // v1.28 : sans équipe (Didier, Thomas), pas de masse salariale — la
   // patronne n'encaisse que les réparations, au centime.
-  const idBtp = m.batiments.find((b) => b.vocation === "btp")!.id;
+  const idBtp = m.batiments.find((b) => b.vocations.includes("btp"))!.id;
   m = {
     ...m,
     pnjs: m.pnjs.map((p) => (p.travailBatimentId === idBtp ? { ...p, travailBatimentId: null } : p)),
@@ -293,7 +293,7 @@ test("collision (v1.25) : la station-service locale répare, le véhicule reste 
   // la collision). Les figurines comptent dans la règle d'échelle des
   // incidents (R × P × K / 10000 / 365).
   const base = calme(createMondeDefaut());
-  const station = nouveauBatiment({ nom: "Station-service du coin", type: "commerce", vocation: "garage" });
+  const station = nouveauBatiment({ nom: "Station-service du coin", type: "commerce", vocations: ["garage"] });
   const tempo = nouveauPnj({ prenom: "Essa", nom: "Pompiste", metier: "gérant de station-service", statut: "commercant", batimentId: station.id, revenuIndicatif: 5500, budgetAchat: 0, compte: 0 });
   const figurines = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) =>
     nouveauPnj({ prenom: "Figurante" + i, nom: "Témoin", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 0 }),

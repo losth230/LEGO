@@ -624,9 +624,11 @@ function journaliserJour(
     const detail: string[] = [];
     for (const [batId, somme] of totaux.encaissements) {
       const bat = etat.batiments.find((b) => b.id === batId);
-      // Les services à vocation (santé, BTP, banque) ne sont pas des courses :
+      // Les services sans case « boutique » ne sont pas des courses :
       // leurs recettes sont racontées par les incidents et le flux du soir.
-      if (bat && !bat.vocation) detail.push(bat.nom + " : " + fmt(somme));
+      // v1.31 : un magasin multi-services coché « boutique » raconte ici
+      // ses ventes au comptoir, comme n'importe quelle supérette.
+      if (bat && bat.boutique) detail.push(bat.nom + " : " + fmt(somme));
     }
     j.push({
       jour: etat.jour,

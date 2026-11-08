@@ -79,10 +79,18 @@ function LigneBatiment({ batiment: b }: { batiment: Batiment }) {
       </td>
       <td>
         <span className={"badge " + t.classe}>{t.libelle}</span>
-        {b.type === "commerce" && b.vocation ? (
+        {b.type === "commerce" && b.vocations.length > 0 ? (
           <>
             {" "}
-            <span className="badge badge-vocation">{ETIQUETTES_VOCATION[b.vocation]}</span>
+            {b.vocations.map((v) => (
+              <span key={v} className="badge badge-vocation">{ETIQUETTES_VOCATION[v]}</span>
+            ))}
+          </>
+        ) : null}
+        {b.type === "commerce" && b.boutique ? (
+          <>
+            {" "}
+            <span className="badge badge-vocation">🛒 Boutique</span>
           </>
         ) : null}
       </td>

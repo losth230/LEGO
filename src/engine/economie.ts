@@ -49,19 +49,20 @@ export function joursDeMarge(etat: Etat): number {
 /** Nombre de magasins ouverts pour un acheteur (un commerçant n'achète pas chez lui). */
 export function commercesPourAcheteur(etat: Etat, pnj: Pnj): Batiment[] {
   return etat.batiments.filter((b) => {
-    if (b.type !== "commerce" || b.vocation || b.enConstruction === true) return false;
+    if (b.type !== "commerce" || !b.boutique || b.enConstruction === true) return false;
     const proprio = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
     return proprio !== undefined && proprio.id !== pnj.id;
   });
 }
 
-/** Boutiques de consommation ouvertes : un commerce sans vocation n'est ouvert que s'il a son commerçant. */
+/** Boutiques de consommation ouvertes (v1.31) : un commerce coché « boutique »
+ * n'est ouvert que s'il a son commerçant — il peut aussi porter des vocations. */
 export function boutiquesOuvertes(etat: Etat): Batiment[] {
   return etat.batiments.filter(
     (b) =>
       b.type === "commerce" &&
       b.enConstruction !== true &&
-      !b.vocation &&
+      b.boutique &&
       etat.pnjs.some((p) => p.batimentId === b.id && p.statut === "commercant"),
   );
 }
@@ -78,7 +79,8 @@ export function serviceLocal(
 ): { bat: Batiment; gerant: Pnj } | null {
   for (const b of etat.batiments) {
     // v1.27 : un service en construction ne rend aucun service.
-    if (b.type !== "commerce" || b.vocation !== vocation || b.enConstruction === true) continue;
+    // v1.31 : le commerce cumule ses vocations cochées.
+    if (b.type !== "commerce" || !b.vocations.includes(vocation) || b.enConstruction === true) continue;
     const gerant = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
     if (gerant) return { bat: b, gerant };
   }

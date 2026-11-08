@@ -93,6 +93,7 @@ export function nouveauGang(p: { nom: string; quartiers: string[] }): Gang {
 }
 
 export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Batiment["type"] }): Batiment {
+  const vocations = p.vocations ?? [];
   return {
     id: p.id ?? nouvelId("bat"),
     nom: p.nom,
@@ -103,7 +104,10 @@ export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Bati
     coutFonctionnement: p.coutFonctionnement ?? 0,
     capaciteLogements: p.capaciteLogements ?? 0,
     capacitePostes: p.capacitePostes ?? 0,
-    vocation: p.vocation ?? null,
+    vocations,
+    // v1.31 : boutique par défaut pour un commerce sans vocation (comportement
+    // historique) ; un service rendu ne vend pas de courses sauf case cochée.
+    boutique: p.boutique ?? (p.type === "commerce" && vocations.length === 0),
   };
 }
 

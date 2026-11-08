@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useStore } from "../state/store.tsx";
 import type { Batiment, EtatBatiment, TypeBatiment, Vocation } from "../engine/types.ts";
+import { VOCATIONS } from "../engine/types.ts";
 import {
   COUT_EMPLOYE_PRIVE_L,
   montantL
@@ -60,7 +61,8 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
   const [etatBat, setEtatBat] = useState<EtatBatiment>(b.etat);
   const [capaciteLogements, setCapaciteLogements] = useState(b.capaciteLogements.toString());
   const [capacitePostes, setCapacitePostes] = useState(b.capacitePostes.toString());
-  const [vocation, setVocation] = useState<Vocation | null>(b.vocation ?? null);
+  const [vocations, setVocations] = useState<Vocation[]>(b.vocations);
+  const [boutique, setBoutique] = useState(b.boutique);
 
   const enregistrer = () => {
     majEtat(
@@ -73,7 +75,10 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
         coutFonctionnement: nombreL(fonctionnement),
         capaciteLogements: Number.isFinite(Number(capaciteLogements)) ? Number(capaciteLogements) : 0,
         capacitePostes: Number.isFinite(Number(capacitePostes)) ? Number(capacitePostes) : 0,
-        vocation: type === "commerce" ? vocation : null,
+        vocations: type === "commerce"
+          ? vocations.filter((v) => VOCATIONS.includes(v))
+          : [],
+        boutique: type === "commerce" ? boutique : false,
       }),
     );
     setOuvert(false);
@@ -118,17 +123,34 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
             <input className="input" value={quartier} onChange={(e) => setQuartier(e.target.value)} />
           </Champ>
           {type === "commerce" ? (
-            <Champ label="Vocation (monde fermé)">
-              <select
-                className="input"
-                value={vocation ?? ""}
-                onChange={(e) => setVocation((e.target.value || null) as Vocation | null)}
-              >
-                {VOCATIONS_BATIMENT.map((v) => (
-                  <option key={String(v.valeur)} value={v.valeur ?? ""}>{v.libelle}</option>
-                ))}
-              </select>
-            </Champ>
+            <>
+              <Champ label="Services (monde fermé, v1.31 : cumulables)">
+                <span className="col-coches">
+                  {VOCATIONS_BATIMENT.map((v) => (
+                    <label key={v.valeur}>
+                      <input
+                        type="checkbox"
+                        checked={vocations.includes(v.valeur)}
+                        onChange={(e) =>
+                          setVocations(
+                            e.target.checked
+                              ? [...vocations, v.valeur]
+                              : vocations.filter((x) => x !== v.valeur),
+                          )
+                        }
+                      />{" "}
+                      {v.libelle}
+                    </label>
+                  ))}
+                </span>
+              </Champ>
+              <Champ label="Vente au comptoir">
+                <label>
+                  <input type="checkbox" checked={boutique} onChange={(e) => setBoutique(e.target.checked)} />{" "}
+                  Boutique de consommation (courses des habitants)
+                </label>
+              </Champ>
+            </>
           ) : null}
           <Champ label="Valeur (L)">
             <input className="input" value={valeur} onChange={(e) => setValeur(e.target.value)} />
@@ -165,7 +187,8 @@ export function CarteBatiments() {
   const [fonctionnement, setFonctionnement] = useState("0");
   const [capaciteLogements, setCapaciteLogements] = useState("4");
   const [capacitePostes, setCapacitePostes] = useState("0");
-  const [vocation, setVocation] = useState<Vocation | null>(null);
+  const [vocations, setVocations] = useState<Vocation[]>([]);
+  const [boutique, setBoutique] = useState(true);
   // v1.27 : plus de création instantanée — un bâtiment entre en ville en
   // chantier, c'est le BTP qui le construit (onglet 🏗 Chantiers).
   const [travauxTotal, setTravauxTotal] = useState(TRAVAUX_DEFAUT.toString());
@@ -187,7 +210,10 @@ export function CarteBatiments() {
           coutFonctionnement: nombreL(fonctionnement),
           capaciteLogements: Number.isFinite(Number(capaciteLogements)) ? Number(capaciteLogements) : 0,
           capacitePostes: Number.isFinite(Number(capacitePostes)) ? Number(capacitePostes) : 0,
-          vocation: type === "commerce" ? vocation : null,
+          vocations: type === "commerce"
+          ? vocations.filter((v) => VOCATIONS.includes(v))
+          : [],
+        boutique: type === "commerce" ? boutique : false,
         }),
         {
           travauxTotal: Number.isFinite(Number(travauxTotal)) && Number(travauxTotal) >= 1
@@ -220,17 +246,34 @@ export function CarteBatiments() {
           </select>
         </Champ>
         {type === "commerce" ? (
-          <Champ label="Vocation (monde fermé)">
-            <select
-              className="input"
-              value={vocation ?? ""}
-              onChange={(e) => setVocation((e.target.value || null) as Vocation | null)}
-            >
-              {VOCATIONS_BATIMENT.map((v) => (
-                <option key={String(v.valeur)} value={v.valeur ?? ""}>{v.libelle}</option>
-              ))}
-            </select>
-          </Champ>
+          <>
+            <Champ label="Services (monde fermé, v1.31 : cumulables)">
+              <span className="col-coches">
+                {VOCATIONS_BATIMENT.map((v) => (
+                  <label key={v.valeur}>
+                    <input
+                      type="checkbox"
+                      checked={vocations.includes(v.valeur)}
+                      onChange={(e) =>
+                        setVocations(
+                          e.target.checked
+                            ? [...vocations, v.valeur]
+                            : vocations.filter((x) => x !== v.valeur),
+                        )
+                      }
+                    />{" "}
+                    {v.libelle}
+                  </label>
+                ))}
+              </span>
+            </Champ>
+            <Champ label="Vente au comptoir">
+              <label>
+                <input type="checkbox" checked={boutique} onChange={(e) => setBoutique(e.target.checked)} />{" "}
+                Boutique de consommation (courses des habitants)
+              </label>
+            </Champ>
+          </>
         ) : null}
         <Champ label="Quartier">
           <input className="input" value={quartier} onChange={(e) => setQuartier(e.target.value)} />

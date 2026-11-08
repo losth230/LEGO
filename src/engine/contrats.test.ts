@@ -66,9 +66,15 @@ function contratBatiment(x: Batiment, ou: string): void {
   assert.ok(typeof x.capacitePostes === "number" && x.capacitePostes >= 0,
     ou + " : capacitePostes");
   assert.ok(!("capacite" in x), ou + " : plus de champ capacite (v1.24)");
-  assert.ok(x.vocation === undefined || x.vocation === null ||
-    x.vocation === "sante" || x.vocation === "btp" || x.vocation === "banque" || x.vocation === "garage",
-    ou + " : vocation");
+  // v1.31 : la vocation unique devient une LISTE de vocations cochées
+  // (cumulables) + une case « boutique » — plus de champ vocation.
+  assert.ok(
+    Array.isArray(x.vocations) &&
+      x.vocations.every((v) => v === "sante" || v === "btp" || v === "banque" || v === "garage"),
+    ou + " : vocations (liste fermée)",
+  );
+  assert.ok(typeof x.boutique === "boolean", ou + " : boutique");
+  assert.ok(!("vocation" in x), ou + " : plus de champ vocation (v1.31)");
   // v1.27 : le drapeau de chantier, booléen ou absent (livré).
   assert.ok(x.enConstruction === undefined || typeof x.enConstruction === "boolean",
     ou + " : enConstruction");

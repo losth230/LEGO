@@ -5,10 +5,11 @@
 // une ville en cours (sauf état irrécupérable).
 
 import type { Arbitrage, Chantier, Etat, Pnj, Vehicule, Vocation } from "./types.ts";
+import { VOCATIONS } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 14;
+export const SCHEMA_VERSION_ETAT = 15;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -145,6 +146,24 @@ const GRADES_RETIRES: Record<string, string> = {
     // sont gardés au commissariat. Un bâtiment sauvegardé sous v1.14 avec
     // l'ancienne vocation « prison » redevient une boutique ordinaire.
     const vocationBrute = (x as Partial<{ vocation?: unknown }>).vocation;
+    // Migration v14 -> v15 (v1.31, le magasin de village) : la vocation
+    // unique devient une LISTE de vocations cochées, accompagnée d'une
+    // case « boutique » (courses des habitants en plus des services).
+    // Une ancienne boutique (vocation absente ou null) reste boutique ;
+    // un ancien service garde sa vocation et ne vend pas de courses —
+    // les villes existantes ne changent pas d'un centime. Une liste
+    // tordue est filtrée sur la liste fermée, jamais inventée.
+    const vocationsBrutes = (x as Partial<{ vocations?: unknown }>).vocations;
+    const ancienneVocation =
+      vocationBrute === "prison" || vocationBrute == null
+        ? null
+        : (vocationBrute as Vocation);
+    const vocations = Array.isArray(vocationsBrutes)
+      ? vocationsBrutes.filter((v): v is Vocation => VOCATIONS.includes(v as Vocation))
+      : ancienneVocation !== null && VOCATIONS.includes(ancienneVocation)
+        ? [ancienneVocation]
+        : [];
+    const boutiqueBrute = (x as Partial<{ boutique?: unknown }>).boutique;
     // Migration v8 -> v9 (v1.24) : la capacité unique se dédouble — un
     // bâtiment peut à la fois loger des figurines et employer du monde.
     // L'ancienne valeur est répartie selon le type (habitation -> logements,
@@ -165,8 +184,13 @@ const GRADES_RETIRES: Record<string, string> = {
       capaciteLogements:
         typeof logementsBrut === "number" ? logementsBrut : habitation ? capacite : 0,
       capacitePostes: typeof postesBrut === "number" ? postesBrut : habitation ? 0 : capacite,
-      vocation:
-        vocationBrute === "prison" ? null : ((vocationBrute as Vocation | null) ?? null),
+      vocations,
+      boutique:
+        typeof boutiqueBrute === "boolean"
+          ? boutiqueBrute
+          : x.type === "commerce"
+            ? vocations.length === 0
+            : false,
       // Migration v11 -> v12 (v1.27, chantiers) : un bâtiment existant est
       // forcément achevé — un état sans le champ reste livré, jamais
       // coincé en construction.

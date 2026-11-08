@@ -225,7 +225,7 @@ test("v1.22 : le bureau de poste est privé — receveur patron, facteur salari�
   const bureau = m.batiments.find((b) => b.nom.includes("Bureau de poste"));
   assert.ok(bureau, "le bureau de poste existe");
   assert.equal(bureau.type, "commerce");
-  assert.equal(bureau.vocation ?? null, null, "une boutique comme les autres : timbres et colis");
+  assert.ok(bureau.vocations.length === 0 && bureau.boutique === true, "une boutique comme les autres : timbres et colis");
   const receveur = m.pnjs.find((p) => p.metier === "receveur de la poste");
   const facteur = m.pnjs.find((p) => p.metier === "facteur");
   assert.ok(receveur && facteur, "l'équipe existe");
