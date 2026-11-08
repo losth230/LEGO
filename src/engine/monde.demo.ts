@@ -222,7 +222,7 @@ export function createMondeDemonstration(): Etat {
   etudiant.batimentId = vehicules[6].id;
 
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
@@ -232,6 +232,7 @@ export function createMondeDemonstration(): Etat {
     dette: 0,
     mouvementsBanqueCumules: 0,
     arbitrages: [],
+    chantiers: [],
     gangs: [
       {
         id: "gang-corbeaux",

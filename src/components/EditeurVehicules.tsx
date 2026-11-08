@@ -1,5 +1,7 @@
 // Panneau Véhicules (v1.25) : flotte municipale et véhicules privés —
 // mêmes capacités que les bâtiments (logements, postes de travail).
+// v1.27 : plus de création instantanée — un véhicule entre en ville en
+// chantier, c'est la station-service qui l'assemble.
 
 import { useState } from "react";
 import { useStore } from "../state/store.tsx";
@@ -10,11 +12,12 @@ import type {
   Vehicule,
 } from "../engine/types.ts";
 import {
-  ajouterVehicule,
+  lancerChantierVehicule,
   modifierVehicule,
   nouveauVehicule,
   supprimerVehicule,
 } from "../engine/monde.ts";
+import { TRAVAUX_DEFAUT, coutChantier } from "../engine/chantiers.ts";
 import {
   Champ,
   nombreL,
@@ -180,11 +183,17 @@ export function CarteVehicules() {
   const [postes, setPostes] = useState("0");
   const [proprietaire, setProprietaire] = useState("");
   const [garage, setGarage] = useState("");
+  // v1.27 : le véhicule entre en ville en chantier — la station-service
+  // l'assemble (onglet 🏗 Chantiers).
+  const [travauxTotal, setTravauxTotal] = useState(TRAVAUX_DEFAUT.toString());
+  const [cout, setCout] = useState("");
 
-  const ajouter = () => {
+  const coutDefaut = coutChantier(nombreL(valeur));
+
+  const lancer = () => {
     if (nom.trim() === "") return;
     majEtat(
-      ajouterVehicule(
+      lancerChantierVehicule(
         etat,
         nouveauVehicule({
           nom: nom.trim(),
@@ -198,6 +207,12 @@ export function CarteVehicules() {
           proprietairePnjId: categorie === "prive" && proprietaire !== "" ? proprietaire : null,
           garageBatimentId: garage === "" ? null : garage,
         }),
+        {
+          travauxTotal: Number.isFinite(Number(travauxTotal)) && Number(travauxTotal) >= 1
+            ? Math.round(Number(travauxTotal))
+            : TRAVAUX_DEFAUT,
+          coutCentimes: cout.trim() === "" ? undefined : Math.max(0, nombreL(cout)),
+        },
       ),
     );
     setNom("");
@@ -209,7 +224,7 @@ export function CarteVehicules() {
       {(etat.vehicules ?? []).map((v) => (
         <LigneVehiculeEdit key={v.id} vehicule={v} />
       ))}
-      <h3>+ Ajouter un véhicule</h3>
+      <h3>+ Lancer un chantier (v1.27 : la station-service assemble)</h3>
       <div className="formulaire">
         <Champ label="Nom">
           <input className="input" value={nom} onChange={(e) => setNom(e.target.value)} />
@@ -275,7 +290,13 @@ export function CarteVehicules() {
             ))}
           </select>
         </Champ>
-        <button className="bouton" onClick={ajouter}>Ajouter</button>
+        <Champ label="Valeur des travaux (1 mécanicien = 1 travail/jour)">
+          <input className="input" value={travauxTotal} onChange={(e) => setTravauxTotal(e.target.value)} />
+        </Champ>
+        <Champ label={"Coût total (L) — vide = 50 % de la valeur (" + versL(coutDefaut) + " L)"}>
+          <input className="input" value={cout} onChange={(e) => setCout(e.target.value)} />
+        </Champ>
+        <button className="bouton" onClick={lancer}>🏗 Lancer le chantier</button>
       </div>
     </div>
   );

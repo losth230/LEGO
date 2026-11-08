@@ -4,11 +4,11 @@
 // d'une version à l'autre se contentent de compléter, jamais de jeter
 // une ville en cours (sauf état irrécupérable).
 
-import type { Arbitrage, Etat, Pnj, Vehicule, Vocation } from "./types.ts";
+import type { Arbitrage, Chantier, Etat, Pnj, Vehicule, Vocation } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 11;
+export const SCHEMA_VERSION_ETAT = 12;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -167,6 +167,10 @@ const GRADES_RETIRES: Record<string, string> = {
       capacitePostes: typeof postesBrut === "number" ? postesBrut : habitation ? 0 : capacite,
       vocation:
         vocationBrute === "prison" ? null : ((vocationBrute as Vocation | null) ?? null),
+      // Migration v11 -> v12 (v1.27, chantiers) : un bâtiment existant est
+      // forcément achevé — un état sans le champ reste livré, jamais
+      // coincé en construction.
+      enConstruction: x.enConstruction === true,
     };
   });
   // Migration v9 -> v10 (v1.25) : les véhicules débarquent — un état v9 ou
@@ -180,7 +184,7 @@ const GRADES_RETIRES: Record<string, string> = {
       nom: typeof v.nom === "string" ? v.nom : "",
       categorie: categorieBrute === "municipal" || categorieBrute === "prive" ? categorieBrute : "prive",
       role:
-        roleBrut === "pompiers" || roleBrut === "police" || roleBrut === "proprete" || roleBrut === "sante"
+        roleBrut === "pompiers" || roleBrut === "police" || roleBrut === "proprete" || roleBrut === "sante" || roleBrut === "chantier"
           ? roleBrut
           : null,
       quartier: typeof v.quartier === "string" ? v.quartier : "Centre",
@@ -201,6 +205,8 @@ const GRADES_RETIRES: Record<string, string> = {
         typeof (v as Partial<{ garageBatimentId?: unknown }>).garageBatimentId === "string"
           ? (v as Partial<{ garageBatimentId?: string }>).garageBatimentId!
           : null,
+      // Migration v11 -> v12 (v1.27) : un véhicule existant est achevé.
+      enConstruction: v.enConstruction === true,
     };
   });
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;
@@ -218,6 +224,25 @@ const GRADES_RETIRES: Record<string, string> = {
       typeof (a as Partial<Arbitrage>).jour === "number" &&
       typeof (a as Partial<Arbitrage>).expireLe === "number" &&
       Array.isArray((a as Partial<Arbitrage>).propositions),
+  );
+  // Migration v11 -> v12 (v1.27, chantiers) : les vieilles sauvegardes
+  // n'ont pas de file de chantiers ; un import tordu ne garde que les
+  // chantiers bien formés (id, jour, cible, travaux et coûts lisibles,
+  // jamais devinés).
+  const chantiers: Chantier[] = (Array.isArray(b.chantiers) ? b.chantiers : []).filter(
+    (c): c is Chantier =>
+      c !== null &&
+      typeof c === "object" &&
+      typeof (c as Partial<Chantier>).id === "string" &&
+      (c as Partial<Chantier>).id !== "" &&
+      typeof (c as Partial<Chantier>).jour === "number" &&
+      (typeof (c as Partial<Chantier>).cibleBatimentId === "string" ||
+        typeof (c as Partial<Chantier>).cibleVehiculeId === "string") &&
+      typeof (c as Partial<Chantier>).travauxTotal === "number" &&
+      (c as Partial<Chantier>).travauxTotal! > 0 &&
+      typeof (c as Partial<Chantier>).travauxFaits === "number" &&
+      typeof (c as Partial<Chantier>).coutCentimes === "number" &&
+      typeof (c as Partial<Chantier>).coutPaye === "number",
   );
   const recettesCommerce =
     b.recettesCommerce !== null && typeof b.recettesCommerce === "object"
@@ -277,6 +302,7 @@ const GRADES_RETIRES: Record<string, string> = {
     batiments,
     vehicules,
     arbitrages,
+    chantiers,
     journal,
     recettesCommerce,
   };

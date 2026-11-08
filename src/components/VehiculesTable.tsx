@@ -17,6 +17,7 @@ const LIBELLES_ROLE: Record<RoleVehicule, string> = {
   police: "🚓 Police",
   proprete: "🧹 Propreté",
   sante: "🚑 Santé",
+  chantier: "🏗 Chantier",
 };
 
 export function VehiculesTable() {
@@ -64,9 +65,24 @@ function LigneVehicule({ vehicule: v }: { vehicule: Vehicule }) {
   const garage = v.garageBatimentId
     ? etat.batiments.find((b) => b.id === v.garageBatimentId)
     : null;
+  // v1.27 : le véhicule en construction est visible, capacités inactives.
+  const chantier = v.enConstruction
+    ? (etat.chantiers ?? []).find((c) => c.cibleVehiculeId === v.id)
+    : undefined;
+  const pct = chantier
+    ? Math.min(100, Math.round((chantier.travauxFaits / Math.max(1, chantier.travauxTotal)) * 100))
+    : 0;
   return (
     <tr>
-      <td>{v.nom}</td>
+      <td>
+        {v.nom}
+        {v.enConstruction ? (
+          <>
+            {" "}
+            <span className="badge badge-chantier">🏗 en chantier {pct} %</span>
+          </>
+        ) : null}
+      </td>
       <td>
         {v.categorie === "municipal" ? (
           <>

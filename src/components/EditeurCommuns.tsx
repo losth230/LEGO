@@ -10,8 +10,9 @@ export const TYPES_BATIMENT: TypeBatiment[] = ["habitation", "commerce", "servic
 export const ETATS_BATIMENT: EtatBatiment[] = ["neuf", "bon", "degrade", "sinistre"];
 
 // v1.25 : la ville roule — catégories et rôles des véhicules.
+// v1.27 : rôle « chantier » — l'engin produit 2 travaux/jour sur l'ouvrage en cours.
 export const CATEGORIES_VEHICULE: CategorieVehicule[] = ["municipal", "prive"];
-export const ROLES_VEHICULE: RoleVehicule[] = ["pompiers", "police", "proprete", "sante"];
+export const ROLES_VEHICULE: RoleVehicule[] = ["pompiers", "police", "proprete", "sante", "chantier"];
 
 /** Vocations des commerces (monde 100 % fermé, 2026-11-06 ; pas de vocation
  * « prison » : les détenus sont gardés au commissariat, correction 3.10). */

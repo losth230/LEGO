@@ -7,7 +7,10 @@
 // -> essence des véhicules (v1.25 : carburant acheté à la station-service,
 // sans station ou sans argent le véhicule ne roule pas et son rôle dort)
 // -> intérêts (banque locale) -> achats (budget effectif modulé par les
-// traits, phase 3.10) -> incidents de la journée (v1.26 : tirés et
+// traits, phase 3.10) -> CHANTIERS (v1.27 : le premier chantier de la
+// file avance — ouvriers du constructeur et engins produisent, le
+// payeur règle l'acompte au prorata, la cible est livrée achevée)
+// -> incidents de la journée (v1.26 : tirés et
 // NOTIFIÉS — le maître du jeu tranche l'issue dans l'onglet Arbitrages ;
 // sans réponse sous 3 jours, la pire issue s'impose seule ; les faits —
 // engins, renforts, hôpital — se rejouent sur les moyens du jour de
@@ -57,6 +60,7 @@ import {
   budgetAchat
 } from "./economie.ts";
 import { appliquerArbitrage, creerArbitrage, idPire } from "./arbitrages.ts";
+import { etapeChantiers } from "./chantiers.ts";
 // Ré-exports de compatibilité : les 12 helpers purs vivent dans economie.ts
 // (extraction du 2026-11-06), les imports existants continuent de marcher.
 export {
@@ -106,6 +110,9 @@ interface Totaux {
   essencePrivee: number;
   roulent: Set<string>; // ids des véhicules qui roulent aujourd'hui
   vehiculesImmobilises: number; // sans carburant aujourd'hui
+  // --- v1.27 : les chantiers ---
+  chantiersPayes: number; // acomptes du jour versés aux constructeurs
+  travauxJour: number; // travaux produits aujourd'hui
 }
 
 function etapeSalaires(etat: Etat, totaux: Totaux): JournalEntree[] {
@@ -212,6 +219,9 @@ function etapeEssence(etat: Etat, totaux: Totaux): void {
   const station = serviceLocal(etat, "garage");
   for (const veh of vehicules) {
     if (veh.etat === "sinistre") continue;
+    // v1.27 : un véhicule en construction ne consomme pas d'essence —
+    // il ne roule pas, son rôle et ses capacités dorment.
+    if (veh.enConstruction === true) continue;
     if (veh.essenceJour <= 0) {
       totaux.roulent.add(veh.id); // véhicule sans consommation : il roule toujours
       continue;
@@ -327,6 +337,9 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
   if (etat.recettesCommerce === undefined) etat.recettesCommerce = {};
   for (const bat of etat.batiments) {
     if (bat.type !== "commerce") continue;
+    // v1.27 : un commerce en construction n'est pas ouvert — rien
+    // encaissé, aucun salaire dû tant que le chantier n'est pas livré.
+    if (bat.enConstruction === true) continue;
     const proprio = etat.pnjs.find(
       (p) => p.batimentId === bat.id && p.statut === "commercant",
     );
@@ -666,6 +679,12 @@ function journaliserJour(
       ((etat.arbitrages?.length ?? 0) > 0
         ? " — " + (etat.arbitrages?.length ?? 0) + " arbitrage(s) attendent le maître du jeu (onglet Arbitrages)"
         : "") +
+      (totaux.chantiersPayes > 0
+        ? " — " + fmt(totaux.chantiersPayes) + " versés aux chantiers (investissement)"
+        : "") +
+      ((etat.chantiers?.length ?? 0) > 0
+        ? " — " + (etat.chantiers?.length ?? 0) + " chantier(s) en cours (onglet Chantiers)"
+        : "") +
       ".",
     montant: solde,
   });
@@ -739,6 +758,8 @@ export function passerJour(etat: Etat): Etat {
     essencePrivee: 0,
     roulent: new Set(),
     vehiculesImmobilises: 0,
+    chantiersPayes: 0,
+    travauxJour: 0,
   };
   // Règlement quotidien (arbitrage 2026-11-06) : l'impôt n'est plus une étape
   // du matin — il est retenu à la source sur chaque gain versé dans la journée
@@ -748,6 +769,14 @@ export function passerJour(etat: Etat): Etat {
   etapeEssence(e, totaux);
   etapeInterets(e, totaux);
   etapeAchats(e, totaux);
+  // Chantiers (v1.27, arbitrage Thibaut 2026-11-08) : plus rien ne se
+  // crée instantanément — le premier chantier de la file avance (ouvriers
+  // du BTP ou de la station, engins de chantier), le payeur règle
+  // l'acompte au prorata, l'acompte rejoint les recettes du soir du
+  // constructeur (monde fermé). Après l'étape essence : seuls les engins
+  // qui ont roulé produisent.
+  e.chantiers ??= [];
+  const entreesChantiers = etapeChantiers(e, totaux);
   // Les incidents arrivent dans la journée (frais d'hôpital, réparations)
   // et sont NOTIFIÉS (v1.26) : le maître du jeu tranche l'issue dans
   // l'onglet Arbitrages, le règlement du soir (flux) redistribue les
@@ -779,7 +808,13 @@ export function passerJour(etat: Etat): Etat {
   }
   e.arbitrages = restants;
   const entreesFlux = etapeSalariesPrives(e, totaux);
-  journaliserJour(e, totaux, entreesFlux, [...entreesIncidents, ...expirations], entreesSecours);
+  journaliserJour(
+    e,
+    totaux,
+    entreesFlux,
+    [...entreesChantiers, ...entreesIncidents, ...expirations],
+    entreesSecours,
+  );
   return e;
 }
 

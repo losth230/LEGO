@@ -58,11 +58,24 @@ function LigneBatiment({ batiment: b }: { batiment: Batiment }) {
   const t = ETIQUETTES_TYPE[b.type];
   const occupants = etat.pnjs.filter((p) => p.batimentId === b.id);
   const proprio = occupants.find((p) => p.statut === "commercant");
+  // v1.27 : le bâtiment en construction est visible, capacités inactives.
+  const chantier = b.enConstruction
+    ? (etat.chantiers ?? []).find((c) => c.cibleBatimentId === b.id)
+    : undefined;
+  const pct = chantier
+    ? Math.min(100, Math.round((chantier.travauxFaits / Math.max(1, chantier.travauxTotal)) * 100))
+    : 0;
   return (
     <tr>
       <td>
         {t.icone} {b.nom}
         {proprio ? <span className="mute"> — tenu par {proprio.prenom} {proprio.nom}</span> : null}
+        {b.enConstruction ? (
+          <>
+            {" "}
+            <span className="badge badge-chantier">🏗 en chantier {pct} %</span>
+          </>
+        ) : null}
       </td>
       <td>
         <span className={"badge " + t.classe}>{t.libelle}</span>

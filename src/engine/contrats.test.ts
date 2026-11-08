@@ -6,12 +6,13 @@
 // Exécution : npm test.
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { Arbitrage, Batiment, Pnj, Vehicule } from "./types.ts";
-import { createMondeDefaut, modifierVille } from "./monde.ts";
+import type { Arbitrage, Batiment, Chantier, Pnj, Vehicule } from "./types.ts";
+import { createMondeDefaut, lancerChantierBatiment, modifierVille, nouveauBatiment } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
 import { migrerEtat } from "./migrations.ts";
 import { passerJour } from "./moteur.ts";
 import { DELAI_ARBITRAGE_JOURS } from "./arbitrages.ts";
+import { TRAVAUX_DEFAUT } from "./chantiers.ts";
 
 /** Vérifie qu'un PNJ respecte les formes déclarées dans types.ts. */
 function contratPnj(p: Pnj, ou: string): void {
@@ -68,6 +69,9 @@ function contratBatiment(x: Batiment, ou: string): void {
   assert.ok(x.vocation === undefined || x.vocation === null ||
     x.vocation === "sante" || x.vocation === "btp" || x.vocation === "banque" || x.vocation === "garage",
     ou + " : vocation");
+  // v1.27 : le drapeau de chantier, booléen ou absent (livré).
+  assert.ok(x.enConstruction === undefined || typeof x.enConstruction === "boolean",
+    ou + " : enConstruction");
 }
 
 /** Vérifie qu'un véhicule respecte les formes déclarées dans types.ts (v1.25). */
@@ -77,7 +81,7 @@ function contratVehicule(v: Vehicule, ou: string): void {
   assert.ok(v.categorie === "municipal" || v.categorie === "prive", ou + " : categorie");
   assert.ok(
     v.role === null || v.role === "pompiers" || v.role === "police" ||
-      v.role === "proprete" || v.role === "sante",
+      v.role === "proprete" || v.role === "sante" || v.role === "chantier",
     ou + " : role",
   );
   assert.ok(typeof v.quartier === "string", ou + " : quartier");
@@ -97,6 +101,8 @@ function contratVehicule(v: Vehicule, ou: string): void {
   assert.ok(v.gangId === null || typeof v.gangId === "string", ou + " : gangId");
   assert.ok(v.garageBatimentId === null || typeof v.garageBatimentId === "string",
     ou + " : garageBatimentId");
+  assert.ok(v.enConstruction === undefined || typeof v.enConstruction === "boolean",
+    ou + " : enConstruction");
 }
 
 /** Vérifie qu'un arbitrage respecte les formes déclarées dans types.ts (v1.26). */
@@ -138,6 +144,30 @@ function contratArbitrage(a: Arbitrage, ou: string): void {
     ou + " : btpBatimentId",
   );
   assert.ok(m.commissariat === undefined || typeof m.commissariat === "boolean", ou + " : commissariat");
+}
+
+/** Vérifie qu'un chantier respecte les formes déclarées dans types.ts (v1.27). */
+function contratChantier(c: Chantier, ou: string): void {
+  assert.ok(typeof c.id === "string" && c.id !== "", ou + " : id");
+  assert.ok(typeof c.jour === "number", ou + " : jour");
+  assert.ok(
+    typeof c.cibleBatimentId === "string" || typeof c.cibleVehiculeId === "string",
+    ou + " : une cible, bâtiment ou véhicule",
+  );
+  assert.ok(c.payeurPnjId === null || typeof c.payeurPnjId === "string", ou + " : payeurPnjId");
+  assert.ok(
+    typeof c.travauxTotal === "number" && Number.isFinite(c.travauxTotal) && c.travauxTotal >= 1,
+    ou + " : travauxTotal (une valeur de travaux, pas une durée)",
+  );
+  assert.ok(
+    typeof c.travauxFaits === "number" && c.travauxFaits >= 0 && c.travauxFaits <= c.travauxTotal,
+    ou + " : travauxFaits borné par le total",
+  );
+  assert.ok(typeof c.coutCentimes === "number" && c.coutCentimes >= 0, ou + " : coutCentimes");
+  assert.ok(
+    typeof c.coutPaye === "number" && c.coutPaye >= 0 && c.coutPaye <= c.coutCentimes,
+    ou + " : coutPaye borné par le coût total (au prorata, jamais plus)",
+  );
 }
 
 test("contrat : la ville de démonstration respecte les formes de types.ts", () => {
@@ -251,4 +281,33 @@ test("contrat : une file d'arbitrages hostile ressort vide ou propre (payloads t
   const j1 = passerJour(m);
   assert.ok((j1.arbitrages ?? []).length >= 2, "des incidents attendent le maître du jeu");
   for (const a of j1.arbitrages ?? []) contratArbitrage(a, "après 1 jour");
+});
+
+test("contrat : une file de chantiers hostile ressort vide ou propre (payloads tordus)", () => {
+  const e = createMondeDemonstration();
+  // v1.27 : la file de chantiers n'est pas un tableau -> complétée à vide.
+  (e as unknown as Record<string, unknown>).chantiers = "pas une liste";
+  let rel = migrerEtat(JSON.parse(JSON.stringify(e)));
+  assert.ok(
+    Array.isArray(rel.chantiers) && rel.chantiers.length === 0,
+    "chantiers non-tableau -> []",
+  );
+  // Des entrées tordues sont filtrées, jamais décodées en force.
+  (e as unknown as Record<string, unknown>).chantiers = [{ prix: "tordu" }, null, 17];
+  rel = migrerEtat(JSON.parse(JSON.stringify(e)));
+  assert.equal(rel.chantiers!.length, 0, "chantiers mal formés filtrés, rien n'est inventé");
+  // Les chantiers produits par le moteur respectent les formes.
+  const propre = createMondeDemonstration();
+  const lance = lancerChantierBatiment(
+    propre,
+    nouveauBatiment({ nom: "Pavillon des Contrats", type: "habitation", valeur: 300000 }),
+    { travauxTotal: TRAVAUX_DEFAUT },
+  );
+  assert.ok((lance.chantiers ?? []).length === 1, "un chantier est lancé");
+  for (const c of lance.chantiers ?? []) contratChantier(c, "au lancement");
+  // Une fois livré, le chantier quitte la file sans casser les formes.
+  const j1 = passerJour(lance);
+  for (const c of j1.chantiers ?? []) contratChantier(c, "après 1 jour");
+  const vise = j1.batiments.find((b) => b.nom === "Pavillon des Contrats")!;
+  assert.ok(vise.enConstruction === true, "le bâtiment reste en construction (100 travaux)");
 });

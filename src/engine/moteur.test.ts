@@ -283,7 +283,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
   assert.equal(m.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
-  assert.equal(m.schemaVersion, 11, "v1 -> v11 : schema à jour");
+  assert.equal(m.schemaVersion, 12, "v1 -> v12 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -305,7 +305,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
-  assert.equal(v5.schemaVersion, 11, "v5 -> v11 : schema à jour");
+  assert.equal(v5.schemaVersion, 12, "v5 -> v12 : schema à jour");
   // v5 -> v6 : la vocation des bâtiments existants est complétée à null
   // (boutique de consommation par défaut), jamais devinée.
   const v5bat = migrerEtat({
@@ -317,7 +317,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
       { id: "b2", nom: "Mairie", type: "service_public" },
     ],
   });
-  assert.equal(v5bat.schemaVersion, 11, "v5 -> v11 : schema à jour");
+  assert.equal(v5bat.schemaVersion, 12, "v5 -> v12 : schema à jour");
   assert.ok(
     v5bat.batiments.every((b) => b.vocation === null),
     "v5 -> v6 : vocation des bâtiments complétée (boutique par défaut)",
@@ -331,7 +331,7 @@ test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
   // par défaut passe de 10 % à 30 % — une ville restée à l'ancien défaut
   // monte au nouveau taux, un taux choisi reste le sien.
   const v6defaut = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 1000, coeffIntensite: 2 } });
-  assert.equal(v6defaut.schemaVersion, 11, "v6 -> v11 : schema à jour");
+  assert.equal(v6defaut.schemaVersion, 12, "v6 -> v12 : schema à jour");
   assert.equal(v6defaut.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
   assert.equal(v6defaut.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP, "v6 -> v7 : l'ancien défaut 10 % devient 30 %");
   const v6choisi = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 555, coeffIntensite: 2 } });
@@ -356,7 +356,7 @@ test("capacités séparées (v1.24) : un bâtiment peut loger et employer à la 
       { id: "b2", nom: "Le Fournil Doré", type: "commerce", capacite: 2 },
     ],
   });
-  assert.equal(vieux.schemaVersion, 11, "v8 -> v11 : schema à jour");
+  assert.equal(vieux.schemaVersion, 12, "v8 -> v12 : schema à jour");
   const maison = vieux.batiments.find((x) => x.id === "b1")!;
   assert.equal(maison.capaciteLogements, 4, "habitation : la capacité devient des logements");
   assert.equal(maison.capacitePostes, 0, "habitation : aucun poste inventé");
@@ -427,7 +427,7 @@ test("essence (v1.25) : sans station-service en ville, la flotte dort au garage 
 
 test("migrations v9 -> v10 (v1.25) : les véhicules sont complétés, jamais inventés", () => {
   const v9 = migrerEtat({ schemaVersion: 9, jour: 4 });
-  assert.equal(v9.schemaVersion, 11, "v9 -> v11 : schema à jour");
+  assert.equal(v9.schemaVersion, 12, "v9 -> v12 : schema à jour");
   assert.deepEqual(v9.vehicules, [], "un état v9 sans véhicules obtient une liste vide, pas une flotte inventée");
   // Payload tordu : un véhicule d'import aux champs manquants est complété
   // au défaut (privé, bon état, essence 0), jamais deviné.
@@ -474,9 +474,9 @@ test("éditeur de véhicules (v1.25) : la caravane loge, on la retire — plus r
   assert.ok(m.journal.some((e) => e.texte.includes("quitte la ville")), "le départ est raconté");
 });
 
-test("migrations v10 -> v11 (v1.26) : la file d'arbitrages est complétée, jamais inventée", () => {
+test("migrations v10 -> v12 (v1.26) : la file d'arbitrages est complétée, jamais inventée", () => {
   const v10 = migrerEtat({ schemaVersion: 10, jour: 4 });
-  assert.equal(v10.schemaVersion, 11, "v10 -> v11 : schema à jour");
+  assert.equal(v10.schemaVersion, 12, "v10 -> v12 : schema à jour");
   assert.deepEqual(v10.arbitrages, [], "un état v10 sans file d'arbitrages obtient une liste vide");
   // Payload tordu : seuls les arbitrages bien formés traversent la
   // migration — rien n'est décodé en force, rien n'est inventé.

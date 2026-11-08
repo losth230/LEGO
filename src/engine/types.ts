@@ -48,7 +48,7 @@ export type EtatBatiment = "neuf" | "bon" | "degrade" | "sinistre";
  * bâtiments : logements (caravane) et postes de travail (fourgon du facteur).
  */
 export type CategorieVehicule = "municipal" | "prive";
-export type RoleVehicule = "pompiers" | "police" | "proprete" | "sante";
+export type RoleVehicule = "pompiers" | "police" | "proprete" | "sante" | "chantier";
 
 export interface Vehicule {
   id: string;
@@ -71,6 +71,9 @@ export interface Vehicule {
   gangId: string | null;
   /** Bâtiment auquel le véhicule est affecté (garage, caserne, boutique) — ses postes s'y ajoutent. */
   garageBatimentId: string | null;
+  /** v1.27 : en construction à la station-service — pas d'essence, pas de
+   * rôle, pas de capacité active tant que le chantier n'est pas livré. */
+  enConstruction?: boolean;
 }
 
 export interface Pnj {
@@ -141,6 +144,10 @@ export interface Batiment {
   capacitePostes: number;
   /** Vocation du commerce (2026-11-06) : null = boutique de consommation ; sinon service local (santé, BTP, banque). */
   vocation?: Vocation | null;
+  /** v1.27 : en construction au BTP — le bâtiment est visible sur le
+   * chantier mais ses capacités dorment (pas de courses, pas de service,
+   * pas de fonctionnement, pas d'incident) jusqu'à la livraison. */
+  enConstruction?: boolean;
 }
 
 export type TypeJournal =
@@ -153,6 +160,7 @@ export type TypeJournal =
   | "flux"
   | "incident"
   | "arbitrage"
+  | "chantier"
   | "solde"
   | "systeme";
 
@@ -233,6 +241,38 @@ export interface Arbitrage {
   propositions: PropositionArbitrage[];
 }
 
+/**
+ * Chantier (v1.27, arbitrage Thibaut 2026-11-08) : plus rien ne se crée
+ * instantanément — un bâtiment se construit au BTP, un véhicule à la
+ * station-service. La durée n'est pas un nombre de jours mais une
+ * VALEUR DE TRAVAUX (défaut 100) : chaque ouvrier du constructeur
+ * produit 1 travail/jour, chaque engin de chantier ayant roulé en
+ * produit 2. Le coût se règle AU FUR ET À MESURE, au prorata de
+ * l'avancement : la ville paie pour un acteur public, la figurine
+ * commanditaire pour un acteur privé. Un seul chantier avance par
+ * jour (le premier de la file, priorisable) ; sans constructeur en
+ * ville, le chantier avance « à la main » (1 travail/jour, coups de
+ * main bénévoles, sans paiement — la monnaie reste intacte).
+ */
+export interface Chantier {
+  id: string;
+  /** Jour de lancement. */
+  jour: number;
+  /** Cible : bâtiment (construit par le BTP) ou véhicule (station-service). */
+  cibleBatimentId: string | null;
+  cibleVehiculeId: string | null;
+  /** Payeur : null = la ville ; sinon la figurine qui commande (privé). */
+  payeurPnjId: string | null;
+  /** Valeur totale des travaux en unités (arbitrage Thibaut : la durée est une valeur fixe, ex. 100 — pas un nombre de jours). */
+  travauxTotal: number;
+  /** Travaux déjà produits. */
+  travauxFaits: number;
+  /** Coût total du chantier (centimes), payé au prorata de l'avancement. */
+  coutCentimes: number;
+  /** Coût déjà réglé au constructeur (centimes). */
+  coutPaye: number;
+}
+
 export interface ParamsVille {
   /** Taux d'imposition quotidien en points de base (762 = 7,62 %). */
   tauxImpotBp: number;
@@ -272,6 +312,8 @@ export interface Etat {
   vehicules?: Vehicule[];
   /** Incidents survenus, en attente d'arbitrage du joueur (v1.26). */
   arbitrages?: Arbitrage[];
+  /** Chantiers en cours (v1.27) : la file des constructions — un seul avance par jour. */
+  chantiers?: Chantier[];
   /**
    * Recettes du dernier jour par commerce (centimes) — modèle flux, phase 3.6.
    * Sert au calibrage des effectifs (effectif_max ≈ 0,88 × recettes / 57,75).

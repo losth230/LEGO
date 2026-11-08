@@ -27,13 +27,14 @@ export function chargesJournalieres(etat: Etat): number {
     .filter((p) => p.statut === "agent_public")
     .reduce((s, p) => s + Math.round(salaireJourL(p.grade ?? "") * 100), 0);
   const fonct = etat.batiments
-    .filter((b) => b.type === "service_public")
+    .filter((b) => b.type === "service_public" && b.enConstruction !== true)
     .reduce((s, b) => s + b.coutFonctionnement, 0);
   // v1.25 : le carburant de la flotte municipale est une charge quotidienne
   // (même convention que le fonctionnement : comptée même si elle ne sera
   // dépensée qu'en présence d'une boutique ouverte — estimation prudente).
+  // v1.27 : un véhicule en construction ne consomme rien.
   const essence = (etat.vehicules ?? [])
-    .filter((v) => v.categorie === "municipal" && v.etat !== "sinistre")
+    .filter((v) => v.categorie === "municipal" && v.etat !== "sinistre" && v.enConstruction !== true)
     .reduce((s, v) => s + v.essenceJour, 0);
   return salaires + fonct + essence + interetsDus(etat.dette);
 }
@@ -48,7 +49,7 @@ export function joursDeMarge(etat: Etat): number {
 /** Nombre de magasins ouverts pour un acheteur (un commerçant n'achète pas chez lui). */
 export function commercesPourAcheteur(etat: Etat, pnj: Pnj): Batiment[] {
   return etat.batiments.filter((b) => {
-    if (b.type !== "commerce" || b.vocation) return false;
+    if (b.type !== "commerce" || b.vocation || b.enConstruction === true) return false;
     const proprio = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
     return proprio !== undefined && proprio.id !== pnj.id;
   });
@@ -59,6 +60,7 @@ export function boutiquesOuvertes(etat: Etat): Batiment[] {
   return etat.batiments.filter(
     (b) =>
       b.type === "commerce" &&
+      b.enConstruction !== true &&
       !b.vocation &&
       etat.pnjs.some((p) => p.batimentId === b.id && p.statut === "commercant"),
   );
@@ -75,7 +77,8 @@ export function serviceLocal(
   vocation: Vocation,
 ): { bat: Batiment; gerant: Pnj } | null {
   for (const b of etat.batiments) {
-    if (b.type !== "commerce" || b.vocation !== vocation) continue;
+    // v1.27 : un service en construction ne rend aucun service.
+    if (b.type !== "commerce" || b.vocation !== vocation || b.enConstruction === true) continue;
     const gerant = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
     if (gerant) return { bat: b, gerant };
   }
@@ -172,7 +175,10 @@ export function budgetAchat(pnj: Pnj): number {
  */
 export function posteDePolice(etat: Etat): Batiment | undefined {
   return etat.batiments.find(
-    (b) => b.type === "service_public" && /police|commissariat/i.test(b.nom),
+    (b) =>
+      b.type === "service_public" &&
+      b.enConstruction !== true &&
+      /police|commissariat/i.test(b.nom),
   );
 }
 

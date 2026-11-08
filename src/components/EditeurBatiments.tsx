@@ -13,11 +13,12 @@ import {
   employesDuCommerce
 } from "../engine/moteur.ts";
 import {
-  ajouterBatiment,
+  lancerChantierBatiment,
   modifierBatiment,
   nouveauBatiment,
   supprimerBatiment
 } from "../engine/monde.ts";
+import { TRAVAUX_DEFAUT, coutChantier } from "../engine/chantiers.ts";
 import {
   Champ,
   nombreL,
@@ -165,11 +166,18 @@ export function CarteBatiments() {
   const [capaciteLogements, setCapaciteLogements] = useState("4");
   const [capacitePostes, setCapacitePostes] = useState("0");
   const [vocation, setVocation] = useState<Vocation | null>(null);
+  // v1.27 : plus de création instantanée — un bâtiment entre en ville en
+  // chantier, c'est le BTP qui le construit (onglet 🏗 Chantiers).
+  const [travauxTotal, setTravauxTotal] = useState(TRAVAUX_DEFAUT.toString());
+  const [cout, setCout] = useState("");
+  const [payeur, setPayeur] = useState("");
 
-  const ajouter = () => {
+  const coutDefaut = coutChantier(nombreL(valeur));
+
+  const lancer = () => {
     if (nom.trim() === "") return;
     majEtat(
-      ajouterBatiment(
+      lancerChantierBatiment(
         etat,
         nouveauBatiment({
           nom: nom.trim(),
@@ -181,6 +189,13 @@ export function CarteBatiments() {
           capacitePostes: Number.isFinite(Number(capacitePostes)) ? Number(capacitePostes) : 0,
           vocation: type === "commerce" ? vocation : null,
         }),
+        {
+          travauxTotal: Number.isFinite(Number(travauxTotal)) && Number(travauxTotal) >= 1
+            ? Math.round(Number(travauxTotal))
+            : TRAVAUX_DEFAUT,
+          coutCentimes: cout.trim() === "" ? undefined : Math.max(0, nombreL(cout)),
+          payeurPnjId: payeur === "" ? null : payeur,
+        },
       ),
     );
     setNom("");
@@ -192,7 +207,7 @@ export function CarteBatiments() {
       {etat.batiments.map((b) => (
         <LigneBatimentEdit key={b.id} batiment={b} />
       ))}
-      <h3>+ Ajouter un bâtiment</h3>
+      <h3>+ Lancer un chantier (v1.27 : rien n'apparaît fini, le BTP construit)</h3>
       <div className="formulaire">
         <Champ label="Nom">
           <input className="input" value={nom} onChange={(e) => setNom(e.target.value)} />
@@ -232,7 +247,21 @@ export function CarteBatiments() {
         <Champ label="Postes de travail">
           <input className="input" value={capacitePostes} onChange={(e) => setCapacitePostes(e.target.value)} />
         </Champ>
-        <button className="bouton" onClick={ajouter}>Ajouter</button>
+        <Champ label="Valeur des travaux (1 ouvrier = 1 travail/jour)">
+          <input className="input" value={travauxTotal} onChange={(e) => setTravauxTotal(e.target.value)} />
+        </Champ>
+        <Champ label={"Coût total (L) — vide = 50 % de la valeur (" + versL(coutDefaut) + " L)"}>
+          <input className="input" value={cout} onChange={(e) => setCout(e.target.value)} />
+        </Champ>
+        <Champ label="Payeur (la ville ou une figurine)">
+          <select className="input" value={payeur} onChange={(e) => setPayeur(e.target.value)}>
+            <option value="">La ville</option>
+            {etat.pnjs.map((p) => (
+              <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>
+            ))}
+          </select>
+        </Champ>
+        <button className="bouton" onClick={lancer}>🏗 Lancer le chantier</button>
       </div>
     </div>
   );

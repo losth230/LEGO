@@ -2,7 +2,7 @@
 // Monnaie en centimes ; budget d'achat par défaut = consommation de référence
 // (INSEE) pour un revenu médian ; comptes initiaux réalistes et modifiables.
 
-import type { Batiment, Etat, Gang, Pnj, Vehicule } from "./types.ts";
+import type { Batiment, Chantier, Etat, Gang, Pnj, Vehicule } from "./types.ts";
 import {
   ACHAT_REFERENCE_L,
   BUDGET_FACTEUR_MAX,
@@ -14,6 +14,7 @@ import {
 } from "./referentiel.ts";
 import { serviceLocal } from "./moteur.ts";
 import { appliquerArbitrage } from "./arbitrages.ts";
+import { coutChantier, nomCible, TRAVAUX_DEFAUT } from "./chantiers.ts";
 
 const REF_ACHAT = Math.round(ACHAT_REFERENCE_L * 100); // 5250 centimes = 52,50 L
 
@@ -142,7 +143,7 @@ export function reinitialiserIds(): void {
  * monde.demo.ts : retirée du jeu, elle reste la terre d'essai des tests. */
 export function createMondeDefaut(): Etat {
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
@@ -158,12 +159,13 @@ export function createMondeDefaut(): Etat {
     batiments: [],
     vehicules: [],
     arbitrages: [],
+    chantiers: [],
     journal: [
       {
         jour: 0,
         type: "systeme",
         texte:
-          "Jour 0 : un terrain nu et 5 000 L en caisse — aucun habitant, aucun bâtiment, aucun véhicule, aucun gang. Bricke-en-Provence attend ses premiers coups de crayon : ouvre l'éditeur et bâtis ta ville.",
+          "Jour 0 : un terrain nu et 5 000 L en caisse — aucun habitant, aucun bâtiment, aucun véhicule, aucun gang. Bricke-en-Provence attend ses premiers coups de crayon : ouvre l'éditeur et lance les premiers chantiers (un bâtiment se construit au BTP, un véhicule à la station-service — et sans constructeur en ville, le chantier avance à la main).",
       },
     ],
   };
@@ -326,6 +328,125 @@ export function resoudreArbitrage(etat: Etat, arbitrageId: string, propositionId
   for (const r of appliquerArbitrage(e, arb, propositionId)) {
     e.journal.push(r);
   }
+  return e;
+}
+
+// ---------- Chantiers (v1.27 : tout se construit, plus de création instantanée) ----------
+
+/** Options de lancement d'un chantier (défauts : travaux 100, coût = 50 % de la valeur). */
+export interface OptionsChantier {
+  /** Payeur : null = la ville ; sinon la figurine qui commande (acteur privé). */
+  payeurPnjId?: string | null;
+  /** Valeur totale des travaux (défaut TRAVAUX_DEFAUT = 100). */
+  travauxTotal?: number;
+  /** Coût total en centimes (défaut : la moitié de la valeur de la cible). */
+  coutCentimes?: number;
+}
+
+/**
+ * Lance le chantier d'un bâtiment (v1.27, arbitrage Thibaut 2026-11-08) :
+ * le bâtiment entre en ville EN CONSTRUCTION (visible, capacités
+ * inactives) et rejoint la file des chantiers — c'est le BTP local qui
+ * le construit ; sans BTP en ville, il avance à la main (1 travail/
+ * jour, sans paiement). Le coût se règle au prorata de l'avancement :
+ * la ville paie pour un acteur public, la figurine commanditaire pour
+ * un acteur privé. Un seul chantier avance par jour (FIFO).
+ */
+export function lancerChantierBatiment(etat: Etat, bat: Batiment, opts?: OptionsChantier): Etat {
+  const e = structuredClone(etat);
+  const travauxTotal = Math.max(1, Math.round(opts?.travauxTotal ?? TRAVAUX_DEFAUT));
+  const cout = Math.max(0, Math.round(opts?.coutCentimes ?? coutChantier(bat.valeur)));
+  const payeur =
+    opts?.payeurPnjId !== undefined && opts.payeurPnjId !== null
+      ? e.pnjs.find((p) => p.id === opts.payeurPnjId)
+      : null;
+  const chantier: Chantier = {
+    id: nouvelId("cha"),
+    jour: e.jour,
+    cibleBatimentId: bat.id,
+    cibleVehiculeId: null,
+    payeurPnjId: payeur ? payeur.id : null,
+    travauxTotal,
+    travauxFaits: 0,
+    coutCentimes: cout,
+    coutPaye: 0,
+  };
+  e.batiments.push({ ...bat, enConstruction: true });
+  e.chantiers = [...(e.chantiers ?? []), chantier];
+  const btp = serviceLocal(e, "btp");
+  raconter(
+    e,
+    "🏗 " + (btp ? btp.bat.nom + " ouvre le chantier" : "La ville ouvre le chantier") +
+      " de " + bat.nom + " : " + travauxTotal + " travaux" +
+      (btp ? " — ses ouvriers et ses engins y travailleront chaque jour" : " — sans BTP en ville, il avance à la main (1 travail/jour)") +
+      ", " + montantL(cout) + " réglés au fil de l'eau par " +
+      (payeur ? payeur.prenom + " " + payeur.nom : "la ville") +
+      (e.chantiers.length > 1 ? " ; il attend son tour derrière les chantiers en cours" : "") +
+      ".",
+  );
+  return e;
+}
+
+/**
+ * Lance le chantier d'un véhicule (v1.27) : le véhicule entre en ville EN
+ * CONSTRUCTION (pas d'essence, pas de rôle) — c'est la station-service
+ * locale qui l'assemble ; sans station en ville, il avance à la main.
+ */
+export function lancerChantierVehicule(etat: Etat, veh: Vehicule, opts?: OptionsChantier): Etat {
+  const e = structuredClone(etat);
+  const travauxTotal = Math.max(1, Math.round(opts?.travauxTotal ?? TRAVAUX_DEFAUT));
+  const cout = Math.max(0, Math.round(opts?.coutCentimes ?? coutChantier(veh.valeur)));
+  const payeur =
+    opts?.payeurPnjId !== undefined && opts.payeurPnjId !== null
+      ? e.pnjs.find((p) => p.id === opts.payeurPnjId)
+      : null;
+  const chantier: Chantier = {
+    id: nouvelId("cha"),
+    jour: e.jour,
+    cibleBatimentId: null,
+    cibleVehiculeId: veh.id,
+    payeurPnjId: payeur ? payeur.id : veh.categorie === "prive" ? veh.proprietairePnjId : null,
+    travauxTotal,
+    travauxFaits: 0,
+    coutCentimes: cout,
+    coutPaye: 0,
+  };
+  e.vehicules = [...(e.vehicules ?? []), { ...veh, enConstruction: true }];
+  e.chantiers = [...(e.chantiers ?? []), chantier];
+  const station = serviceLocal(e, "garage");
+  raconter(
+    e,
+    "🏗 " + (station ? station.bat.nom + " ouvre l'atelier" : "La ville ouvre le chantier") +
+      " de " + veh.nom + " : " + travauxTotal + " travaux" +
+      (station ? " — ses mécaniciens et les engins y travailleront chaque jour" : " — sans station-service en ville, il avance à la main (1 travail/jour)") +
+      ", " + montantL(cout) + " réglés au fil de l'eau par " +
+      (chantier.payeurPnjId !== null
+        ? (() => {
+            const p = e.pnjs.find((x) => x.id === chantier.payeurPnjId);
+            return p ? p.prenom + " " + p.nom : "son commanditaire";
+          })()
+        : "la ville") +
+      ".",
+  );
+  return e;
+}
+
+/**
+ * Le maître du jeu priorise un chantier : il passe en tête de la file —
+ * c'est lui qui avance au prochain règlement (un seul chantier par jour).
+ */
+export function prioriserChantier(etat: Etat, id: string): Etat {
+  const e = structuredClone(etat);
+  const file = e.chantiers ?? [];
+  const i = file.findIndex((c) => c.id === id);
+  if (i <= 0) return e;
+  const [ch] = file.splice(i, 1);
+  file.unshift(ch);
+  raconter(
+    e,
+    "🏗 Le maître du jeu priorise le chantier de " + nomCible(e, ch) +
+      " : c'est lui qui avancera au prochain règlement, les autres patientent.",
+  );
   return e;
 }
 

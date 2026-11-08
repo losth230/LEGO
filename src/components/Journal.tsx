@@ -14,6 +14,7 @@ const ETIQUETTES: Record<TypeJournal, { icone: string; libelle: string; classe: 
   flux: { icone: "🔁", libelle: "Flux privé", classe: "badge-flux" },
   incident: { icone: "🚨", libelle: "Incident", classe: "badge-incident" },
   arbitrage: { icone: "⚖️", libelle: "Arbitrage", classe: "badge-arbitrage" },
+  chantier: { icone: "🏗", libelle: "Chantier", classe: "badge-chantier" },
   solde: { icone: "📊", libelle: "Solde", classe: "badge-solde" },
   systeme: { icone: "🏙", libelle: "Ville", classe: "badge-systeme" },
 };

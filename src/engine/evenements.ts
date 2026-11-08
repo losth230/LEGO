@@ -146,9 +146,9 @@ export function quartierDe(etat: Etat, pnj: Pnj): string {
   return veh?.quartier ?? "";
 }
 
-/** Véhicules de la ville en état de rouler (pas sinistrés) — v1.25. */
+/** Véhicules de la ville en état de rouler (pas sinistrés, pas en chantier — v1.27) : v1.25. */
 export function vehiculesRoulables(etat: Etat): Vehicule[] {
-  return (etat.vehicules ?? []).filter((v) => v.etat !== "sinistre");
+  return (etat.vehicules ?? []).filter((v) => v.etat !== "sinistre" && v.enConstruction !== true);
 }
 
 /** Véhicules privés volables (pas sinistrés, pas au voleur lui-même) — v1.25. */
@@ -295,7 +295,12 @@ export function tirerIncidents(etat: Etat, jour: number): Incident[] {
     let agresseurId: string | null = null;
     let defenseurId: string | null = null;
     if (type === "incendie" && etat.batiments.length > 0) {
-      cibleId = etat.batiments[Math.floor(a() * etat.batiments.length)].id;
+      // v1.27 : un échafaudage ne brûle pas dans le récit — les bâtiments
+      // en construction sont épargnés par les incidents.
+      const candidats = etat.batiments.filter((b) => b.enConstruction !== true);
+      if (candidats.length > 0) {
+        cibleId = candidats[Math.floor(a() * candidats.length)].id;
+      }
     } else if (type === "cambriolage") {
       // Phase 3.9 : l'auteur est désigné par son profil criminel, la cible
       // par sa richesse. Un membre de gang ne vole que sur son territoire.

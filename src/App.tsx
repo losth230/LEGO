@@ -10,11 +10,12 @@ import { HabitantsTable } from "./components/HabitantsTable.tsx";
 import { BatimentsTable } from "./components/BatimentsTable.tsx";
 import { VehiculesTable } from "./components/VehiculesTable.tsx";
 import { Arbitrages } from "./components/Arbitrages.tsx";
+import { Chantiers } from "./components/Chantiers.tsx";
 import { BudgetView } from "./components/BudgetView.tsx";
 import { ReferentielsView } from "./components/ReferentielsView.tsx";
 import { Editeur } from "./components/Editeur.tsx";
 
-type Onglet = "journal" | "habitants" | "batiments" | "vehicules" | "arbitrages" | "budget" | "referentiels" | "editeur";
+type Onglet = "journal" | "habitants" | "batiments" | "vehicules" | "arbitrages" | "chantiers" | "budget" | "referentiels" | "editeur";
 
 const ONGLETS: Array<{ cle: Onglet; libelle: string }> = [
   { cle: "journal", libelle: "📖 Journal" },
@@ -22,6 +23,7 @@ const ONGLETS: Array<{ cle: Onglet; libelle: string }> = [
   { cle: "batiments", libelle: "🧱 Bâtiments" },
   { cle: "vehicules", libelle: "🚐 Véhicules" },
   { cle: "arbitrages", libelle: "⚖️ Arbitrages" },
+  { cle: "chantiers", libelle: "🏗 Chantiers" },
   { cle: "budget", libelle: "📊 Budget" },
   { cle: "referentiels", libelle: "📚 Référentiels" },
   { cle: "editeur", libelle: "🛠 Éditeur" },
@@ -73,6 +75,9 @@ function BarreVille(): ReactNode {
           {(etat.vehicules ?? []).length} véhicules
           {(etat.arbitrages ?? []).length > 0
             ? " · ⚖️ " + (etat.arbitrages ?? []).length + " arbitrage(s) en attente"
+            : ""}
+          {(etat.chantiers ?? []).length > 0
+            ? " · 🏗 " + (etat.chantiers ?? []).length + " chantier(s) en cours"
             : ""}
         </p>
       </div>
@@ -155,6 +160,9 @@ function Application(): ReactNode {
             {o.cle === "arbitrages" && (etat.arbitrages ?? []).length > 0
               ? " (" + (etat.arbitrages ?? []).length + ")"
               : ""}
+            {o.cle === "chantiers" && (etat.chantiers ?? []).length > 0
+              ? " (" + (etat.chantiers ?? []).length + ")"
+              : ""}
           </button>
         ))}
       </nav>
@@ -164,6 +172,7 @@ function Application(): ReactNode {
         {onglet === "batiments" ? <BatimentsTable /> : null}
         {onglet === "vehicules" ? <VehiculesTable /> : null}
         {onglet === "arbitrages" ? <Arbitrages /> : null}
+        {onglet === "chantiers" ? <Chantiers /> : null}
         {onglet === "budget" ? <BudgetView /> : null}
         {onglet === "referentiels" ? <ReferentielsView /> : null}
         {onglet === "editeur" ? <Editeur /> : null}
