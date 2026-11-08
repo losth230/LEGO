@@ -4,7 +4,7 @@
 import { useStore } from "../state/store.tsx";
 import type { EtatBatiment, RoleVehicule, Vehicule } from "../engine/types.ts";
 import { montantL } from "../engine/referentiel.ts";
-import { efficaciteEngin } from "../engine/chantiers.ts";
+import { CARBURANT_RESERVOIR_ENGIN, carburantEngin, efficaciteEngin } from "../engine/chantiers.ts";
 
 const ETIQUETTES_ETAT: Record<EtatBatiment, string> = {
   neuf: "neuf",
@@ -107,7 +107,13 @@ function LigneVehicule({ vehicule: v }: { vehicule: Vehicule }) {
       </td>
       <td>{v.quartier}</td>
       <td className="col-nombre">{montantL(v.valeur)}</td>
-      <td className="col-nombre">{v.essenceJour > 0 ? montantL(v.essenceJour) : "—"}</td>
+      <td className="col-nombre">
+        {v.role === "chantier"
+          ? "⛽ " + carburantEngin(v) + "/" + CARBURANT_RESERVOIR_ENGIN + (carburantEngin(v) < 1 ? " — à sec" : "")
+          : v.essenceJour > 0
+            ? montantL(v.essenceJour)
+            : "—"}
+      </td>
       <td>
         {loges.length}
         {v.capaciteLogements > 0 ? <span className="mute"> / {v.capaciteLogements}</span> : null}

@@ -222,6 +222,10 @@ function etapeEssence(etat: Etat, totaux: Totaux): void {
     // v1.27 : un véhicule en construction ne consomme pas d'essence —
     // il ne roule pas, son rôle et ses capacités dorment.
     if (veh.enConstruction === true) continue;
+    // v1.29 : un engin de chantier vit sur son RÉSERVOIR (50 L, 1 L par
+    // travail posé) — pas de passage à la pompe quotidienne ; quand il est
+    // à sec, c'est l'étape chantiers qui l'envoie faire le plein.
+    if (veh.role === "chantier") continue;
     if (veh.essenceJour <= 0) {
       totaux.roulent.add(veh.id); // véhicule sans consommation : il roule toujours
       continue;
@@ -773,8 +777,9 @@ export function passerJour(etat: Etat): Etat {
   // crée instantanément — le premier chantier de la file avance (ouvriers
   // du BTP ou de la station, engins de chantier), le payeur règle
   // l'acompte au prorata, l'acompte rejoint les recettes du soir du
-  // constructeur (monde fermé). Après l'étape essence : seuls les engins
-  // qui ont roulé produisent.
+  // constructeur (monde fermé). v1.29 : les engins puisent dans leur
+  // réservoir (1 L par travail) ; à sec, ils passent la journée à faire
+  // le plein à la station-service et ne produisent pas.
   e.chantiers ??= [];
   const entreesChantiers = etapeChantiers(e, totaux);
   // Les incidents arrivent dans la journée (frais d'hôpital, réparations)

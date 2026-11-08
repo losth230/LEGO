@@ -17,6 +17,7 @@ import {
   lancerChantierBatiment,
   lancerChantierVehicule,
   modifierPnj,
+  modifierVehicule,
   modifierVille,
   nouveauBatiment,
   nouveauVehicule,
@@ -34,8 +35,10 @@ import { vehiculesRoulables } from "./evenements.ts";
 import { boutiquesOuvertes } from "./economie.ts";
 import { migrerEtat } from "./migrations.ts";
 import {
+  CARBURANT_RESERVOIR_ENGIN,
   coutChantier,
   efficaciteEngin,
+  carburantEngin,
   PRODUCTION_ENGIN,
   PRODUCTION_OUVRIER,
   TRAVAUX_DEFAUT,
@@ -153,6 +156,112 @@ test("efficacité (v1.28) : chaque engin produit selon sa fiche — bétonnière
   assert.equal(efficaciteEngin(m.vehicules!.find((v) => v.nom === "Bétonnière de Didier")!), 1, "la bétonnière produit 1 travail/jour");
   assert.equal(efficaciteEngin(m.vehicules!.find((v) => v.nom === "Tractopelle de Thomas")!), 2, "le tractopelle en produit 2");
   assert.equal(efficaciteEngin(nouveauVehicule({ nom: "Engin sans fiche", role: "chantier" })), PRODUCTION_ENGIN, "sans fiche : défaut 2, jamais muet ni négatif");
+});
+
+// ---------- Le réservoir des engins (v1.29, arbitrage Thibaut) : 50 L,
+// 1 L par travail posé, journée de plein quand l'engin est à sec ----------
+
+test("réservoir (v1.29) : 1 L brûlé par travail, journée de plein à sec sans production", () => {
+  // BTP isolé (ni ouvriers ni engins démo) : seule une mini-pelle municipale
+  // d'efficacité 2, réservoir 3 L, travaille — on suit sa jauge au fil des jours.
+  let m = btpVeuf(createMondeDemonstration());
+  m = ajouterVehicule(
+    m,
+    nouveauVehicule({ nom: "Mini-pelle municipale", categorie: "municipal", role: "chantier", efficacite: 2, carburant: 3, valeur: 100000 }),
+  );
+  m = lancerChantierBatiment(
+    m,
+    nouveauBatiment({ nom: "Muret du Parc", type: "habitation", valeur: 300000 }),
+  );
+  const pelle = (e: Etat) => e.vehicules!.find((v) => v.nom === "Mini-pelle municipale")!;
+  const j1 = passerJour(m);
+  assert.equal(j1.chantiers![0].travauxFaits, 2, "j1 : 2 travaux (efficacité 2, réservoir 3)");
+  assert.equal(carburantEngin(pelle(j1)), 1, "le réservoir suit : 3 − 2 = 1 L");
+  const j2 = passerJour(j1);
+  assert.equal(j2.chantiers![0].travauxFaits, 3, "j2 : il ne reste qu'1 L, un seul travail");
+  assert.equal(carburantEngin(pelle(j2)), 0, "réservoir vide");
+  const j3 = passerJour(j2);
+  assert.equal(j3.chantiers![0].travauxFaits, 3, "j3 : à sec, pas de production — journée de plein");
+  assert.equal(carburantEngin(pelle(j3)), CARBURANT_RESERVOIR_ENGIN, "le plein remet 50 L");
+  assert.ok(
+    entrees(3, "chantier", j3.journal).some((e) => e.texte.includes("fait le plein") && e.texte.includes("réglés par la ville")),
+    "la ville règle le plein de sa flotte, et le journal le raconte",
+  );
+  const j4 = passerJour(j3);
+  assert.equal(j4.chantiers![0].travauxFaits, 5, "j4 : réservoir plein, 2 travaux à nouveau");
+  assert.equal(carburantEngin(pelle(j4)), 48, "le réservoir suit encore");
+  assert.equal(monnaieEnCircuit(j4), monnaieEnCircuit(m), "conservation exacte : le plein reste en ville");
+});
+
+test("plein privé (v1.29) : les engins du BTP sont à leur patronne, qui règle l'essence", () => {
+  // Arbitrage Thibaut : un engin appartient à la figurine si elle travaille
+  // pour elle-même, sinon au patron qui l'emploie — Samantha possède donc la
+  // bétonnière et le tractopelle de ses deux salariés.
+  const m0 = createMondeDemonstration();
+  const samantha = m0.pnjs.find((p) => p.prenom === "Samantha")!;
+  const betonniere = m0.vehicules!.find((v) => v.nom === "Bétonnière de Didier")!;
+  const tractopelle = m0.vehicules!.find((v) => v.nom === "Tractopelle de Thomas")!;
+  assert.equal(betonniere.proprietairePnjId, samantha.id, "la bétonnière est à la patronne du BTP");
+  assert.equal(tractopelle.proprietairePnjId, samantha.id, "le tractopelle aussi — Didier et Thomas conduisent, la compagnie possède");
+  assert.equal(carburantEngin(betonniere), CARBURANT_RESERVOIR_ENGIN, "les engins débarquent le réservoir plein");
+  // Les deux engins tombés à sec : journée de plein réglée par Samantha,
+  // et seuls les deux ouvriers produisent.
+  let m = m0;
+  m = modifierVehicule(m, betonniere.id, { carburant: 0 });
+  m = modifierVehicule(m, tractopelle.id, { carburant: 0 });
+  m = lancerChantierBatiment(
+    m,
+    nouveauBatiment({ nom: "Maison des Maçons", type: "habitation", valeur: 300000 }),
+  );
+  const j1 = passerJour(m);
+  assert.equal(j1.chantiers![0].travauxFaits, 2, "les ouvriers posent 2 briques, les engins sont à la pompe");
+  assert.equal(carburantEngin(j1.vehicules!.find((v) => v.id === betonniere.id)!), CARBURANT_RESERVOIR_ENGIN, "la bétonnière repart pleine");
+  assert.equal(carburantEngin(j1.vehicules!.find((v) => v.id === tractopelle.id)!), CARBURANT_RESERVOIR_ENGIN, "le tractopelle aussi");
+  const pleins = entrees(1, "chantier", j1.journal).filter((e) => e.texte.includes("fait le plein"));
+  assert.equal(pleins.length, 2, "deux journées de plein racontées");
+  assert.ok(pleins.every((e) => e.texte.includes("réglés par Samantha Faure")), "Samantha règle les pleins de sa compagnie");
+  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(m0), "conservation exacte : les pleins restent en ville");
+});
+
+test("plein impossible (v1.29) : sans station ou sans caisse, l'engin reste à sec", () => {
+  // Sans station-service en ville : la pompe n'existe pas, l'engin municipal
+  // à sec ne produit pas et ne dépense rien.
+  let m = btpVeuf(createMondeDemonstration());
+  const station = m.batiments.find((b) => b.vocation === "garage")!;
+  m = supprimerBatiment(m, station.id);
+  m = ajouterVehicule(
+    m,
+    nouveauVehicule({ nom: "Pelleteuse esseulée", categorie: "municipal", role: "chantier", carburant: 0, valeur: 100000 }),
+  );
+  m = lancerChantierBatiment(
+    m,
+    nouveauBatiment({ nom: "Cabane du Jardin", type: "habitation", valeur: 300000 }),
+  );
+  const j1 = passerJour(m);
+  assert.equal(j1.chantiers![0].travauxFaits, 0, "personne ne travaille : plus de station, plus de plein");
+  assert.equal(carburantEngin(j1.vehicules!.find((v) => v.nom === "Pelleteuse esseulée")!), 0, "l'engin reste à sec");
+  assert.ok(
+    entrees(1, "chantier", j1.journal).some((e) => e.texte.includes("reste à sec") && e.texte.includes("aucune station-service")),
+    "l'absence de pompe est racontée",
+  );
+  assert.equal(monnaieEnCircuit(j1), monnaieEnCircuit(m), "conservation exacte : rien n'a bougé d'un centime");
+  // Patronne fauchée : la pompe ne fait pas crédit, le plein attend les caisses.
+  let v = createMondeDemonstration();
+  const samantha = v.pnjs.find((p) => p.prenom === "Samantha")!;
+  v = modifierPnj(v, samantha.id, { compte: 0 });
+  const betonniere = v.vehicules!.find((x) => x.nom === "Bétonnière de Didier")!;
+  v = modifierVehicule(v, betonniere.id, { carburant: 0 });
+  v = lancerChantierBatiment(
+    v,
+    nouveauBatiment({ nom: "Villa de Samantha", type: "habitation", valeur: 300000 }),
+  );
+  const k1 = passerJour(v);
+  assert.equal(carburantEngin(k1.vehicules!.find((x) => x.id === betonniere.id)!), 0, "sans un L en caisse, pas de plein");
+  assert.equal(k1.chantiers![0].travauxFaits, 2 * PRODUCTION_OUVRIER + 2, "les ouvriers et le tractopelle travaillent, pas la bétonnière à sec");
+  assert.ok(
+    entrees(1, "chantier", k1.journal).some((e) => e.texte.includes("n'a pas de quoi régler le plein")),
+    "la pompe qui ne fait pas crédit est racontée",
+  );
 });
 
 test("chantier : la livraison éveille la cible (capacités actives) et vide la file", () => {
@@ -386,9 +495,9 @@ test("chantiers : un bâtiment en construction n'est ni boutique ni service ni c
   assert.equal(chargesJournalieres(m), chargesAvant, "pas de fonctionnement facturé pour un chantier");
 });
 
-// ---------- Migrations v11 / v12 -> v13 ----------
+// ---------- Migrations v11 / v12 / v13 -> v14 ----------
 
-test("migration v11 -> v13 : la file des chantiers est filtrée, jamais inventée", () => {
+test("migration v11 -> v14 : la file des chantiers est filtrée, jamais inventée", () => {
   const demo = createMondeDemonstration();
   const valide = {
     id: "cha-001",
@@ -406,7 +515,7 @@ test("migration v11 -> v13 : la file des chantiers est filtrée, jamais inventé
     schemaVersion: 11,
     chantiers: [valide, null, 42, { id: "" }, { id: "tordu", jour: "hier" }] as unknown as typeof demo.chantiers,
   });
-  assert.equal(v11.schemaVersion, 13, "v11 -> v13 : schema à jour");
+  assert.equal(v11.schemaVersion, 14, "v11 -> v14 : schema à jour");
   assert.equal(v11.chantiers!.length, 1, "seul le chantier bien formé est conservé");
   assert.equal(v11.chantiers![0].travauxFaits, 30, "l'avancement est conservé");
   // Un bâtiment v11 (sans le champ) est forcément achevé.
@@ -415,7 +524,7 @@ test("migration v11 -> v13 : la file des chantiers est filtrée, jamais inventé
   assert.equal(nue.chantiers!.length, 0, "une vieille sauvegarde n'a pas de file");
 });
 
-test("migration v12 -> v13 : l'efficacité d'un engin n'est jamais inventée", () => {
+test("migration v12 -> v14 : l'efficacité d'un engin n'est jamais inventée", () => {
   const demo = createMondeDemonstration();
   const engin = (id: string, e: unknown) => ({
     ...demo.vehicules![0],
@@ -434,11 +543,45 @@ test("migration v12 -> v13 : l'efficacité d'un engin n'est jamais inventée", (
     schemaVersion: 12,
     vehicules: [engin("veh-trois", 3), engin("veh-un", 1), engin("veh-tordu", "beaucoup"), engin("veh-zero", 0)] as unknown as typeof demo.vehicules,
   });
-  assert.equal(v12.schemaVersion, 13, "v12 -> v13 : schema à jour");
+  assert.equal(v12.schemaVersion, 14, "v12 -> v14 : schema à jour");
   assert.equal(v12.vehicules!.length, 4, "les engins migrent");
   assert.equal(v12.vehicules![0].efficacite, 3, "une fiche valable est conservée");
   assert.equal(v12.vehicules![1].efficacite, 1, "même la plus petite fiche");
   assert.equal(v12.vehicules![2].efficacite, undefined, "une valeur tordue est jetée");
   assert.equal(v12.vehicules![3].efficacite, undefined, "un zéro est jeté");
   assert.equal(efficaciteEngin(v12.vehicules![2]), 2, "sans fiche, l'engin produit 2 (défaut)");
+});
+
+test("migration v13 -> v14 : la jauge du réservoir n'est jamais inventée", () => {
+  const demo = createMondeDemonstration();
+  const engin = (id: string, c: unknown) => ({
+    ...demo.vehicules![0],
+    id,
+    nom: "Engin témoin",
+    categorie: "municipal",
+    role: "chantier",
+    proprietairePnjId: null,
+    gangId: null,
+    garageBatimentId: null,
+    enConstruction: undefined,
+    carburant: c,
+  });
+  const v13 = migrerEtat({
+    ...demo,
+    schemaVersion: 13,
+    vehicules: [
+      engin("veh-sept", 7),
+      engin("veh-tordu", "beaucoup"),
+      engin("veh-neg", -1),
+      engin("veh-haut", 999),
+      { ...engin("veh-famille", 42), categorie: "prive", role: null },
+    ] as unknown as typeof demo.vehicules,
+  });
+  assert.equal(v13.schemaVersion, 14, "v13 -> v14 : schema à jour");
+  assert.equal(v13.vehicules!.length, 5, "les véhicules migrent");
+  assert.equal(v13.vehicules![0].carburant, 7, "une jauge lisible est conservée");
+  assert.equal(v13.vehicules![1].carburant, 50, "une valeur tordue devient un plein — jamais à sec par accident");
+  assert.equal(v13.vehicules![2].carburant, 50, "un négatif devient un plein");
+  assert.equal(v13.vehicules![3].carburant, 50, "une jauge au-delà du réservoir est ramenée au plein");
+  assert.equal(v13.vehicules![4].carburant, undefined, "un véhicule sans rôle chantier n'a pas de réservoir");
 });

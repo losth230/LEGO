@@ -107,6 +107,11 @@ function contratVehicule(v: Vehicule, ou: string): void {
     v.efficacite === undefined || (typeof v.efficacite === "number" && Number.isInteger(v.efficacite) && v.efficacite >= 1),
     ou + " : efficacite (entier >= 1 ou absente)",
   );
+  assert.ok(
+    v.carburant === undefined ||
+      (typeof v.carburant === "number" && Number.isInteger(v.carburant) && v.carburant >= 0 && v.carburant <= 50),
+    ou + " : carburant (entier 0..50, réservoir d'un engin, ou absent)",
+  );
 }
 
 /** Vérifie qu'un arbitrage respecte les formes déclarées dans types.ts (v1.26). */

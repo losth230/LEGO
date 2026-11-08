@@ -170,7 +170,7 @@ test("migration v8 : carte d'identité complétée, le crime continue dans les v
     params: { tauxImpotBp: 3000, coeffIntensite: 1000 },
     pnjs: pnjsV7, batiments: [], journal: [],
   });
-  assert.equal(v8.schemaVersion, 13, "v7 -> v13 : schema à jour");
+  assert.equal(v8.schemaVersion, 14, "v7 -> v14 : schema à jour");
   assert.ok(
     v8.pnjs.every((p) => Array.isArray(p.personnalite) && p.personnalite.length === 2),
     "v7 -> v8 : personnalité attribuée à chaque figurine",

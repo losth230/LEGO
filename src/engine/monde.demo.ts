@@ -15,7 +15,8 @@ const NOMS = "Arnaud:Berthier:Castella:Dupont:Escoffier:Faure:Guibert:Hoarau:Imb
 
 /** La ville de démonstration : 16 bâtiments, 62 figurines, 9 véhicules (monde
  * fermé 2026-11-06, brigade municipale v1.21, bureau de poste v1.22, flotte
- * et station-service v1.25, équipe et engins du BTP v1.28 — bétonnière
+ * et station-service v1.25, équipe et engins du BTP v1.28 — réservoirs des
+ * engins v1.29 — bétonnière
  * efficacité 1, tractopelle efficacité 2 — arbitrage Thibaut : c'est la
  * station qui gère la pompe et les accidents, pas le BTP).
  * Supprimée de l'application en v1.23 (arbitrage Thibaut : le monde par défaut
@@ -193,7 +194,8 @@ export function createMondeDemonstration(): Etat {
 
   // Équipe du BTP (v1.28, demande Thibaut) : deux ouvriers qui arrivent
   // avec leurs engins — la petite bétonnière de Didier (efficacité 1
-  // travail/jour) et le tractopelle de Thomas (efficacité 2). Poussés en
+  // travail/jour) et le tractopelle de Thomas (efficacité 2). Les engins
+  // appartiennent à leur patronne Samantha (v1.29) ; poussés en
   // fin de liste : les indices des autres figurines ne bougent pas.
   pnjs.push(nouveauPnj({ prenom: "Didier", nom: "Marchand", age: 45, genre: "M", metier: "maçon au BTP", statut: "prive", batimentId: immeubles[2], travailBatimentId: idBtp, revenuIndicatif: 4930 }));
   pnjs.push(nouveauPnj({ prenom: "Thomas", nom: "Lambert", age: 33, genre: "M", metier: "conducteur d'engins au BTP", statut: "prive", batimentId: immeubles[2], travailBatimentId: idBtp, revenuIndicatif: 4930 }));
@@ -216,6 +218,7 @@ export function createMondeDemonstration(): Etat {
   const idJean = pnjs.find((x) => x.prenom === "Jean")!.id;
   const idMario = pnjs.find((x) => x.prenom === "Mario")!.id;
   const idEtudiant = pnjs.find((x) => x.metier === "étudiant")!.id;
+  const idSamantha = pnjs.find((x) => x.prenom === "Samantha")!.id;
   const idDidier = pnjs.find((x) => x.prenom === "Didier")!.id;
   const idThomas = pnjs.find((x) => x.prenom === "Thomas")!.id;
   const vehicules: Vehicule[] = [
@@ -228,17 +231,21 @@ export function createMondeDemonstration(): Etat {
     nouveauVehicule({ nom: "Caravane de l'étudiant", categorie: "prive", quartier: "Port", valeur: 40000, essenceJour: 100, capaciteLogements: 2, proprietairePnjId: idEtudiant }),
     // Engins de chantier du BTP (v1.28, demande Thibaut) : la petite
     // bétonnière de Didier produit 1 travail/jour sur le chantier en
-    // cours, le tractopelle de Thomas en produit 2 — chacun roule à son
-    // essence (payée par son propriétaire à la station-service).
-    nouveauVehicule({ nom: "Bétonnière de Didier", categorie: "prive", role: "chantier", efficacite: 1, quartier: "Sud", valeur: 50000, essenceJour: 200, garageBatimentId: idBtp, proprietairePnjId: idDidier }),
-    nouveauVehicule({ nom: "Tractopelle de Thomas", categorie: "prive", role: "chantier", efficacite: 2, quartier: "Sud", valeur: 120000, essenceJour: 300, garageBatimentId: idBtp, proprietairePnjId: idThomas }),
+    // cours, le tractopelle de Thomas en produit 2. v1.29, arbitrage
+    // Thibaut : un engin vit sur son réservoir (50 L, 1 L par travail
+    // posé, journée de plein à la station quand il est à sec) ; il
+    // appartient au PATRON quand son conducteur est salarié — ici la
+    // bétonnière et le tractopelle sont à Samantha, qui règle leurs
+    // pleins (Didier et Thomas conduisent, la compagnie possède).
+    nouveauVehicule({ nom: "Bétonnière de Didier", categorie: "prive", role: "chantier", efficacite: 1, quartier: "Sud", valeur: 50000, essenceJour: 0, garageBatimentId: idBtp, proprietairePnjId: idSamantha }),
+    nouveauVehicule({ nom: "Tractopelle de Thomas", categorie: "prive", role: "chantier", efficacite: 2, quartier: "Sud", valeur: 120000, essenceJour: 0, garageBatimentId: idBtp, proprietairePnjId: idSamantha }),
   ];
   // L'étudiant vit dans sa caravane (capacité logement d'un véhicule, v1.25).
   const etudiant = pnjs.find((x) => x.metier === "étudiant")!;
   etudiant.batimentId = vehicules[6].id;
 
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,

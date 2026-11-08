@@ -44,6 +44,7 @@ function LigneVehiculeEdit({ vehicule: v }: { vehicule: Vehicule }) {
   const [proprietaire, setProprietaire] = useState(v.proprietairePnjId ?? "");
   const [garage, setGarage] = useState(v.garageBatimentId ?? "");
   const [efficacite, setEfficacite] = useState(v.efficacite?.toString() ?? "");
+  const [carburant, setCarburant] = useState(v.carburant?.toString() ?? "");
 
   const enregistrer = () => {
     majEtat(
@@ -62,6 +63,10 @@ function LigneVehiculeEdit({ vehicule: v }: { vehicule: Vehicule }) {
         efficacite:
           role === "chantier" && Number.isFinite(Number(efficacite)) && Number(efficacite) >= 1
             ? Math.round(Number(efficacite))
+            : undefined,
+        carburant:
+          role === "chantier" && Number.isFinite(Number(carburant)) && Number(carburant) >= 0
+            ? Math.min(50, Math.round(Number(carburant)))
             : undefined,
       }),
     );
@@ -139,6 +144,11 @@ function LigneVehiculeEdit({ vehicule: v }: { vehicule: Vehicule }) {
               <input className="input" value={efficacite} onChange={(e) => setEfficacite(e.target.value)} />
             </Champ>
           ) : null}
+          {role === "chantier" ? (
+            <Champ label="Carburant du réservoir (L, plein = 50) — 1 L brûlé par travail posé, à sec : journée de plein">
+              <input className="input" value={carburant} onChange={(e) => setCarburant(e.target.value)} />
+            </Champ>
+          ) : null}
           <Champ label="Quartier">
             <input className="input" value={quartier} onChange={(e) => setQuartier(e.target.value)} />
           </Champ>
@@ -207,6 +217,7 @@ export function CarteVehicules() {
   const [proprietaire, setProprietaire] = useState("");
   const [garage, setGarage] = useState("");
   const [efficacite, setEfficacite] = useState("");
+  const [carburant, setCarburant] = useState("");
   // v1.27 : le véhicule entre en ville en chantier — la station-service
   // l'assemble (onglet 🏗 Chantiers).
   const [travauxTotal, setTravauxTotal] = useState(TRAVAUX_DEFAUT.toString());
@@ -233,6 +244,10 @@ export function CarteVehicules() {
           efficacite:
             role === "chantier" && Number.isFinite(Number(efficacite)) && Number(efficacite) >= 1
               ? Math.round(Number(efficacite))
+              : undefined,
+          carburant:
+            role === "chantier" && Number.isFinite(Number(carburant)) && Number(carburant) >= 0
+              ? Math.min(50, Math.round(Number(carburant)))
               : undefined,
         }),
         {
@@ -295,6 +310,11 @@ export function CarteVehicules() {
         {role === "chantier" ? (
           <Champ label="Efficacité (travaux/jour sur le chantier — vide = 2)">
             <input className="input" value={efficacite} onChange={(e) => setEfficacite(e.target.value)} />
+          </Champ>
+        ) : null}
+        {role === "chantier" ? (
+          <Champ label="Carburant du réservoir (L, plein = 50 — vide : il arrive plein)">
+            <input className="input" value={carburant} onChange={(e) => setCarburant(e.target.value)} />
           </Champ>
         ) : null}
         <Champ label="Quartier">

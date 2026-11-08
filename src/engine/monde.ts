@@ -14,7 +14,7 @@ import {
 } from "./referentiel.ts";
 import { serviceLocal } from "./moteur.ts";
 import { appliquerArbitrage } from "./arbitrages.ts";
-import { coutChantier, nomCible, TRAVAUX_DEFAUT } from "./chantiers.ts";
+import { CARBURANT_RESERVOIR_ENGIN, coutChantier, nomCible, TRAVAUX_DEFAUT } from "./chantiers.ts";
 
 const REF_ACHAT = Math.round(ACHAT_REFERENCE_L * 100); // 5250 centimes = 52,50 L
 
@@ -127,6 +127,9 @@ export function nouveauVehicule(p: Partial<Vehicule> & { nom: string }): Vehicul
     garageBatimentId: p.garageBatimentId ?? null,
     // v1.28 : efficacité d'un engin de chantier (travaux/jour), défaut 2 au moteur.
     efficacite: p.efficacite,
+    // v1.29 : jauge du réservoir d'un engin de chantier (1 L par travail
+    // posé) — un engin neuf arrive le plein.
+    carburant: p.carburant ?? (p.role === "chantier" ? CARBURANT_RESERVOIR_ENGIN : undefined),
   };
 }
 
@@ -145,7 +148,7 @@ export function reinitialiserIds(): void {
  * monde.demo.ts : retirée du jeu, elle reste la terre d'essai des tests. */
 export function createMondeDefaut(): Etat {
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,

@@ -8,7 +8,7 @@ import type { Arbitrage, Chantier, Etat, Pnj, Vehicule, Vocation } from "./types
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 13;
+export const SCHEMA_VERSION_ETAT = 14;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -216,6 +216,20 @@ const GRADES_RETIRES: Record<string, string> = {
         (v as Partial<{ efficacite?: number }>).efficacite! >= 1
           ? (v as Partial<{ efficacite?: number }>).efficacite
           : undefined,
+      // Migration v13 -> v14 (v1.29, réservoir des engins) : la jauge n'est
+      // gardée que si elle est lisible (entier 0..50) et que le véhicule est
+      // bien un engin de chantier — un engin sans jauge arrive le réservoir
+      // PLEIN, jamais à sec par accident ; un non-engin n'a pas de réservoir.
+      carburant:
+        roleBrut === "chantier" &&
+          typeof (v as Partial<{ carburant?: unknown }>).carburant === "number" &&
+          Number.isInteger((v as Partial<{ carburant?: number }>).carburant) &&
+          (v as Partial<{ carburant?: number }>).carburant! >= 0 &&
+          (v as Partial<{ carburant?: number }>).carburant! <= 50
+          ? (v as Partial<{ carburant?: number }>).carburant
+          : roleBrut === "chantier"
+            ? 50
+            : undefined,
     };
   });
   const journal = Array.isArray(b.journal) ? b.journal : defaut.journal;

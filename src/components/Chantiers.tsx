@@ -6,7 +6,7 @@
 import { useStore } from "../state/store.tsx";
 import type { Chantier } from "../engine/types.ts";
 import { montantL } from "../engine/referentiel.ts";
-import { PRODUCTION_OUVRIER, constructeurDu, efficaciteEngin, nomCible, payeurDe } from "../engine/chantiers.ts";
+import { PRODUCTION_OUVRIER, CARBURANT_RESERVOIR_ENGIN, carburantEngin, constructeurDu, efficaciteEngin, enginApte, nomCible, payeurDe } from "../engine/chantiers.ts";
 import { employesDuCommerce } from "../engine/economie.ts";
 import { prioriserChantier } from "../engine/monde.ts";
 
@@ -59,13 +59,16 @@ function CarteChantier({
   const pct = Math.min(100, Math.round((c.travauxFaits / Math.max(1, c.travauxTotal)) * 100));
   const restant = c.coutCentimes - c.coutPaye;
   // v1.28 : potentiel de l'équipe — ouvriers du constructeur + efficacité
-  // des engins de chantier aptes (les sinistrés et les véhicules encore en
-  // atelier ne produisent pas, et un engin sans essence ne roule pas).
+  // des engins de chantier aptes. v1.29 : chaque engin puise dans son
+  // réservoir (1 L par travail) ; à sec, il passe la journée à faire le
+  // plein à la station-service et ne produit pas.
   const ouvriers = constructeur ? employesDuCommerce(etat, constructeur.bat.id).length : 0;
-  const engins = (etat.vehicules ?? []).filter(
-    (v) => v.role === "chantier" && v.enConstruction !== true && v.etat !== "sinistre",
-  );
-  const potentiel = ouvriers * PRODUCTION_OUVRIER + engins.reduce((n, v) => n + efficaciteEngin(v), 0);
+  const enginsAptes = (etat.vehicules ?? []).filter(enginApte);
+  const pleinsDuJour = enginsAptes.filter((v) => carburantEngin(v) < 1);
+  const quiTravaillent = enginsAptes.filter((v) => carburantEngin(v) >= 1);
+  const potentiel =
+    ouvriers * PRODUCTION_OUVRIER +
+    quiTravaillent.reduce((n, v) => n + Math.min(efficaciteEngin(v), carburantEngin(v)), 0);
   return (
     <section className="chantier-carte">
       <header>
@@ -80,10 +83,16 @@ function CarteChantier({
         </p>
         {rang === 0 && constructeur ? (
           <p className="mute">
-            Équipe du jour (si tout le monde roule) : {potentiel} travaux — {ouvriers}{" "}
+            Équipe du jour (si tout le monde a le plein) : {potentiel} travaux — {ouvriers}{" "}
             ouvrier(s) × 1
-            {engins.length > 0
-              ? " + " + engins.length + " engin(s) (eff. " + engins.map(efficaciteEngin).join(" + ") + ")"
+            {quiTravaillent.length > 0
+              ? " + " + quiTravaillent.length + " engin(s) (eff. " +
+                quiTravaillent.map(efficaciteEngin).join(" + ") +
+                ", réservoirs " +
+                quiTravaillent.map((v) => carburantEngin(v) + "/" + CARBURANT_RESERVOIR_ENGIN).join(", ")
+              : ""}
+            {pleinsDuJour.length > 0
+              ? " ; " + pleinsDuJour.length + " engin(s) à sec : journée de plein à la station-service, pas de production"
               : ""}
           </p>
         ) : null}

@@ -78,6 +78,11 @@ export interface Vehicule {
    * chantier (rôle « chantier ») qui a roulé — défaut PRODUCTION_ENGIN (2).
    * Ex. démo : la petite bétonnière de Didier (1), le tractopelle de Thomas (2). */
   efficacite?: number;
+  /** v1.29 : carburant du réservoir d'un engin de chantier (rôle « chantier »,
+   * en L) — chaque travail ajouté à un chantier consomme 1 L ; à sec, l'engin
+   * passe la journée à la station-service pour faire le plein et ne produit
+   * pas. Défaut : réservoir plein (CARBURANT_RESERVOIR_ENGIN, 50). */
+  carburant?: number;
 }
 
 export interface Pnj {
