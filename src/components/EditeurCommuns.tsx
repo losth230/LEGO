@@ -27,6 +27,48 @@ export const VOCATIONS_BATIMENT: Array<{ valeur: Vocation; libelle: string }> = 
 
 // ---------- petits contrôles ----------
 
+// v1.32 : suggestions de métiers pour les champs libres (datalist HTML).
+// Le champ reste LIBRE : le métier est narratif — les mécaniques du jeu
+// (salaire public, garde) viennent du statut et du grade, jamais du métier,
+// et « cheffe d'entreprise BTP » n'existe dans aucune liste fermée. La
+// datalist propose simplement les métiers de la ville de démonstration.
+export const ID_DATALIST_METIERS = "metiers-suggeres";
+export const METIERS_SUGGERES = [
+  "sans profession",
+  "boulanger",
+  "vendeur de frites",
+  "quincaillière",
+  "cheffe de l'hôpital",
+  "cheffe d'entreprise BTP",
+  "banquier",
+  "gérant de station-service",
+  "receveur de la poste",
+  "facteur",
+  "maçon",
+  "conducteur d'engins",
+  "secrétaire de mairie",
+  "balayeur municipal",
+  "éboueuse",
+  "chef d'équipe de la voirie",
+  "policier municipal",
+  "sapeur-pompier",
+  "soldat",
+  "caporal",
+  "capitaine",
+  "chef des Corbeaux du Sud",
+  "guetteur des Corbeaux",
+];
+
+export function DatalistMetiers() {
+  return (
+    <datalist id={ID_DATALIST_METIERS}>
+      {METIERS_SUGGERES.map((m) => (
+        <option key={m} value={m} />
+      ))}
+    </datalist>
+  );
+}
+
 export function Champ({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="champ">

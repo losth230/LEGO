@@ -17,7 +17,7 @@ import {
   nouveauPnj,
   nouveauVehicule
 } from "../engine/monde.ts";
-import { Champ, nombreL } from "./EditeurCommuns.tsx";
+import { Champ, ID_DATALIST_METIERS, nombreL } from "./EditeurCommuns.tsx";
 
 export function CarteArrivants() {
   const { etat, majEtat } = useStore();
@@ -104,8 +104,8 @@ export function CarteArrivants() {
         <Champ label="Nom">
           <input className="input" value={nom} onChange={(e) => setNom(e.target.value)} />
         </Champ>
-        <Champ label="Métier">
-          <input className="input" value={metier} onChange={(e) => setMetier(e.target.value)} />
+        <Champ label="Métier (libre, suggestions au clic)">
+          <input className="input" list={ID_DATALIST_METIERS} value={metier} onChange={(e) => setMetier(e.target.value)} />
         </Champ>
         <Champ label="Statut">
           <select className="input" value={statut} onChange={(e) => setStatut(e.target.value as Statut)}>

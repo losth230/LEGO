@@ -14,6 +14,8 @@ import { Chantiers } from "./components/Chantiers.tsx";
 import { BudgetView } from "./components/BudgetView.tsx";
 import { ReferentielsView } from "./components/ReferentielsView.tsx";
 import { Editeur } from "./components/Editeur.tsx";
+import { Nuage } from "./components/Nuage.tsx";
+import { DatalistMetiers } from "./components/EditeurCommuns.tsx";
 
 type Onglet = "journal" | "habitants" | "batiments" | "vehicules" | "arbitrages" | "chantiers" | "budget" | "referentiels" | "editeur";
 
@@ -61,6 +63,7 @@ function BarreVille(): ReactNode {
   const marge = joursDeMarge(etat);
   const margeCritique = marge <= 5;
   const [clair, setClair] = useState(() => lireTheme() === "clair");
+  const [nuageOuvert, setNuageOuvert] = useState(false);
   useEffect(() => {
     const theme = clair ? "clair" : "sombre";
     appliquerTheme(theme);
@@ -116,6 +119,13 @@ function BarreVille(): ReactNode {
           />
         </label>
         <button
+          className="bouton-mini"
+          title="Sauvegardes en ligne dans le dépôt GitHub (Ville A/B/C)"
+          onClick={() => setNuageOuvert(true)}
+        >
+          ☁️ En ligne
+        </button>
+        <button
           className="bouton-mini bouton-supprimer"
           onClick={() => {
             if (window.confirm("Repartir du terrain de départ — l'équipe du BTP (Samantha, Didier, Thomas et leurs engins), aucun bâtiment, 5 000 L en caisse ? La sauvegarde actuelle sera remplacée.")) {
@@ -126,6 +136,7 @@ function BarreVille(): ReactNode {
           ⟲ Réinitialiser
         </button>
       </div>
+      {nuageOuvert ? <Nuage fermer={() => setNuageOuvert(false)} /> : null}
     </header>
   );
 }
@@ -137,6 +148,7 @@ function Application(): ReactNode {
   const alerte = marge <= 5;
   return (
     <div className="app">
+      <DatalistMetiers />
       <BarreVille />
       {alerte ? (
         <div className="alerte-tresorerie" role="alert">

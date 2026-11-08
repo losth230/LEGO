@@ -18,6 +18,7 @@ import {
 } from "../engine/monde.ts";
 import {
   Champ,
+  ID_DATALIST_METIERS,
   nombreL,
   versL
 } from "./EditeurCommuns.tsx";
@@ -112,8 +113,8 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
           <Champ label="Âge (fixe)">
             <input className="input" value={age} onChange={(e) => setAge(e.target.value)} />
           </Champ>
-          <Champ label="Métier (narratif)">
-            <input className="input" value={metier} onChange={(e) => setMetier(e.target.value)} />
+          <Champ label="Métier (narratif, suggestions au clic)">
+            <input className="input" list={ID_DATALIST_METIERS} value={metier} onChange={(e) => setMetier(e.target.value)} />
           </Champ>
           <Champ label="Statut">
             <select className="input" value={statut} onChange={(e) => setStatut(e.target.value as Statut)}>
@@ -250,8 +251,8 @@ export function CartePnjs() {
         <Champ label="Nom">
           <input className="input" value={nom} onChange={(e) => setNom(e.target.value)} />
         </Champ>
-        <Champ label="Métier">
-          <input className="input" value={metier} onChange={(e) => setMetier(e.target.value)} />
+        <Champ label="Métier (libre, suggestions au clic)">
+          <input className="input" list={ID_DATALIST_METIERS} value={metier} onChange={(e) => setMetier(e.target.value)} />
         </Champ>
         <Champ label="Statut">
           <select className="input" value={statut} onChange={(e) => setStatut(e.target.value as Statut)}>

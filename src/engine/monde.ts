@@ -190,7 +190,9 @@ export function createMondeDefaut(): Etat {
     }),
   ];
   return {
-    schemaVersion: 14,
+    // v1.31 : schéma v15 (vocations multiples) — à maintenir synchronisé
+    // avec SCHEMA_VERSION_ETAT (migrations.ts) ; un import serait circulaire.
+    schemaVersion: 15,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
