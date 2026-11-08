@@ -20,6 +20,7 @@ type EtatCharge = { jour: number; figurines: number; caisse: number; nomVille: s
 
 function texteInfo(info: InfoSlot | undefined): string {
   if (info === undefined) return "…";
+  if (info === null) return "— vide —";
   if (info === "en cours") return "lecture…";
   if (info === "erreur") return "illisible (ou quota GitHub atteint)";
   return "Jour " + info.jour + " · " + info.figurines + " figurines · " + info.nomVille + " · " + montantL(info.caisse);
