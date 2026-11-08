@@ -165,13 +165,13 @@ test("contrat : une sauvegarde hostile migrée respecte les formes (payloads tor
   const rel = migrerEtat(JSON.parse(JSON.stringify(e)));
   for (const p of rel.pnjs) contratPnj(p, "sauvegarde migrée");
   for (const x of rel.batiments) contratBatiment(x, "sauvegarde migrée");
-  for (const v of rel.vehicules) contratVehicule(v, "sauvegarde migrée");
-  const tordu = rel.vehicules.find((v) => v.id === "veh-tordu")!;
+  for (const v of rel.vehicules ?? []) contratVehicule(v, "sauvegarde migrée");
+  const tordu = (rel.vehicules ?? []).find((v) => v.id === "veh-tordu")!;
   assert.equal(tordu.categorie, "prive", "catégorie inconnue -> privé par défaut");
   assert.equal(tordu.role, null, "rôle inconnu -> aucun rôle inventé");
   assert.equal(tordu.essenceJour, 0, "consentation illisible -> 0");
   assert.equal(tordu.etat, "bon", "état absent -> bon");
-  const recupere = rel.vehicules.find((v) => v.id === e.vehicules[1].id)!;
+  const recupere = (rel.vehicules ?? []).find((v) => v.id === e.vehicules![1].id)!;
   assert.equal(recupere.essenceJour, 0, "essence négative -> 0, pas de crédit à la pompe");
   const premiere = rel.batiments.find((x) => x.id === e.batiments[0].id)!;
   assert.ok(

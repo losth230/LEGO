@@ -6,6 +6,7 @@ import test from "node:test";
 
 import assert from "node:assert/strict";
 
+import type { Etat } from "./types.ts";
 import {
   createMondeDefaut,
   emprunterVille,
@@ -263,7 +264,7 @@ test("collision (v1.25) : le BTP local répare, le véhicule reste en service, l
   const figurines = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) =>
     nouveauPnj({ prenom: "Figurante" + i, nom: "Témoin", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 0 }),
   );
-  let monde = {
+  let monde: Etat = {
     ...base,
     batiments: [atelier],
     pnjs: [dario, ...figurines],
@@ -288,7 +289,7 @@ test("collision (v1.25) : sans BTP en ville, le véhicule reste sinistré sur le
   const figurines = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) =>
     nouveauPnj({ prenom: "Figurante" + i, nom: "Témoin", statut: "prive", revenuIndicatif: 4000, budgetAchat: 0, compte: 0 }),
   );
-  let monde = {
+  let monde: Etat = {
     ...createMondeDefaut(),
     pnjs: figurines,
     vehicules: [nouveauVehicule({ nom: "Caisse à roulettes", categorie: "prive", valeur: 100000, essenceJour: 0 })],
