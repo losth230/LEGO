@@ -19,7 +19,6 @@
 
 import type {
   Arbitrage,
-  Batiment,
   Etat,
   JournalEntree,
   MoyensArbitrage,
