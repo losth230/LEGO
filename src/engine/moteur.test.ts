@@ -10,6 +10,7 @@ import type {
 } from "./types.ts";
 
 import {
+  accueillirArrivant,
   ajouterPnj,
   ajouterVehicule,
   createMondeDefaut,
@@ -70,28 +71,88 @@ test("ville de démonstration : 16 bâtiments, 62 figurines (garnison, brigade, 
   assert.equal(m.batiments.filter((b) => b.type === "commerce").length, 8);
 });
 
-test("monde par défaut (v1.23) : une ville nue, tout se construit dans l'éditeur", () => {
+test("monde par défaut (v1.30) : le terrain nu + l'équipe BTP qui débarque", () => {
   const m = createMondeDefaut();
-  assert.equal(m.batiments.length, 0, "aucun bâtiment");
-  assert.equal(m.pnjs.length, 0, "aucun figurant");
+  assert.equal(m.batiments.length, 0, "aucun bâtiment : le terrain est nu");
+  assert.equal(m.pnjs.length, 3, "l'équipe BTP : Samantha, Didier, Thomas");
+  assert.equal((m.vehicules ?? []).length, 2, "les deux engins de l'équipe");
   assert.equal((m.gangs ?? []).length, 0, "aucun gang");
   assert.equal(m.jour, 0);
   assert.equal(m.budgetVille, 500000, "5 000 L en caisse");
-  assert.equal(monnaieEnCircuit(m), 500000, "la monnaie se résume aux caisses de la ville");
+  // Monnaie en circuit : la caisse de la ville + les poches de l'équipe
+  // (Samantha 5 500 L, Didier 4 000 L, Thomas 4 000 L).
+  assert.equal(monnaieEnCircuit(m), 1850000, "la monnaie : la ville + l'équipe");
   assert.equal(m.dette, 0);
   assert.equal(m.journal.length, 1, "une seule entrée : le coup de crayon inaugural");
-  assert.ok(m.journal[0].texte.includes("éditeur"), "le journal invite à bâtir");
+  assert.ok(m.journal[0].texte.includes("équipe du BTP"), "le journal raconte l'arrivée de l'équipe");
+  // L'équipe (v1.28-v1.29) : les engins sont à la patronne, pleins.
+  const samantha = m.pnjs.find((p) => p.prenom === "Samantha")!;
+  assert.ok(
+    (m.vehicules ?? []).every((v) => v.proprietairePnjId === samantha.id),
+    "la bétonnière et le tractopelle appartiennent à Samantha",
+  );
+  assert.ok(
+    (m.vehicules ?? []).every((v) => v.role === "chantier" && v.carburant === 50),
+    "deux engins de chantier, réservoirs pleins (50 L)",
+  );
+  const didier = m.pnjs.find((p) => p.prenom === "Didier")!;
+  const thomas = m.pnjs.find((p) => p.prenom === "Thomas")!;
+  assert.ok(didier.travailBatimentId === null && thomas.travailBatimentId === null,
+    "sans bâtiment en ville, l'équipe n'a pas encore d'employeur");
 });
 
-test("ville nue : trente jours sans crash, la monnaie ne bouge pas d'un centime", () => {
-  let e = createMondeDefaut();
+test("terrain nu : trente jours sans crash, la monnaie ne bouge pas d'un centime", () => {
+  // Coefficient d'intensité à 0 : aucune probabilité d'incident — l'équipe
+  // est là mais rien ne doit perturber la conservation.
+  let e = modifierVille(createMondeDefaut(), { coeffIntensite: 0 });
   const initial = monnaieEnCircuit(e);
   for (let i = 0; i < 30; i++) e = passerJour(e);
   assert.equal(e.jour, 30, "les jours passent, même sur un terrain nu");
-  assert.equal(monnaieEnCircuit(e), initial, "rien n'entre, rien ne sort : 5 000 L intacts");
+  assert.equal(monnaieEnCircuit(e), initial, "rien n'entre, rien ne sort : la monnaie intacte");
   assert.equal(e.sortiesCumulees, 0, "monde fermé");
-  assert.equal(e.pnjs.length, 0, "toujours personne");
+  assert.equal(e.pnjs.length, 3, "l'équipe est toujours là, sans employeur ni boutique");
   assert.equal(e.batiments.length, 0, "toujours rien de bâti");
+  assert.equal((e.arbitrages ?? []).length, 0, "aucun incident tiré (K = 0)");
+});
+
+test("arrivant (v1.30) : seul, il débarque et le journal raconte l'installation", () => {
+  const m = createMondeDefaut();
+  const avant = monnaieEnCircuit(m);
+  const apres = accueillirArrivant(m, {
+    pnj: nouveauPnj({ prenom: "Nora", nom: "Nguyen", metier: "factrice", statut: "prive" }),
+  });
+  assert.equal(apres.pnjs.length, 4, "l'équipe + la nouvelle arrivante");
+  assert.equal(apres.batiments.length, 0, "aucune maison demandée");
+  assert.equal((apres.vehicules ?? []).length, 2, "aucun véhicule demandé");
+  assert.ok(apres.journal.some((e) => e.texte.includes("Nora Nguyen débarque en ville")), "l'installation est racontée");
+  assert.equal(monnaieEnCircuit(apres), avant + 400000, "l'arrivante apporte sa cagnotte (4 000 L) : le monde fermé grandit avec elle");
+  assert.equal(m.pnjs.length, 3, "l'état source n'est pas muté");
+});
+
+test("arrivant (v1.30) : avec maison et véhicule, tout est relié d'emblée", () => {
+  const m = createMondeDefaut();
+  const maison = nouveauBatiment({ nom: "Maison de Rémi", type: "habitation", capaciteLogements: 1, valeur: 300000 });
+  const camion = nouveauVehicule({ nom: "Camion de Rémi", categorie: "prive", role: "chantier", efficacite: 3, essenceJour: 0, valeur: 80000 });
+  const apres = accueillirArrivant(m, {
+    pnj: nouveauPnj({ prenom: "Rémi", nom: "Débarde", metier: "maçon", statut: "prive" }),
+    maison,
+    vehicule: camion,
+  });
+  assert.equal(apres.batiments.length, 1, "la maison entre en ville");
+  assert.equal(apres.pnjs.length, 4, "l'arrivant entre en ville");
+  const remi = apres.pnjs.find((p) => p.prenom === "Rémi")!;
+  assert.equal(remi.batimentId, maison.id, "l'arrivant loge dans sa maison dès l'arrivée");
+  const vehicule = apres.vehicules!.find((v) => v.nom === "Camion de Rémi")!;
+  assert.equal(vehicule.proprietairePnjId, remi.id, "le véhicule est à son nom");
+  assert.equal(vehicule.role, "chantier");
+  assert.equal(vehicule.carburant, 50, "un engin de chantier arrive le réservoir plein");
+  assert.ok(apres.journal.some((e) => e.texte.includes("Maison de Rémi")), "la maison est racontée");
+  assert.ok(apres.journal.some((e) => e.texte.includes("réservoir plein")), "l'engin est raconté");
+  // Le monde reste sain : une journée passe sans perdre un centime.
+  const calmeApres = modifierVille(apres, { coeffIntensite: 0 });
+  const avant = monnaieEnCircuit(calmeApres);
+  const j1 = passerJour(calmeApres);
+  assert.equal(monnaieEnCircuit(j1), avant, "conservation : l'installation ne coûte rien à personne");
 });
 
 test("un jour : impôts retenus à la source, salaires versés, sorties tracées, achats encaissés", () => {
@@ -260,18 +321,18 @@ test("l'épargne n'est pas touchée par le moteur", () => {
   assert.equal(e.pnjs[5].epargne, 123456);
 });
 
-test("migrations : état corrompu -> ville nue ; état v1 complété", () => {
-  // v1.23 : le monde par défaut est une ville nue (arbitrage Thibaut) —
-  // un état corrompu ou une version future repart d'un terrain vide.
+test("migrations : état corrompu -> monde par défaut ; état v1 complété", () => {
+  // v1.30 : le monde par défaut est le terrain nu + l'équipe BTP —
+  // un état corrompu ou une version future repart de ce départ.
   const nue = migrerEtat(null);
   assert.equal(nue.jour, 0);
-  assert.equal(nue.pnjs.length, 0, "aucun PNJ dans le monde par défaut");
+  assert.equal(nue.pnjs.length, 3, "l'équipe BTP dans le monde par défaut");
   assert.equal(nue.batiments.length, 0, "aucun bâtiment");
   assert.equal((nue.gangs ?? []).length, 0, "aucun gang");
   assert.equal(nue.budgetVille, 500000, "5 000 L en caisse pour bâtir");
-  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 0);
+  assert.equal(migrerEtat("n'importe quoi").pnjs.length, 3);
   const futur = migrerEtat({ schemaVersion: 99 });
-  assert.equal(futur.pnjs.length, 0, "version future -> ville nue");
+  assert.equal(futur.pnjs.length, 3, "version future -> monde par défaut (l'équipe)");
   // Complétion v1 -> v8 sur une vraie ville (la démo) : les figurines
   // existantes sont conservées, les champs manquants complétés.
   const demo = createMondeDemonstration();
@@ -443,12 +504,16 @@ test("migrations v9 -> v10 (v1.25) : les véhicules sont complétés, jamais inv
   assert.equal(v.etat, "bon", "état complété au défaut");
   assert.equal(v.essenceJour, 0, "consentation complétée à 0 : rien n'est deviné");
   assert.equal(v.role, null, "pas de rôle inventé");
-  // La ville nue (v1.23) n'a toujours aucun véhicule.
-  const nue = createMondeDefaut();
-  assert.deepEqual(nue.vehicules, [], "la ville par défaut n'a pas de véhicule");
+  // Le monde par défaut (v1.30) démarre avec les deux engins de l'équipe.
+  const depart = createMondeDefaut();
+  assert.equal(depart.vehicules!.length, 2, "la ville par défaut démarre avec les deux engins");
   assert.ok(
-    nue.journal.some((e) => e.texte.includes("aucun véhicule")),
-    "le journal du jour 0 le raconte",
+    depart.vehicules!.every((v) => v.role === "chantier"),
+    "bétonnière et tractopelle, engins de chantier",
+  );
+  assert.ok(
+    depart.journal.some((e) => e.texte.includes("équipe du BTP")),
+    "le journal du jour 0 raconte l'arrivée de l'équipe",
   );
 });
 
@@ -465,7 +530,7 @@ test("éditeur de véhicules (v1.25) : la caravane loge, on la retire — plus r
   m = modifierPnj(m, etudiant.id, { batimentId: caravane.id });
   assert.equal(m.pnjs.find((p) => p.id === etudiant.id)!.batimentId, caravane.id, "l'étudiant loge dans la caravane");
   m = supprimerVehicule(m, caravane.id);
-  assert.equal(m.vehicules!.length, 0, "la caravane a disparu");
+  assert.equal(m.vehicules!.length, 2, "la caravane a disparu, l'équipe BTP reste");
   assert.equal(
     m.pnjs.find((p) => p.id === etudiant.id)!.batimentId,
     null,

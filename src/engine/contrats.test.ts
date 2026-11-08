@@ -200,11 +200,11 @@ test("contrat : la ville de démonstration respecte les formes de types.ts", () 
   );
 });
 
-test("contrat : le monde par défaut (v1.23) est une ville nue aux formes valides", () => {
+test("contrat : le monde par défaut (v1.30) — terrain nu + équipe BTP — aux formes valides", () => {
   const nue = createMondeDefaut();
-  assert.ok(Array.isArray(nue.pnjs) && nue.pnjs.length === 0, "pnjs : tableau vide");
+  assert.ok(Array.isArray(nue.pnjs) && nue.pnjs.length === 3, "pnjs : l'équipe BTP");
   assert.ok(Array.isArray(nue.batiments) && nue.batiments.length === 0, "batiments : tableau vide");
-  assert.ok(Array.isArray(nue.vehicules) && nue.vehicules.length === 0, "vehicules : tableau vide");
+  assert.ok(Array.isArray(nue.vehicules) && nue.vehicules.length === 2, "vehicules : les deux engins");
   assert.ok(Array.isArray(nue.journal) && nue.journal.length >= 1, "journal : au moins le jour 0");
   assert.ok(Array.isArray(nue.gangs ?? []) && (nue.gangs ?? []).length === 0, "gangs : aucun");
   assert.ok(typeof nue.budgetVille === "number" && Number.isFinite(nue.budgetVille), "budgetVille");

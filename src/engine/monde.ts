@@ -1,4 +1,6 @@
-// Monde par défaut (ville nue depuis la v1.23) et mutateurs d'édition (phase 1 — MVP).
+// Monde par défaut (v1.30 : le terrain nu + l'équipe BTP, arbitrage Thibaut
+// « les villes commencent avec les 3 pnj + 2 véhicules ») et mutateurs
+// d'édition (phase 1 — MVP).
 // Monnaie en centimes ; budget d'achat par défaut = consommation de référence
 // (INSEE) pour un revenu médian ; comptes initiaux réalistes et modifiables.
 
@@ -141,12 +143,48 @@ export function reinitialiserIds(): void {
   compteur = 0;
 }
 
-/** Le monde par défaut (v1.23, arbitrage Thibaut) : une ville nue — aucun
- * PNJ, aucun bâtiment, aucun gang, 5 000 L en caisse. Tout se construit
- * dans l'éditeur, la ville vit des coups de crayon du joueur. L'ancienne
- * ville de démonstration (Bricke-en-Provence, 59 figurines) vit dans
- * monde.demo.ts : retirée du jeu, elle reste la terre d'essai des tests. */
+/** Le monde par défaut (v1.30, arbitrage Thibaut « les villes commencent
+ * avec les 3 pnj + 2 véhicules que je t'ai donnés ») : un terrain nu —
+ * aucun bâtiment, aucun gang, 5 000 L en caisse — sur lequel débarque
+ * l'équipe du BTP : Samantha Faure la patronne, Didier Marchand et sa
+ * bétonnière (eff. 1), Thomas Lambert et son tractopelle (eff. 2). Sans
+ * bâtiment, l'équipe n'a ni local ni employeur : le premier chantier
+ * avance à la main (cf. chantiers.ts), à charge du joueur de leur bâtir
+ * leur compagnie. L'ancienne ville de démonstration (Bricke-en-Provence,
+ * 62 figurines) vit dans monde.demo.ts : retirée du jeu, elle reste la
+ * terre d'essai des tests. */
 export function createMondeDefaut(): Etat {
+  const samantha = nouveauPnj({
+    prenom: "Samantha", nom: "Faure", age: 41, genre: "F",
+    metier: "cheffe d'entreprise BTP", statut: "commercant",
+    revenuIndicatif: 5500, compte: 550000,
+  });
+  const didier = nouveauPnj({
+    prenom: "Didier", nom: "Marchand", age: 45, genre: "M",
+    metier: "maçon", statut: "prive", revenuIndicatif: 4930, compte: 400000,
+  });
+  const thomas = nouveauPnj({
+    prenom: "Thomas", nom: "Lambert", age: 33, genre: "M",
+    metier: "conducteur d'engins", statut: "prive", revenuIndicatif: 4930, compte: 400000,
+  });
+  // v1.16 : chaque figurine tire son budget d'achat au départ (loi
+  // log-uniforme ×0,5–×10) — chaque partie démarre différemment.
+  const equipe = [samantha, didier, thomas];
+  for (const p of equipe) p.budgetAchat = budgetAleatoire(p.revenuIndicatif);
+  // Les engins appartiennent à la patronne (v1.29 : l'engin est au patron
+  // quand son conducteur est salarié) et vivent sur leur réservoir plein.
+  const vehicules: Vehicule[] = [
+    nouveauVehicule({
+      nom: "Bétonnière de Didier", categorie: "prive", role: "chantier",
+      efficacite: 1, quartier: "Sud", valeur: 50000, essenceJour: 0,
+      proprietairePnjId: samantha.id,
+    }),
+    nouveauVehicule({
+      nom: "Tractopelle de Thomas", categorie: "prive", role: "chantier",
+      efficacite: 2, quartier: "Sud", valeur: 120000, essenceJour: 0,
+      proprietairePnjId: samantha.id,
+    }),
+  ];
   return {
     schemaVersion: 14,
     jour: 0,
@@ -160,9 +198,9 @@ export function createMondeDefaut(): Etat {
     gangs: [],
     affrontementsCumules: 0,
     params: { tauxImpotBp: TAUX_IMPOT_DEFAUT_BP, coeffIntensite: COEFF_INTENSITE_DEFAUT },
-    pnjs: [],
+    pnjs: equipe,
     batiments: [],
-    vehicules: [],
+    vehicules,
     arbitrages: [],
     chantiers: [],
     journal: [
@@ -170,7 +208,7 @@ export function createMondeDefaut(): Etat {
         jour: 0,
         type: "systeme",
         texte:
-          "Jour 0 : un terrain nu et 5 000 L en caisse — aucun habitant, aucun bâtiment, aucun véhicule, aucun gang. Bricke-en-Provence attend ses premiers coups de crayon : ouvre l'éditeur et lance les premiers chantiers (un bâtiment se construit au BTP, un véhicule à la station-service — et sans constructeur en ville, le chantier avance à la main).",
+          "Jour 0 : un terrain nu, 5 000 L en caisse — et l'équipe du BTP qui débarque : Samantha Faure la patronne, Didier Marchand et sa bétonnière (eff. 1), Thomas Lambert et son tractopelle (eff. 2). Aucun bâtiment, aucun garage : ouvre l'éditeur, lance les chantiers (sans constructeur en ville, l'ouvrage avance à la main) et accueille les nouveaux arrivants — au besoin avec maison et véhicule.",
       },
     ],
   };
@@ -311,6 +349,52 @@ export function supprimerVehicule(etat: Etat, id: string): Etat {
         : p,
   );
   if (parti) raconter(e, parti.nom + " quitte la ville. Bonne route !");
+  return e;
+}
+
+// ---------- Mutateur d'arrivée (v1.30 : l'éditeur accueille un nouvel
+// habitant, au besoin avec sa maison et/ou son véhicule) ----------
+
+/** Un arrivant (v1.30) : la figurine, et ses biens éventuels créés dans
+ * la foulée — la maison l'héberge, le véhicule est à son nom. */
+export interface Arrivant {
+  pnj: Pnj;
+  /** Maison de l'arrivant : bâtiment créé en même temps (habitation),
+   * relié comme logement du nouvel habitant. */
+  maison?: Batiment;
+  /** Véhicule de l'arrivant : créé en même temps, à son nom (privé,
+   * volable par le milieu comme tout véhicule privé). */
+  vehicule?: Vehicule;
+}
+
+/**
+ * Accueille un nouvel arrivant en ville (v1.30, demande Thibaut « il
+ * faudrait pouvoir ajouter de nouveaux arrivants, potentiellement avec
+ * maison et/ou véhicule ») : la figurine, sa maison et son véhicule
+ * entrent ensemble, tout est déjà relié — l'arrivant loge chez lui et
+ * possède sa voiture. Une seule entrée de journal raconte l'installation.
+ */
+export function accueillirArrivant(etat: Etat, arrive: Arrivant): Etat {
+  const e = structuredClone(etat);
+  let pnj = arrive.pnj;
+  if (arrive.maison) {
+    e.batiments.push(arrive.maison);
+    pnj = { ...pnj, batimentId: arrive.maison.id };
+  }
+  e.pnjs.push(pnj);
+  let vehicule = arrive.vehicule;
+  if (vehicule) {
+    vehicule = { ...vehicule, proprietairePnjId: pnj.id };
+    e.vehicules = [...(e.vehicules ?? []), vehicule];
+  }
+  raconter(
+    e,
+    pnj.prenom + " " + pnj.nom + " débarque en ville, " + pnj.metier + "." +
+      (arrive.maison ? " Sa maison, « " + arrive.maison.nom + " », se dresse déjà pour l'accueillir." : "") +
+      (vehicule ? " « " + vehicule.nom + " » l'accompagne" +
+        (vehicule.role === "chantier" ? " (engin de chantier, réservoir plein)." : ".") : "") +
+      " Bienvenue !",
+  );
   return e;
 }
 

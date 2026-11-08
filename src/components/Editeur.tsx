@@ -7,11 +7,13 @@ import { CarteBatiments } from "./EditeurBatiments.tsx";
 import { CarteVehicules } from "./EditeurVehicules.tsx";
 import { CarteGangs } from "./EditeurGangs.tsx";
 import { CartePnjs } from "./EditeurPnjs.tsx";
+import { CarteArrivants } from "./EditeurArrivants.tsx";
 
 export function Editeur() {
   return (
     <div className="grille-editeur">
       <CarteVille />
+      <CarteArrivants />
       <CarteBatiments />
       <CarteVehicules />
       <CarteGangs />
