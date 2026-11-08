@@ -219,8 +219,6 @@ export function createMondeDemonstration(): Etat {
   const idMario = pnjs.find((x) => x.prenom === "Mario")!.id;
   const idEtudiant = pnjs.find((x) => x.metier === "étudiant")!.id;
   const idSamantha = pnjs.find((x) => x.prenom === "Samantha")!.id;
-  const idDidier = pnjs.find((x) => x.prenom === "Didier")!.id;
-  const idThomas = pnjs.find((x) => x.prenom === "Thomas")!.id;
   const vehicules: Vehicule[] = [
     nouveauVehicule({ nom: "Camion de pompiers « Lanceur »", categorie: "municipal", role: "pompiers", quartier: "Nord", valeur: 300000, essenceJour: 800, garageBatimentId: idCaserne }),
     nouveauVehicule({ nom: "Fourgon de police", categorie: "municipal", role: "police", quartier: "Centre", valeur: 180000, essenceJour: 600, garageBatimentId: idPolice }),
