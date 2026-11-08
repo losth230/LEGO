@@ -16,6 +16,7 @@ import {
   nouveauPnj,
   supprimerPnj
 } from "../engine/monde.ts";
+import { patronDuCommerce } from "../engine/moteur.ts";
 import {
   Champ,
   ID_DATALIST_METIERS,
@@ -24,6 +25,54 @@ import {
 } from "./EditeurCommuns.tsx";
 
 // ---------- figurines ----------
+
+/**
+ * v1.33 « L'empire de Mario » : cases à cocher des boutiques possédées —
+ * un commerçant peut être patron de PLUSIEURS commerces. Une boutique déjà
+ * tenue par un autre patron est verrouillée (un commerce, un patron).
+ */
+function BoutiquesPossedees({
+  etat,
+  pnjId,
+  donnees,
+  maj,
+}: {
+  etat: Etat;
+  pnjId: string | null;
+  donnees: string[];
+  maj: (v: string[]) => void;
+}) {
+  const commerces = etat.batiments.filter((b) => b.type === "commerce");
+  if (commerces.length === 0) return <p className="mute">Aucun commerce en ville.</p>;
+  return (
+    <div>
+      {commerces.map((b) => {
+        const patron = patronDuCommerce(etat, b.id);
+        const libre = !patron || patron.id === pnjId;
+        return (
+          <label key={b.id} style={{ display: "block" }}>
+            <input
+              type="checkbox"
+              disabled={!libre}
+              checked={donnees.includes(b.id)}
+              onChange={(e) =>
+                maj(
+                  e.target.checked
+                    ? [...donnees, b.id]
+                    : donnees.filter((x) => x !== b.id),
+                )
+              }
+            />{" "}
+            {b.nom}
+            {libre ? null : (
+              <span className="mute"> — déjà à {patron!.prenom} {patron!.nom}</span>
+            )}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 /** Véhicules pouvant loger des figurines (caravane, roulotte) — v1.25. */
 function vehiculesLogeables(etat: Etat): Vehicule[] {
@@ -45,6 +94,10 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
   const [statut, setStatut] = useState<Statut>(p.statut);
   const [grade, setGrade] = useState(p.grade ?? GRADES[0]);
   const [batimentId, setBatimentId] = useState(p.batimentId ?? "");
+  // v1.33 : boutiques possédées — la liste fait foi pour le moteur.
+  const [boutiques, setBoutiques] = useState<string[]>(
+    p.commercesId ?? (p.statut === "commercant" && p.batimentId ? [p.batimentId] : []),
+  );
   const [travailId, setTravailId] = useState(p.travailBatimentId ?? "");
   const [revenu, setRevenu] = useState(versL(p.revenuIndicatif));
   const [achat, setAchat] = useState(versL(p.budgetAchat));
@@ -65,6 +118,7 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
         statut,
         grade: statut === "agent_public" ? grade : undefined,
         batimentId: batimentId === "" ? null : batimentId,
+        commercesId: statut === "commercant" ? boutiques : [],
         travailBatimentId: statut === "prive" && travailId !== "" ? travailId : null,
         revenuIndicatif: nombreL(revenu),
         budgetAchat: nombreL(achat),
@@ -152,7 +206,24 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
             </Champ>
           ) : null}
           <Champ label="Bâtiment (ou véhicule : caravane)">
-            <select className="input" value={batimentId} onChange={(e) => setBatimentId(e.target.value)}>
+            <select
+              className="input"
+              value={batimentId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBatimentId(v);
+                // v1.33 : lier un commerçant à un commerce coche sa case —
+                // comportement historique conservé (le bâtiment lié faisait
+                // foi) ; la liste de boutiques reste modifiable ensuite.
+                if (
+                  statut === "commercant" &&
+                  v !== "" &&
+                  etat.batiments.some((b) => b.id === v && b.type === "commerce")
+                ) {
+                  setBoutiques((prev) => (prev.includes(v) ? prev : [...prev, v]));
+                }
+              }}
+            >
               <option value="">— aucun —</option>
               {etat.batiments.map((b) => (
                 <option key={b.id} value={b.id}>{b.nom}</option>
@@ -162,6 +233,11 @@ function LignePnjEdit({ pnj: p }: { pnj: Pnj }) {
               ))}
             </select>
           </Champ>
+          {statut === "commercant" ? (
+            <Champ label="Boutiques possédées (patron — plusieurs possibles)">
+              <BoutiquesPossedees etat={etat} pnjId={p.id} donnees={boutiques} maj={setBoutiques} />
+            </Champ>
+          ) : null}
           <Champ label="Revenu indicatif (L/jour)">
             <input className="input" value={revenu} onChange={(e) => setRevenu(e.target.value)} />
           </Champ>
@@ -217,6 +293,7 @@ export function CartePnjs() {
   const [grade, setGrade] = useState(GRADES[0]);
   const [batimentId, setBatimentId] = useState("");
   const [travailId, setTravailId] = useState("");
+  const [boutiques, setBoutiques] = useState<string[]>([]);
   const [revenu, setRevenu] = useState("52,50");
 
   const ajouter = () => {
@@ -228,6 +305,7 @@ export function CartePnjs() {
       statut,
       grade: statut === "agent_public" ? grade : undefined,
       batimentId: batimentId === "" ? null : batimentId,
+      commercesId: statut === "commercant" ? boutiques : [],
       travailBatimentId: statut === "prive" && travailId !== "" ? travailId : null,
       revenuIndicatif: nombreL(revenu),
     });
@@ -235,6 +313,7 @@ export function CartePnjs() {
     setPrenom("");
     setNom("");
     setMetier("");
+    setBoutiques([]);
   };
 
   return (
@@ -290,7 +369,24 @@ export function CartePnjs() {
           </Champ>
         ) : null}
         <Champ label="Bâtiment (ou véhicule : caravane)">
-          <select className="input" value={batimentId} onChange={(e) => setBatimentId(e.target.value)}>
+          <select
+              className="input"
+              value={batimentId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBatimentId(v);
+                // v1.33 : lier un commerçant à un commerce coche sa case —
+                // comportement historique conservé (le bâtiment lié faisait
+                // foi) ; la liste de boutiques reste modifiable ensuite.
+                if (
+                  statut === "commercant" &&
+                  v !== "" &&
+                  etat.batiments.some((b) => b.id === v && b.type === "commerce")
+                ) {
+                  setBoutiques((prev) => (prev.includes(v) ? prev : [...prev, v]));
+                }
+              }}
+            >
             <option value="">— aucun —</option>
             {etat.batiments.map((b) => (
               <option key={b.id} value={b.id}>{b.nom}</option>
@@ -300,6 +396,11 @@ export function CartePnjs() {
             ))}
           </select>
         </Champ>
+        {statut === "commercant" ? (
+          <Champ label="Boutiques possédées (patron — plusieurs possibles)">
+            <BoutiquesPossedees etat={etat} pnjId={null} donnees={boutiques} maj={setBoutiques} />
+          </Champ>
+        ) : null}
         <Champ label="Revenu indicatif (L/jour)">
           <input className="input" value={revenu} onChange={(e) => setRevenu(e.target.value)} />
         </Champ>

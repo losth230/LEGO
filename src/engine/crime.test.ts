@@ -21,7 +21,7 @@ import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   migrerEtat
-} from "./migrations.ts";
+, SCHEMA_VERSION_ETAT } from "./migrations.ts";
 
 import {
   monnaieEnCircuit,
@@ -170,7 +170,7 @@ test("migration v8 : carte d'identité complétée, le crime continue dans les v
     params: { tauxImpotBp: 3000, coeffIntensite: 1000 },
     pnjs: pnjsV7, batiments: [], journal: [],
   });
-  assert.equal(v8.schemaVersion, 15, "v7 -> v15 : schema à jour");
+  assert.equal(v8.schemaVersion, SCHEMA_VERSION_ETAT, "v7 -> v16 : schema à jour");
   assert.ok(
     v8.pnjs.every((p) => Array.isArray(p.personnalite) && p.personnalite.length === 2),
     "v7 -> v8 : personnalité attribuée à chaque figurine",

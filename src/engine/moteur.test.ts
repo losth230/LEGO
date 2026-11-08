@@ -25,7 +25,7 @@ import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   migrerEtat
-} from "./migrations.ts";
+, SCHEMA_VERSION_ETAT } from "./migrations.ts";
 
 import {
   impotSur,
@@ -344,7 +344,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(m.params.coeffIntensite, COEFF_INTENSITE_DEFAUT, "v1 -> v2 : K complété au défaut");
   assert.equal(m.pertesCumulees, 0, "v1 -> v2 : pertes initialisées");
   assert.equal(m.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
-  assert.equal(m.schemaVersion, 15, "v1 -> v15 : schema à jour");
+  assert.equal(m.schemaVersion, SCHEMA_VERSION_ETAT, "v1 -> v16 : schema à jour");
   assert.equal(
     m.params.tauxImpotBp,
     TAUX_IMPOT_DEFAUT_BP,
@@ -366,7 +366,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   assert.equal(v5.jour, 3, "v5 : le jour est conservé");
   assert.equal(v5.params.tauxImpotBp, 555, "v5 : le taux choisi par le joueur est conservé");
   assert.equal(v5.params.coeffIntensite, 2, "v5 : K conservé");
-  assert.equal(v5.schemaVersion, 15, "v5 -> v15 : schema à jour");
+  assert.equal(v5.schemaVersion, SCHEMA_VERSION_ETAT, "v5 -> v16 : schema à jour");
   // v5 -> v6 : la vocation des bâtiments existants est complétée à null
   // (boutique de consommation par défaut), jamais devinée.
   const v5bat = migrerEtat({
@@ -378,7 +378,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
       { id: "b2", nom: "Mairie", type: "service_public" },
     ],
   });
-  assert.equal(v5bat.schemaVersion, 15, "v5 -> v15 : schema à jour");
+  assert.equal(v5bat.schemaVersion, SCHEMA_VERSION_ETAT, "v5 -> v16 : schema à jour");
   assert.ok(
     v5bat.batiments.every((b) => b.vocations.length === 0 &&
       (b.type === "commerce" ? b.boutique === true : b.boutique === false)),
@@ -393,7 +393,7 @@ test("migrations : état corrompu -> monde par défaut ; état v1 complété", (
   // par défaut passe de 10 % à 30 % — une ville restée à l'ancien défaut
   // monte au nouveau taux, un taux choisi reste le sien.
   const v6defaut = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 1000, coeffIntensite: 2 } });
-  assert.equal(v6defaut.schemaVersion, 15, "v6 -> v15 : schema à jour");
+  assert.equal(v6defaut.schemaVersion, SCHEMA_VERSION_ETAT, "v6 -> v16 : schema à jour");
   assert.equal(v6defaut.volsCumules, 0, "v6 -> v7 : vols cumulés initialisés");
   assert.equal(v6defaut.params.tauxImpotBp, TAUX_IMPOT_DEFAUT_BP, "v6 -> v7 : l'ancien défaut 10 % devient 30 %");
   const v6choisi = migrerEtat({ schemaVersion: 6, params: { tauxImpotBp: 555, coeffIntensite: 2 } });
@@ -418,7 +418,7 @@ test("capacités séparées (v1.24) : un bâtiment peut loger et employer à la 
       { id: "b2", nom: "Le Fournil Doré", type: "commerce", capacite: 2 },
     ],
   });
-  assert.equal(vieux.schemaVersion, 15, "v8 -> v15 : schema à jour");
+  assert.equal(vieux.schemaVersion, SCHEMA_VERSION_ETAT, "v8 -> v16 : schema à jour");
   const maison = vieux.batiments.find((x) => x.id === "b1")!;
   assert.equal(maison.capaciteLogements, 4, "habitation : la capacité devient des logements");
   assert.equal(maison.capacitePostes, 0, "habitation : aucun poste inventé");
@@ -489,7 +489,7 @@ test("essence (v1.25) : sans station-service en ville, la flotte dort au garage 
 
 test("migrations v9 -> v10 (v1.25) : les véhicules sont complétés, jamais inventés", () => {
   const v9 = migrerEtat({ schemaVersion: 9, jour: 4 });
-  assert.equal(v9.schemaVersion, 15, "v9 -> v15 : schema à jour");
+  assert.equal(v9.schemaVersion, SCHEMA_VERSION_ETAT, "v9 -> v16 : schema à jour");
   assert.deepEqual(v9.vehicules, [], "un état v9 sans véhicules obtient une liste vide, pas une flotte inventée");
   // Payload tordu : un véhicule d'import aux champs manquants est complété
   // au défaut (privé, bon état, essence 0), jamais deviné.
@@ -542,7 +542,7 @@ test("éditeur de véhicules (v1.25) : la caravane loge, on la retire — plus r
 
 test("migrations v10 -> v12 (v1.26) : la file d'arbitrages est complétée, jamais inventée", () => {
   const v10 = migrerEtat({ schemaVersion: 10, jour: 4 });
-  assert.equal(v10.schemaVersion, 15, "v10 -> v15 : schema à jour");
+  assert.equal(v10.schemaVersion, SCHEMA_VERSION_ETAT, "v10 -> v16 : schema à jour");
   assert.deepEqual(v10.arbitrages, [], "un état v10 sans file d'arbitrages obtient une liste vide");
   // Payload tordu : seuls les arbitrages bien formés traversent la
   // migration — rien n'est décodé en force, rien n'est inventé.
@@ -659,7 +659,7 @@ test("migration v14 -> v15 (v1.31) : la vocation devient une liste de services, 
       batV14("bat-prison", "Ancienne prison", "prison"),
     ] as unknown as typeof demo.batiments,
   });
-  assert.equal(v14.schemaVersion, 15, "v14 -> v15 : schema à jour");
+  assert.equal(v14.schemaVersion, SCHEMA_VERSION_ETAT, "v14 -> v16 : schema à jour");
   const station = v14.batiments.find((b) => b.id === "bat-station")!;
   assert.deepEqual(station.vocations, ["garage"], "l'ancienne vocation devient une liste");
   assert.equal(station.boutique, false, "un ancien service ne vend pas de courses : comportement inchangé");

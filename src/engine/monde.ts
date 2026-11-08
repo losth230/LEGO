@@ -55,6 +55,12 @@ export function nouveauPnj(p: Partial<Pnj> & { prenom: string; nom: string }): P
     statut: p.statut ?? "prive",
     grade: p.grade,
     batimentId: p.batimentId ?? null,
+    // v1.33 : la liste des boutiques possédées fait foi. Par défaut elle
+    // naît du bâtiment lié (comportement historique : créer un commerçant
+    // relié à un commerce en fait le patron) ; l'éditeur peut ensuite lui
+    // ajouter d'autres boutiques.
+    commercesId:
+      p.commercesId ?? ((p.statut ?? "prive") === "commercant" && p.batimentId ? [p.batimentId] : []),
     travailBatimentId: p.travailBatimentId ?? null,
     revenuIndicatif: revenu,
     budgetAchat: p.budgetAchat ?? revenu,
@@ -192,7 +198,8 @@ export function createMondeDefaut(): Etat {
   return {
     // v1.31 : schéma v15 (vocations multiples) — à maintenir synchronisé
     // avec SCHEMA_VERSION_ETAT (migrations.ts) ; un import serait circulaire.
-    schemaVersion: 15,
+    // v1.33 : schéma 16 (commercesId, la liste des boutiques possédées).
+    schemaVersion: 16,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,
@@ -292,13 +299,14 @@ export function supprimerBatiment(etat: Etat, id: string): Etat {
   const parti = e.batiments.find((b) => b.id === id);
   const emploisPerdus = e.pnjs.filter((p) => p.travailBatimentId === id).length;
   e.batiments = e.batiments.filter((b) => b.id !== id);
-  e.pnjs = e.pnjs.map((p) =>
-    p.batimentId === id
-      ? { ...p, batimentId: null }
-      : p.travailBatimentId === id
-        ? { ...p, travailBatimentId: null }
-        : p,
-  );
+  // v1.33 : une boutique supprimée quitte aussi les listes de possession —
+  // le patron la perd, il ne reste pas un id pendouillant.
+  e.pnjs = e.pnjs.map((p) => ({
+    ...p,
+    batimentId: p.batimentId === id ? null : p.batimentId,
+    travailBatimentId: p.travailBatimentId === id ? null : p.travailBatimentId,
+    commercesId: (p.commercesId ?? []).filter((x) => x !== id),
+  }));
   if (parti)
     raconter(
       e,

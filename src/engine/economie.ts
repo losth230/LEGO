@@ -46,11 +46,35 @@ export function joursDeMarge(etat: Etat): number {
   return Math.floor(etat.budgetVille / charges);
 }
 
+/**
+ * v1.33 « L'empire de Mario » : un commerçant peut posséder plusieurs
+ * boutiques. commercesId (liste complète d'ids de commerces) est la
+ * source de vérité du moteur — batimentId ne fait plus foi pour la
+ * possession, c'est un lien narratif de logement. Possession = le
+ * commerce figure dans la liste du commerçant.
+ */
+export function possedeCommerce(pnj: Pnj, batimentId: string): boolean {
+  return pnj.statut === "commercant" && (pnj.commercesId ?? []).includes(batimentId);
+}
+
+/** Patron actif d'un commerce : le premier propriétaire trouvé (l'éditeur
+ * empêche d'y installer un second, le moteur reste tolérant aux états
+ * bricolés à la main). */
+export function patronDuCommerce(etat: Etat, batimentId: string): Pnj | undefined {
+  return etat.pnjs.find((p) => possedeCommerce(p, batimentId));
+}
+
+/** Boutiques d'un patron : les commerces de la ville qu'il possède. */
+export function boutiquesDuPatron(etat: Etat, pnj: Pnj): Batiment[] {
+  if (pnj.statut !== "commercant") return [];
+  return etat.batiments.filter((b) => b.type === "commerce" && possedeCommerce(pnj, b.id));
+}
+
 /** Nombre de magasins ouverts pour un acheteur (un commerçant n'achète pas chez lui). */
 export function commercesPourAcheteur(etat: Etat, pnj: Pnj): Batiment[] {
   return etat.batiments.filter((b) => {
     if (b.type !== "commerce" || !b.boutique || b.enConstruction === true) return false;
-    const proprio = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
+    const proprio = patronDuCommerce(etat, b.id);
     return proprio !== undefined && proprio.id !== pnj.id;
   });
 }
@@ -63,7 +87,7 @@ export function boutiquesOuvertes(etat: Etat): Batiment[] {
       b.type === "commerce" &&
       b.enConstruction !== true &&
       b.boutique &&
-      etat.pnjs.some((p) => p.batimentId === b.id && p.statut === "commercant"),
+      etat.pnjs.some((p) => possedeCommerce(p, b.id)),
   );
 }
 
@@ -81,7 +105,7 @@ export function serviceLocal(
     // v1.27 : un service en construction ne rend aucun service.
     // v1.31 : le commerce cumule ses vocations cochées.
     if (b.type !== "commerce" || !b.vocations.includes(vocation) || b.enConstruction === true) continue;
-    const gerant = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
+    const gerant = patronDuCommerce(etat, b.id);
     if (gerant) return { bat: b, gerant };
   }
   return null;

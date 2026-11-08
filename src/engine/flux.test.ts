@@ -10,19 +10,25 @@ import type {
 } from "./types.ts";
 
 import {
+  nouveauBatiment,
   nouveauPnj,
+  supprimerBatiment,
   supprimerPnj
 } from "./monde.ts";
 import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
+  boutiquesDuPatron,
+  commercesPourAcheteur,
   effectifMax,
   impotSur,
   monnaieEnCircuit,
   PART_SALARIALE_FLUX,
   passerJour,
+  patronDuCommerce,
   repartir
 } from "./moteur.ts";
+import { migrerEtat, SCHEMA_VERSION_ETAT } from "./migrations.ts";
 
 import {
   entrees,
@@ -172,4 +178,118 @@ test("flux : deux employés au Fournil Doré, la bascule stock vers flux en mond
     "le bureau de poste paie son facteur (v1.22) : il ne thésaurise pas",
   );
   assert.equal(j1.sortiesCumulees, 0, "rien ne sort du circuit quand les commerces sont ouverts");
+});
+
+
+// ---------- v1.33 « L'empire de Mario » : patron de plusieurs commerces ----------
+
+/** Monde témoin hermétique : deux boutiques pures, un patron unique, un
+ * employé dans la première, une cliente. K = 1 (calme), traits honnêtes :
+ * on isole le flux pour suivre les comptes au centime. */
+function empireMario() {
+  const base = calme(createMondeDemonstration());
+  const b1 = nouveauBatiment({ nom: "Friterie de Mario", type: "commerce" });
+  const b2 = nouveauBatiment({ nom: "Station de Mario", type: "commerce" });
+  const mario = nouveauPnj({
+    prenom: "Mario", nom: "Rossi", statut: "commercant", batimentId: b1.id,
+    // v1.33 : LA liste fait foi — Mario possède les deux boutiques.
+    commercesId: [b1.id, b2.id],
+    revenuIndicatif: 6000, budgetAchat: 0, compte: 0, personnalite: ["honnête", "discret"],
+  });
+  const alban = nouveauPnj({
+    prenom: "Alban", nom: "Test", statut: "prive", travailBatimentId: b1.id,
+    revenuIndicatif: 5775, budgetAchat: 0, compte: 0, personnalite: ["honnête", "discret"],
+  });
+  const claire = nouveauPnj({
+    prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5250,
+    budgetAchat: 20000, compte: 200000, personnalite: ["honnête", "discret"],
+  });
+  const monde: Etat = { ...base, batiments: [b1, b2], vehicules: [], pnjs: [mario, alban, claire] };
+  return { monde, b1, b2, mario, alban, claire };
+}
+
+test("v1.33 : l'empire de Mario — les deux boutiques encaissent, chacune redistribue de son côté", () => {
+  const { monde, b1, b2, mario, alban, claire } = empireMario();
+  // La liste fait foi : le moteur voit bien les deux boutiques du patron.
+  assert.deepEqual(boutiquesDuPatron(monde, mario).map((b) => b.id), [b1.id, b2.id]);
+  assert.equal(commercesPourAcheteur(monde, mario).length, 0, "un patron n'achète chez lui, dans aucune de ses boutiques");
+  assert.equal(commercesPourAcheteur(monde, claire).length, 2, "la cliente, elle, a les deux boutiques ouvertes");
+  const taux = monde.params.tauxImpotBp;
+  const avant = monnaieEnCircuit(monde);
+  const j1 = passerJour(monde);
+  // La cliente achète 200 L, répartis entre les deux boutiques ouvertes.
+  assert.equal(j1.recettesCommerce![b1.id], 10000, "la friterie encaisse sa moitié");
+  assert.equal(j1.recettesCommerce![b2.id], 10000, "la station encaisse l'autre moitié");
+  // Chaque boutique redistribue de son côté : la friterie paie son employé
+  // (88 % du flux en salaires et primes), la station sans salarié garde tout.
+  const flux = entrees(1, "flux", j1.journal);
+  assert.equal(flux.length, 2, "une entrée par boutique du patron");
+  assert.ok(flux.some((e) => e.texte.includes("Friterie") && e.texte.includes("redistribue")), "la friterie redistribue");
+  assert.ok(flux.some((e) => e.texte.includes("Station") && e.texte.includes("stock")), "la station thésaurise (stock)");
+  // Comptes au centime : marge de la friterie (12 %) + recettes de la
+  // station gardées, moins l'impôt à la source sur chaque gain du patron.
+  const marioApres = j1.pnjs.find((p) => p.id === mario.id)!;
+  const attenduMario = 20000 - 8800 - impotSur(1200, taux) - impotSur(10000, taux);
+  assert.equal(marioApres.compte, attenduMario, "le patron encaisse les deux caisses, marge par marge");
+  // L'employé est payé par la seule caisse de la friterie (modèle flux).
+  const albanApres = j1.pnjs.find((p) => p.id === alban.id)!;
+  assert.equal(
+    albanApres.compte,
+    (5775 - impotSur(5775, taux)) + (3025 - impotSur(3025, taux)),
+    "salaire + prime payés sur les recettes de la friterie uniquement",
+  );
+  // Monde fermé : rien ne disparaît, même avec deux boutiques au même patron.
+  assert.equal(monnaieEnCircuit(j1), avant, "la conservation exacte tient avec l'empire");
+});
+
+test("v1.33 : migration v15 -> v16 — la liste des boutiques naît du bâtiment lié, à l'identique", () => {
+  const { monde, b1, b2, mario } = empireMario();
+  // Un état v15 : les figurines n'ont pas encore commercesId.
+  const v15 = {
+    ...monde,
+    schemaVersion: 15,
+    pnjs: monde.pnjs.map((p) => {
+      const sans = { ...p };
+      delete sans.commercesId;
+      return sans;
+    }),
+  };
+  const migre = migrerEtat(v15);
+  assert.equal(migre.schemaVersion, SCHEMA_VERSION_ETAT, "l'état monte au schéma 16");
+  const marioMigre = migre.pnjs.find((p) => p.id === mario.id)!;
+  // v15 : Mario n'était patron que via son bâtiment lié (la friterie) —
+  // la migration lui donne exactement cette boutique, ni plus ni moins.
+  assert.deepEqual(marioMigre.commercesId, [b1.id], "la liste naît du bâtiment lié");
+  assert.deepEqual(migre.pnjs.find((p) => p.prenom === "Alban")!.commercesId, [], "un privé ne possède rien");
+  assert.equal(patronDuCommerce(migre, b1.id)?.id, mario.id, "Mario reste patron de sa friterie");
+  assert.equal(patronDuCommerce(migre, b2.id), undefined, "la station reste sans patron — rien d'inventé");
+  // Re-ingestion idempotente : la liste déjà là est conservée telle quelle.
+  const encore = migrerEtat(migre);
+  assert.deepEqual(
+    encore.pnjs.map((p) => p.commercesId),
+    migre.pnjs.map((p) => p.commercesId),
+    "re-migrer ne change plus rien",
+  );
+});
+
+test("v1.33 : une boutique supprimée quitte la liste de son patron", () => {
+  const { monde, b1, b2, mario, alban } = empireMario();
+  const apres = supprimerBatiment(monde, b1.id);
+  const marioApres = apres.pnjs.find((p) => p.id === mario.id)!;
+  assert.deepEqual(marioApres.commercesId, [b2.id], "la friterie fermée quitte la liste de possession");
+  assert.equal(patronDuCommerce(apres, b2.id)?.id, mario.id, "il reste patron de sa station");
+  assert.equal(apres.pnjs.find((p) => p.id === alban.id)!.travailBatimentId, null, "l'employé de la friterie perd son emploi");
+});
+
+test("v1.33 : un commerce n'a qu'un patron actif — le premier propriétaire trouvé", () => {
+  const { monde, b1, b2, mario } = empireMario();
+  // État bricolé à la main : un rival revendique aussi la friterie.
+  const rival = nouveauPnj({
+    prenom: "Rival", nom: "Test", statut: "commercant",
+    commercesId: [b1.id], revenuIndicatif: 6000, budgetAchat: 0, compte: 0,
+  });
+  const bricole = { ...monde, pnjs: [rival, ...monde.pnjs] };
+  assert.equal(patronDuCommerce(bricole, b1.id)?.id, rival.id, "le premier propriétaire trouvé encaisse");
+  assert.equal(patronDuCommerce(bricole, b2.id)?.id, mario.id, "la station, elle, reste à Mario");
+  assert.equal(commercesPourAcheteur(bricole, rival).length, 1, "le rival n'achète que chez Mario");
 });

@@ -28,7 +28,7 @@ import {
   generateurPour,
   quartierAdjacent,
 } from "./evenements.ts";
-import { coefficientRenfort, fraisMedicaux, posteDePolice } from "./economie.ts";
+import { coefficientRenfort, fraisMedicaux, patronDuCommerce, posteDePolice } from "./economie.ts";
 
 /** Jours de sursis avant que la pire issue s'impose seule (arbitrage Thibaut : 3 jours). */
 export const DELAI_ARBITRAGE_JOURS = 3;
@@ -63,7 +63,7 @@ function serviceTenu(etat: Etat, batimentId: string | null): { bat: Batiment; ge
   if (!batimentId) return null;
   const bat = etat.batiments.find((b) => b.id === batimentId);
   if (!bat) return null;
-  const gerant = etat.pnjs.find((p) => p.batimentId === bat.id && p.statut === "commercant");
+  const gerant = patronDuCommerce(etat, bat.id);
   return gerant ? { bat, gerant } : null;
 }
 

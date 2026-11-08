@@ -11,7 +11,8 @@ import {
 } from "../engine/referentiel.ts";
 import {
   effectifMax,
-  employesDuCommerce
+  employesDuCommerce,
+  patronDuCommerce
 } from "../engine/moteur.ts";
 import {
   lancerChantierBatiment,
@@ -34,7 +35,7 @@ import {
 /** Calibrage du modèle flux affiché sur chaque commerce (phase 3.6). */
 function InfoCommerce({ batiment: b }: { batiment: Batiment }) {
   const { etat } = useStore();
-  const proprio = etat.pnjs.find((p) => p.batimentId === b.id && p.statut === "commercant");
+  const proprio = patronDuCommerce(etat, b.id);
   const recettes = etat.recettesCommerce?.[b.id] ?? 0;
   const employes = employesDuCommerce(etat, b.id).length;
   const cout = Math.round(COUT_EMPLOYE_PRIVE_L * 100);

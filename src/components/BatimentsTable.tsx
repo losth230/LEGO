@@ -3,6 +3,7 @@
 import { useStore } from "../state/store.tsx";
 import type { Batiment, EtatBatiment, TypeBatiment } from "../engine/types.ts";
 import { montantL } from "../engine/referentiel.ts";
+import { patronDuCommerce } from "../engine/moteur.ts";
 
 const ETIQUETTES_TYPE: Record<TypeBatiment, { libelle: string; classe: string; icone: string }> = {
   habitation: { libelle: "Habitation", classe: "badge-habitation", icone: "🏠" },
@@ -57,7 +58,9 @@ function LigneBatiment({ batiment: b }: { batiment: Batiment }) {
   const { etat } = useStore();
   const t = ETIQUETTES_TYPE[b.type];
   const occupants = etat.pnjs.filter((p) => p.batimentId === b.id);
-  const proprio = occupants.find((p) => p.statut === "commercant");
+  // v1.33 : le patron est résolu par la liste des boutiques possédées —
+  // une seconde boutique de Mario affiche son nom aussi.
+  const proprio = b.type === "commerce" ? patronDuCommerce(etat, b.id) : undefined;
   // v1.27 : le bâtiment en construction est visible, capacités inactives.
   const chantier = b.enConstruction
     ? (etat.chantiers ?? []).find((c) => c.cibleBatimentId === b.id)

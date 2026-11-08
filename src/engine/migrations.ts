@@ -9,7 +9,7 @@ import { VOCATIONS } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 15;
+export const SCHEMA_VERSION_ETAT = 16;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -104,6 +104,21 @@ const GRADES_RETIRES: Record<string, string> = {
     metier: typeof (p as Partial<Pnj>).metier === "string" ? (p as Partial<Pnj>).metier! : "sans profession",
     batimentId:
       typeof (p as Partial<Pnj>).batimentId === "string" ? (p as Partial<Pnj>).batimentId! : null,
+    // Migration v15 -> v16 (v1.33, multi-boutiques) : commercesId est la
+    // liste complète des boutiques possédées — le moteur ne lit plus
+    // batimentId pour la possession. Un commerçant v15 était patron via
+    // son bâtiment lié : la liste naît de ce lien, à l'identique (aucune
+    // ville ne change de mains). Un état v16 re-ingéré garde sa liste
+    // (filtrée, re-ingestion idempotente) ; un PNJ tordu retombe sur [].
+    commercesId: (() => {
+      const liste = (p as Partial<Pnj>).commercesId;
+      if (Array.isArray(liste)) {
+        return liste.filter((x): x is string => typeof x === "string");
+      }
+      const lien =
+        typeof (p as Partial<Pnj>).batimentId === "string" ? (p as Partial<Pnj>).batimentId! : null;
+      return (p as Partial<Pnj>).statut === "commercant" && lien ? [lien] : [];
+    })(),
     revenuIndicatif:
       typeof (p as Partial<Pnj>).revenuIndicatif === "number" ? (p as Partial<Pnj>).revenuIndicatif! : 0,
     budgetAchat:

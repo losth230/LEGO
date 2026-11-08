@@ -104,9 +104,18 @@ export interface Pnj {
   /** Bâtiment lié : logement (habitation), boutique (commerce) ou service (service public). */
   batimentId: string | null;
   /**
+   * v1.33 « L'empire de Mario » : boutiques possédées — liste complète
+   * d'ids de commerces. Un commerçant peut être patron de PLUSIEURS
+   * boutiques ; cette liste est la source de vérité du moteur (il ne
+   * lit plus batimentId pour la possession : le bâtiment lié redevient
+   * un lien narratif de logement). La migration v16 la construit depuis
+   * le bâtiment lié, à l'identique. Un commerce n'a qu'un patron actif :
+   * le premier propriétaire trouvé (l'éditeur empêche les doublons).
+   */
+  commercesId?: string[];
+  /**
    * Lieu de travail d'un employé privé (commerce) — modèle flux, phase 3.6.
-   * Le patron (commerçant) garde sa boutique dans batimentId ; l'employé
-   * habite dans batimentId et travaille ici.
+   * L'employé habite dans batimentId et travaille ici.
    */
   travailBatimentId?: string | null;
   /** Revenu indicatif quotidien en centimes — salaire contractuel des employés privés (modèle flux) et base du budget d'achat. */

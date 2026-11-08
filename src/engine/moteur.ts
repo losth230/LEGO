@@ -54,6 +54,7 @@ import {
   boutiquesOuvertes,
   serviceLocal,
   employesDuCommerce,
+  patronDuCommerce,
   repartir,
   impotSur,
   posteDePolice,
@@ -71,6 +72,9 @@ export {
   boutiquesOuvertes,
   serviceLocal,
   employesDuCommerce,
+  patronDuCommerce,
+  possedeCommerce,
+  boutiquesDuPatron,
   effectifMax,
   repartir,
   impotSur,
@@ -190,9 +194,7 @@ function etapeFonctionnement(etat: Etat, totaux: Totaux): void {
     if (paye === 0) continue;
     const parts = repartir(paye, boutiques.map(() => 1));
     for (let i = 0; i < boutiques.length; i++) {
-      const proprio = etat.pnjs.find(
-        (p) => p.batimentId === boutiques[i].id && p.statut === "commercant",
-      );
+      const proprio = patronDuCommerce(etat, boutiques[i].id);
       if (proprio) proprio.compte += parts[i];
       totaux.encaissements.set(
         boutiques[i].id,
@@ -317,9 +319,7 @@ function etapeAchats(etat: Etat, totaux: Totaux): void {
     for (const bat of boutiques) {
       const part = base + (reste > 0 ? 1 : 0);
       if (reste > 0) reste -= 1;
-      const proprio = etat.pnjs.find(
-        (p) => p.batimentId === bat.id && p.statut === "commercant",
-      );
+      const proprio = patronDuCommerce(etat, bat.id);
       if (proprio) proprio.compte += part;
       totaux.encaissements.set(bat.id, (totaux.encaissements.get(bat.id) ?? 0) + part);
     }
@@ -344,9 +344,7 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
     // v1.27 : un commerce en construction n'est pas ouvert — rien
     // encaissé, aucun salaire dû tant que le chantier n'est pas livré.
     if (bat.enConstruction === true) continue;
-    const proprio = etat.pnjs.find(
-      (p) => p.batimentId === bat.id && p.statut === "commercant",
-    );
+    const proprio = patronDuCommerce(etat, bat.id);
     if (!proprio) continue;
     const recettes = totaux.encaissements.get(bat.id) ?? 0;
     const employes = employesDuCommerce(etat, bat.id);

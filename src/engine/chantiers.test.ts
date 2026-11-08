@@ -33,7 +33,7 @@ import {
 } from "./moteur.ts";
 import { vehiculesRoulables } from "./evenements.ts";
 import { boutiquesOuvertes } from "./economie.ts";
-import { migrerEtat } from "./migrations.ts";
+import { migrerEtat , SCHEMA_VERSION_ETAT } from "./migrations.ts";
 import {
   CARBURANT_RESERVOIR_ENGIN,
   coutChantier,
@@ -515,7 +515,7 @@ test("migration v11 -> v15 : la file des chantiers est filtrée, jamais inventé
     schemaVersion: 11,
     chantiers: [valide, null, 42, { id: "" }, { id: "tordu", jour: "hier" }] as unknown as typeof demo.chantiers,
   });
-  assert.equal(v11.schemaVersion, 15, "v11 -> v15 : schema à jour");
+  assert.equal(v11.schemaVersion, SCHEMA_VERSION_ETAT, "v11 -> v16 : schema à jour");
   assert.equal(v11.chantiers!.length, 1, "seul le chantier bien formé est conservé");
   assert.equal(v11.chantiers![0].travauxFaits, 30, "l'avancement est conservé");
   // Un bâtiment v11 (sans le champ) est forcément achevé.
@@ -543,7 +543,7 @@ test("migration v12 -> v15 : l'efficacité d'un engin n'est jamais inventée", (
     schemaVersion: 12,
     vehicules: [engin("veh-trois", 3), engin("veh-un", 1), engin("veh-tordu", "beaucoup"), engin("veh-zero", 0)] as unknown as typeof demo.vehicules,
   });
-  assert.equal(v12.schemaVersion, 15, "v12 -> v15 : schema à jour");
+  assert.equal(v12.schemaVersion, SCHEMA_VERSION_ETAT, "v12 -> v16 : schema à jour");
   assert.equal(v12.vehicules!.length, 4, "les engins migrent");
   assert.equal(v12.vehicules![0].efficacite, 3, "une fiche valable est conservée");
   assert.equal(v12.vehicules![1].efficacite, 1, "même la plus petite fiche");
@@ -577,7 +577,7 @@ test("migration v13 -> v15 : la jauge du réservoir n'est jamais inventée", () 
       { ...engin("veh-famille", 42), categorie: "prive", role: null },
     ] as unknown as typeof demo.vehicules,
   });
-  assert.equal(v13.schemaVersion, 15, "v13 -> v15 : schema à jour");
+  assert.equal(v13.schemaVersion, SCHEMA_VERSION_ETAT, "v13 -> v16 : schema à jour");
   assert.equal(v13.vehicules!.length, 5, "les véhicules migrent");
   assert.equal(v13.vehicules![0].carburant, 7, "une jauge lisible est conservée");
   assert.equal(v13.vehicules![1].carburant, 50, "une valeur tordue devient un plein — jamais à sec par accident");
