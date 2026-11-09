@@ -13,6 +13,7 @@ import type {
 import {
   TAUX_EMPRUNT_PCT,
   PART_SALARIALE_FLUX,
+  ACHAT_REFERENCE_L,
   salaireJourL
 } from "./referentiel.ts";
 
@@ -68,6 +69,40 @@ export function patronDuCommerce(etat: Etat, batimentId: string): Pnj | undefine
 export function boutiquesDuPatron(etat: Etat, pnj: Pnj): Batiment[] {
   if (pnj.statut !== "commercant") return [];
   return etat.batiments.filter((b) => b.type === "commerce" && possedeCommerce(pnj, b.id));
+}
+
+// ---------- v1.35 « Le panier et le superflu » (arbitrage Thibaut) ----------
+// Le budget du jour se coupe en deux : le PANIER de première nécessité
+// (part fixe du budget, première créance sur le compte — obligatoire,
+// même fauché il passe avant tout) et les LOISIRS (le reste, modulé par
+// le niveau de vie de la figurine). Les commerces marqués « première
+// nécessité » encaissent le panier ; les autres encaissent les loisirs.
+
+/** Part du budget d'achat qui coule dans le panier de première nécessité (60 %, arbitrage v1.35). */
+export const PART_PANIER_NECESSITE = 0.6;
+/** Plafond du coefficient de niveau de vie : un revenu double de la référence dépense ×2 en loisirs, jamais plus. */
+export const COEFF_NIVEAU_VIE_MAX = 2;
+/** Revenu de référence (centimes/jour) : le niveau de vie 1 = le budget d'achat médian INSEE (52,40 L). */
+const REVENU_REFERENCE = Math.round(ACHAT_REFERENCE_L * 100);
+
+/** Niveau de vie d'une figurine : son revenu indicatif rapporté au revenu
+ * de référence (1,0 = médiane), plafonné à ×2 — un habitant sans revenu
+ * ne consomme aucun loisir, un revenu double en consomme deux fois plus,
+ * jamais davantage (v1.35). */
+export function niveauDeVie(pnj: Pnj): number {
+  return Math.min(COEFF_NIVEAU_VIE_MAX, pnj.revenuIndicatif / REVENU_REFERENCE);
+}
+
+/** Panier de première nécessité du jour (centimes) : la part fixe du budget
+ * d'achat effectif, première créance sur le compte (v1.35). */
+export function panierNecessite(pnj: Pnj): number {
+  return Math.round(PART_PANIER_NECESSITE * budgetAchat(pnj));
+}
+
+/** Budget loisirs du jour (centimes) : le reste du budget effectif,
+ * modulé par le niveau de vie (v1.35) — un loisir n'est jamais obligatoire. */
+export function budgetLoisirs(pnj: Pnj): number {
+  return Math.round((1 - PART_PANIER_NECESSITE) * budgetAchat(pnj) * niveauDeVie(pnj));
 }
 
 /** Nombre de magasins ouverts pour un acheteur (un commerçant n'achète pas chez lui). */

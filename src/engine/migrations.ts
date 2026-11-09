@@ -9,7 +9,7 @@ import { VOCATIONS } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 16;
+export const SCHEMA_VERSION_ETAT = 17;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -206,6 +206,12 @@ const GRADES_RETIRES: Record<string, string> = {
           : x.type === "commerce"
             ? vocations.length === 0
             : false,
+      // Migration v16 -> v17 (v1.35, le panier et le superflu) : un commerce
+      // peut être de première nécessité. Défaut : false — les villes
+      // existantes ne changent pas d'un centime (le panier y coule par
+      // repli dans toutes les boutiques, comme avant) ; à Thibaut de
+      // marquer sa boulangerie. Re-ingestion idempotente.
+      necessite: (x as Partial<{ necessite?: unknown }>).necessite === true,
       // Migration v11 -> v12 (v1.27, chantiers) : un bâtiment existant est
       // forcément achevé — un état sans le champ reste livré, jamais
       // coincé en construction.

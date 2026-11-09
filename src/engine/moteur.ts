@@ -55,6 +55,9 @@ import {
   serviceLocal,
   employesDuCommerce,
   patronDuCommerce,
+  panierNecessite,
+  budgetLoisirs,
+  niveauDeVie,
   repartir,
   impotSur,
   posteDePolice,
@@ -75,6 +78,11 @@ export {
   patronDuCommerce,
   possedeCommerce,
   boutiquesDuPatron,
+  panierNecessite,
+  budgetLoisirs,
+  niveauDeVie,
+  PART_PANIER_NECESSITE,
+  COEFF_NIVEAU_VIE_MAX,
   effectifMax,
   repartir,
   impotSur,
@@ -303,6 +311,36 @@ function etapeInterets(etat: Etat, totaux: Totaux): void {
   }
 }
 
+/**
+ * Dépense un montant d'un acheteur, à parts égales entre les boutiques
+ * données : le patron de chaque boutique encaisse sa part (recette du
+ * jour, redistribuée le soir). Ne touche au compte que si montant > 0.
+ */
+function depenser(etat: Etat, pnj: Pnj, boutiques: Batiment[], montant: number, totaux: Totaux): void {
+  if (montant <= 0 || boutiques.length === 0) return;
+  pnj.compte -= montant;
+  totaux.achatsTotal += montant;
+  const base = Math.floor(montant / boutiques.length);
+  let reste = montant - base * boutiques.length;
+  for (const bat of boutiques) {
+    const part = base + (reste > 0 ? 1 : 0);
+    if (reste > 0) reste -= 1;
+    const proprio = patronDuCommerce(etat, bat.id);
+    if (proprio) proprio.compte += part;
+    totaux.encaissements.set(bat.id, (totaux.encaissements.get(bat.id) ?? 0) + part);
+  }
+}
+
+/**
+ * v1.35 « Le panier et le superflu » (arbitrage Thibaut) : le budget du
+ * jour se coupe en deux. Le PANIER de première nécessité (60 %) est
+ * OBLIGATOIRE — première créance sur le compte, même fauché il passe
+ * avant les loisirs — et coule dans les boutiques marquées « première
+ * nécessité » (à défaut : toutes les boutiques ouvertes, comportement
+ * historique). Les LOISIRS (le reste) sont modulés par le niveau de vie
+ * de la figurine et ne coulent que dans les boutiques non marquées :
+ * une ville sans boutique de loisirs garde son superflu en poche.
+ */
 function etapeAchats(etat: Etat, totaux: Totaux): void {
   for (const pnj of etat.pnjs) {
     const boutiques = commercesPourAcheteur(etat, pnj);
@@ -310,19 +348,21 @@ function etapeAchats(etat: Etat, totaux: Totaux): void {
       if (budgetAchat(pnj) > 0) totaux.acheteursSansCommerce += 1;
       continue;
     }
-    const achat = Math.min(budgetAchat(pnj), pnj.compte);
-    if (achat <= 0) continue;
-    pnj.compte -= achat;
-    totaux.achatsTotal += achat;
-    const base = Math.floor(achat / boutiques.length);
-    let reste = achat - base * boutiques.length;
-    for (const bat of boutiques) {
-      const part = base + (reste > 0 ? 1 : 0);
-      if (reste > 0) reste -= 1;
-      const proprio = patronDuCommerce(etat, bat.id);
-      if (proprio) proprio.compte += part;
-      totaux.encaissements.set(bat.id, (totaux.encaissements.get(bat.id) ?? 0) + part);
-    }
+    const necessite = panierNecessite(pnj);
+    const loisirs = budgetLoisirs(pnj);
+    if (necessite + loisirs <= 0) continue;
+    // Obligatoire : le panier a la première créance — un compte trop maigre
+    // y passe tout entier, les loisirs attendront des jours meilleurs.
+    const disponible = Math.min(necessite + loisirs, pnj.compte);
+    const panier = Math.min(necessite, disponible);
+    const superflu = Math.max(0, disponible - panier);
+    const boutiquesNecessite = boutiques.filter((b) => b.necessite === true);
+    const cibleNecessite = boutiquesNecessite.length > 0 ? boutiquesNecessite : boutiques;
+    const boutiquesLoisirs = boutiques.filter((b) => b.necessite !== true);
+    depenser(etat, pnj, cibleNecessite, panier, totaux);
+    // Le superflu n'est jamais obligatoire : sans boutique de loisirs en
+    // ville, l'argent reste dans la poche de la figurine.
+    depenser(etat, pnj, boutiquesLoisirs, superflu, totaux);
   }
 }
 

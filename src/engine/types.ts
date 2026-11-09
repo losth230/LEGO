@@ -174,6 +174,13 @@ export interface Batiment {
    * Une ancienne boutique (vocation null) reste boutique ; un ancien service
    * ne vend pas de courses, comportement inchangé pour les vieilles villes. */
   boutique: boolean;
+  /** v1.35 « Le panier et le superflu » : commerce de PREMIÈRE NÉCESSITÉ
+   * (boulangerie, superette) — le panier obligatoire des habitants y coule
+   * en priorité. Une ville sans boutique de première nécessité y pourvoit
+   * par repli dans toutes les boutiques ouvertes (comportement historique) ;
+   * les loisirs, eux, ne coulent que dans les boutiques NON marquées, et
+   * restent en poche s'il n'y en a aucune. Défaut : false (migration v17). */
+  necessite?: boolean;
   /** v1.27 : en construction au BTP — le bâtiment est visible sur le
    * chantier mais ses capacités dorment (pas de courses, pas de service,
    * pas de fonctionnement, pas d'incident) jusqu'à la livraison. */

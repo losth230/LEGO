@@ -19,10 +19,14 @@ import { createMondeDemonstration } from "./monde.demo.ts";
 
 import {
   boutiquesDuPatron,
+  budgetLoisirs,
   commercesPourAcheteur,
+  COEFF_NIVEAU_VIE_MAX,
   effectifMax,
   impotSur,
   monnaieEnCircuit,
+  niveauDeVie,
+  panierNecessite,
   PART_SALARIALE_FLUX,
   passerJour,
   patronDuCommerce,
@@ -57,7 +61,7 @@ test("flux : un commerce redistribue le jour même, seul le patron garde sa marg
       nouveauPnj({ prenom: "Jeanne", nom: "Test", statut: "commercant", batimentId: boutique.id, revenuIndicatif: 6000, compte: 0 }),
       nouveauPnj({ prenom: "Alban", nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
       nouveauPnj({ prenom: "Brune", nom: "Test", statut: "prive", travailBatimentId: boutique.id, revenuIndicatif: 5775, compte: 0 }),
-      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", personnalite: ["honnête", "discret"], revenuIndicatif: 5250, budgetAchat: 20000, compte: 200000 }),
+      nouveauPnj({ prenom: "Claire", nom: "Test", statut: "prive", personnalite: ["honnête", "discret"], revenuIndicatif: 5240, budgetAchat: 20000, compte: 200000 }),
     ],
   };
   const avant = monnaieEnCircuit(monde);
@@ -201,7 +205,7 @@ function empireMario() {
     revenuIndicatif: 5775, budgetAchat: 0, compte: 0, personnalite: ["honnête", "discret"],
   });
   const claire = nouveauPnj({
-    prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5250,
+    prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5240,
     budgetAchat: 20000, compte: 200000, personnalite: ["honnête", "discret"],
   });
   const monde: Etat = { ...base, batiments: [b1, b2], vehicules: [], pnjs: [mario, alban, claire] };
@@ -292,4 +296,113 @@ test("v1.33 : un commerce n'a qu'un patron actif — le premier propriétaire tr
   assert.equal(patronDuCommerce(bricole, b1.id)?.id, rival.id, "le premier propriétaire trouvé encaisse");
   assert.equal(patronDuCommerce(bricole, b2.id)?.id, mario.id, "la station, elle, reste à Mario");
   assert.equal(commercesPourAcheteur(bricole, rival).length, 1, "le rival n'achète que chez Mario");
+});
+
+
+// ---------- v1.35 « Le panier et le superflu » : nécessité vs loisirs ----------
+
+/** Monde témoin v1.35 : une boulangerie (première nécessité) et une
+ * friterie (loisirs), un patron unique, des clientes de niveaux de vie
+ * différents. K = 1, traits honnêtes : on suit les comptes au centime. */
+function panierEtSuperflu() {
+  const base = calme(createMondeDemonstration());
+  const boulangerie = nouveauBatiment({ nom: "Boulangerie", type: "commerce", necessite: true });
+  const friterie = nouveauBatiment({ nom: "Friterie", type: "commerce" });
+  const patron = nouveauPnj({
+    prenom: "Patron", nom: "Test", statut: "commercant",
+    commercesId: [boulangerie.id, friterie.id], batimentId: boulangerie.id,
+    revenuIndicatif: 6000, budgetAchat: 0, compte: 0, personnalite: ["honnête", "discret"],
+  });
+  const monde: Etat = { ...base, batiments: [boulangerie, friterie], vehicules: [], pnjs: [patron] };
+  return { monde, boulangerie, friterie };
+}
+
+test("v1.35 : le panier coule chez le commerçant de première nécessité, le superflu chez les loisirs", () => {
+  const { monde, boulangerie, friterie } = panierEtSuperflu();
+  const claire = nouveauPnj({
+    prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5240,
+    budgetAchat: 10000, compte: 100000, personnalite: ["honnête", "discret"],
+  });
+  const m: Etat = { ...monde, pnjs: [...monde.pnjs, claire] };
+  assert.equal(panierNecessite(claire), 6000, "60 % du budget : le panier");
+  assert.equal(budgetLoisirs(claire), 4000, "40 % × niveau de vie 1 : les loisirs");
+  const j1 = passerJour(m);
+  assert.equal(j1.recettesCommerce![boulangerie.id], 6000, "la boulangerie encaisse le panier");
+  assert.equal(j1.recettesCommerce![friterie.id], 4000, "la friterie encaisse les loisirs");
+  assert.equal(j1.pnjs.find((p) => p.id === claire.id)!.compte, 90000, "la cliente a tout dépensé");
+});
+
+test("v1.35 : le superflu est modulé par le niveau de vie (×0 fauché, ×2 plafonné)", () => {
+  const { monde, boulangerie, friterie } = panierEtSuperflu();
+  const riche = nouveauPnj({
+    prenom: "Riche", nom: "Test", statut: "prive", revenuIndicatif: 40000,
+    budgetAchat: 10000, compte: 100000, personnalite: ["honnête", "discret"],
+  });
+  const pauvre = nouveauPnj({
+    prenom: "Pauvre", nom: "Test", statut: "prive", revenuIndicatif: 0,
+    budgetAchat: 10000, compte: 100000, personnalite: ["honnête", "discret"],
+  });
+  const m: Etat = { ...monde, pnjs: [...monde.pnjs, riche, pauvre] };
+  assert.equal(niveauDeVie(riche), COEFF_NIVEAU_VIE_MAX, "le revenu bien au-delà de la référence est plafonné à ×2");
+  assert.equal(budgetLoisirs(riche), 8000, "40 % × 2 : le riche dépense deux fois plus en loisirs");
+  assert.equal(budgetLoisirs(pauvre), 0, "sans revenu, aucun loisir");
+  const j1 = passerJour(m);
+  assert.equal(j1.recettesCommerce![boulangerie.id], 12000, "les deux paniers obligatoires");
+  assert.equal(j1.recettesCommerce![friterie.id], 8000, "seul le riche se paie des loisirs");
+  assert.equal(j1.pnjs.find((p) => p.id === pauvre.id)!.compte, 94000, "le sans-revenu ne dépense que le panier");
+});
+
+test("v1.35 : obligatoire — fauché, le compte passe tout entier au panier", () => {
+  const { monde, boulangerie, friterie } = panierEtSuperflu();
+  const fauchee = nouveauPnj({
+    prenom: "Fauchée", nom: "Test", statut: "prive", revenuIndicatif: 5240,
+    budgetAchat: 10000, compte: 3000, personnalite: ["honnête", "discret"],
+  });
+  const m: Etat = { ...monde, pnjs: [...monde.pnjs, fauchee] };
+  const j1 = passerJour(m);
+  assert.equal(j1.recettesCommerce![boulangerie.id], 3000, "la première créance : le panier prend tout le compte");
+  assert.equal(j1.recettesCommerce![friterie.id] ?? 0, 0, "les loisirs attendent des jours meilleurs");
+  assert.equal(j1.pnjs.find((p) => p.id === fauchee.id)!.compte, 0, "compte vidé par la nécessité");
+});
+
+test("v1.35 : ville sans loisirs — le superflu reste en poche ; ville sans nécessité — repli général", () => {
+  const { monde, boulangerie } = panierEtSuperflu();
+  const claire = nouveauPnj({
+    prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5240,
+    budgetAchat: 10000, compte: 100000, personnalite: ["honnête", "discret"],
+  });
+  const m1: Etat = { ...monde, batiments: [boulangerie], pnjs: [...monde.pnjs, claire] };
+  const j1 = passerJour(m1);
+  assert.equal(j1.recettesCommerce![boulangerie.id], 6000, "le panier coule");
+  assert.equal(j1.pnjs.find((p) => p.id === claire.id)!.compte, 94000, "les loisirs restent en poche");
+  const { monde: m2base, boulangerie: b2nec, friterie: b2fri } = panierEtSuperflu();
+  const b2habille = { ...b2nec, necessite: false };
+  const m2: Etat = { ...m2base, batiments: [b2habille, b2fri], pnjs: [...m2base.pnjs, claire] };
+  const j2 = passerJour(m2);
+  // Sans boutique marquée, chaque commerce prend sa part du panier ET sa
+  // part des loisirs : 3 000 + 2 000 = 5 000 chacun, comme avant la v1.35.
+  assert.equal(j2.recettesCommerce![b2habille.id], 5000, "sans nécessité marquée, tout le monde prend sa part");
+  assert.equal(j2.recettesCommerce![b2fri.id], 5000, "y compris les loisirs, comme avant");
+});
+
+test("v1.35 : migration v16 -> v17 — la case première nécessité naît décochée, idempotente", () => {
+  const { monde, boulangerie } = panierEtSuperflu();
+  const v16 = {
+    ...monde,
+    schemaVersion: 16,
+    batiments: monde.batiments.map((b) => {
+      const sans = { ...b };
+      delete sans.necessite;
+      return sans;
+    }),
+  };
+  const migre = migrerEtat(v16);
+  assert.equal(migre.schemaVersion, SCHEMA_VERSION_ETAT, "l'état monte au schéma 17");
+  assert.equal(migre.batiments.find((b) => b.id === boulangerie.id)!.necessite, false, "la case naît décochée — aucune ville ne change d'un centime");
+  const encore = migrerEtat(migre);
+  assert.equal(
+    encore.batiments.map((b) => b.necessite).join(","),
+    migre.batiments.map((b) => b.necessite).join(","),
+    "re-migrer ne change rien",
+  );
 });

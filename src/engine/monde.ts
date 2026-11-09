@@ -114,6 +114,9 @@ export function nouveauBatiment(p: Partial<Batiment> & { nom: string; type: Bati
     // v1.31 : boutique par défaut pour un commerce sans vocation (comportement
     // historique) ; un service rendu ne vend pas de courses sauf case cochée.
     boutique: p.boutique ?? (p.type === "commerce" && vocations.length === 0),
+    // v1.35 : commerce de première nécessité — le panier obligatoire des
+    // habitants y coule en priorité (défaut : false, jamais imposé).
+    necessite: p.necessite ?? false,
   };
 }
 
@@ -198,8 +201,8 @@ export function createMondeDefaut(): Etat {
   return {
     // v1.31 : schéma v15 (vocations multiples) — à maintenir synchronisé
     // avec SCHEMA_VERSION_ETAT (migrations.ts) ; un import serait circulaire.
-    // v1.33 : schéma 16 (commercesId, la liste des boutiques possédées).
-    schemaVersion: 16,
+    // v1.33 : schéma 16 (commercesId) ; v1.35 : schéma 17 (necessite).
+    schemaVersion: 17,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,

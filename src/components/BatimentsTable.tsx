@@ -94,6 +94,12 @@ function LigneBatiment({ batiment: b }: { batiment: Batiment }) {
           <>
             {" "}
             <span className="badge badge-vocation">🛒 Boutique</span>
+            {b.necessite ? (
+              <>
+                {" "}
+                <span className="badge badge-vocation">🥖 1re nécessité</span>
+              </>
+            ) : null}
           </>
         ) : null}
       </td>

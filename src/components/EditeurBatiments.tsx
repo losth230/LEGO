@@ -64,6 +64,7 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
   const [capacitePostes, setCapacitePostes] = useState(b.capacitePostes.toString());
   const [vocations, setVocations] = useState<Vocation[]>(b.vocations);
   const [boutique, setBoutique] = useState(b.boutique);
+  const [necessite, setNecessite] = useState(b.necessite ?? false);
 
   const enregistrer = () => {
     majEtat(
@@ -80,6 +81,7 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
           ? vocations.filter((v) => VOCATIONS.includes(v))
           : [],
         boutique: type === "commerce" ? boutique : false,
+        necessite: type === "commerce" ? necessite : false,
       }),
     );
     setOuvert(false);
@@ -151,6 +153,18 @@ function LigneBatimentEdit({ batiment: b }: { batiment: import("../engine/types.
                   Boutique de consommation (courses des habitants)
                 </label>
               </Champ>
+              {boutique ? (
+                <Champ label="Type de consommation">
+                  <label>
+                    <input type="checkbox" checked={necessite} onChange={(e) => setNecessite(e.target.checked)} />{" "}
+                    Première nécessité (panier obligatoire des habitants)
+                  </label>
+                  <div className="mute">
+                    Coché : le commerce reçoit sa part du panier (60 % du budget courses, payé même fauché).
+                    Décoché : le commerce vit des loisirs (40 % × niveau de vie du client).
+                  </div>
+                </Champ>
+              ) : null}
             </>
           ) : null}
           <Champ label="Valeur (L)">
@@ -190,6 +204,7 @@ export function CarteBatiments() {
   const [capacitePostes, setCapacitePostes] = useState("0");
   const [vocations, setVocations] = useState<Vocation[]>([]);
   const [boutique, setBoutique] = useState(true);
+  const [necessite, setNecessite] = useState(false);
   // v1.27 : plus de création instantanée — un bâtiment entre en ville en
   // chantier, c'est le BTP qui le construit (onglet 🏗 Chantiers).
   const [travauxTotal, setTravauxTotal] = useState(TRAVAUX_DEFAUT.toString());
@@ -215,6 +230,7 @@ export function CarteBatiments() {
           ? vocations.filter((v) => VOCATIONS.includes(v))
           : [],
         boutique: type === "commerce" ? boutique : false,
+          necessite: type === "commerce" ? necessite : false,
         }),
         {
           travauxTotal: Number.isFinite(Number(travauxTotal)) && Number(travauxTotal) >= 1
@@ -274,6 +290,18 @@ export function CarteBatiments() {
                 Boutique de consommation (courses des habitants)
               </label>
             </Champ>
+            {boutique ? (
+              <Champ label="Type de consommation">
+                <label>
+                  <input type="checkbox" checked={necessite} onChange={(e) => setNecessite(e.target.checked)} />{" "}
+                  Première nécessité (panier obligatoire des habitants)
+                </label>
+                <div className="mute">
+                  Coché : le commerce reçoit sa part du panier (60 % du budget courses, payé même fauché).
+                  Décoché : le commerce vit des loisirs (40 % × niveau de vie du client).
+                </div>
+              </Champ>
+            ) : null}
           </>
         ) : null}
         <Champ label="Quartier">
