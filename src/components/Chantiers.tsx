@@ -8,7 +8,7 @@ import type { Chantier } from "../engine/types.ts";
 import { montantL } from "../engine/referentiel.ts";
 import { PRODUCTION_OUVRIER, CARBURANT_RESERVOIR_ENGIN, carburantEngin, constructeurDu, efficaciteEngin, enginApte, nomCible, payeurDe } from "../engine/chantiers.ts";
 import { employesDuCommerce } from "../engine/economie.ts";
-import { prioriserChantier } from "../engine/monde.ts";
+import { changerPayeurChantier, prioriserChantier } from "../engine/monde.ts";
 
 export function Chantiers() {
   const { etat, majEtat } = useStore();
@@ -37,6 +37,7 @@ export function Chantiers() {
             chantier={c}
             rang={i}
             onPriorise={() => majEtat(prioriserChantier(etat, c.id))}
+            onPayeur={(pnjId) => majEtat(changerPayeurChantier(etat, c.id, pnjId))}
           />
         ))
       )}
@@ -48,10 +49,12 @@ function CarteChantier({
   chantier: c,
   rang,
   onPriorise,
+  onPayeur,
 }: {
   chantier: Chantier;
   rang: number;
   onPriorise: () => void;
+  onPayeur: (pnjId: string | null) => void;
 }) {
   const { etat } = useStore();
   const constructeur = constructeurDu(etat, c);
@@ -106,7 +109,21 @@ function CarteChantier({
         </span>
       </div>
       <p className="mute">
-        Payeur : {payeur ? payeur.nom : "—"} · Acompte réglé : {montantL(c.coutPaye)} sur{" "}
+        {/* v1.34 : le payeur change en cours de chantier (le commanditaire
+            était figé au lancement — un nouvel arrivant ne pouvait pas
+            reprendre la note). */}
+        Payeur :{" "}
+        <select
+          className="input"
+          value={c.payeurPnjId ?? ""}
+          onChange={(e) => onPayeur(e.target.value === "" ? null : e.target.value)}
+        >
+          <option value="">La ville</option>
+          {etat.pnjs.map((p) => (
+            <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>
+          ))}
+        </select>{" "}
+        (caisse : {payeur ? montantL(payeur.caisse) : "—"}) · Acompte réglé : {montantL(c.coutPaye)} sur{" "}
         {montantL(c.coutCentimes)} · Reste à régler : {montantL(restant)}
       </p>
       {rang > 0 ? (

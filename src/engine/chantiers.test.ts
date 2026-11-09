@@ -12,7 +12,9 @@ import assert from "node:assert/strict";
 
 import type { Etat } from "./types.ts";
 import {
+  accueillirArrivant,
   ajouterVehicule,
+  changerPayeurChantier,
   createMondeDefaut,
   lancerChantierBatiment,
   lancerChantierVehicule,
@@ -20,6 +22,7 @@ import {
   modifierVehicule,
   modifierVille,
   nouveauBatiment,
+  nouveauPnj,
   nouveauVehicule,
   prioriserChantier,
   supprimerBatiment,
@@ -584,4 +587,60 @@ test("migration v13 -> v15 : la jauge du réservoir n'est jamais inventée", () 
   assert.equal(v13.vehicules![2].carburant, 50, "un négatif devient un plein");
   assert.equal(v13.vehicules![3].carburant, 50, "une jauge au-delà du réservoir est ramenée au plein");
   assert.equal(v13.vehicules![4].carburant, undefined, "un véhicule sans rôle chantier n'a pas de réservoir");
+});
+
+
+// ---------- v1.34 : changer de payeur en cours de chantier ----------
+
+test("v1.34 : changer de payeur en cours de chantier — le nouvel arrivant paie la suite", () => {
+  // Scénario Thibaut : le chantier est lancé (la ville paie), puis un
+  // nouvel arrivant débarque — il doit pouvoir reprendre la note.
+  let m = calme(createMondeDemonstration());
+  const cible = nouveauBatiment({ nom: "Kiosque à journaux", type: "commerce" });
+  m = lancerChantierBatiment(m, cible, { travauxTotal: 100, coutCentimes: 100000 });
+  const chantier = m.chantiers![0];
+  // Jour 1 : 2 ouvriers du BTP + bétonnière (1) + tractopelle (2) = 5 travaux,
+  // acompte de 5 % réglé par la ville.
+  const j1 = passerJour(m);
+  const e1 = entrees(1, "chantier", j1.journal);
+  assert.ok(e1.some((e) => e.texte.includes("réglés par la ville")), "la ville règle le premier acompte");
+  assert.equal(j1.chantiers!.find((c) => c.id === chantier.id)!.coutPaye, 5000, "acompte du jour 1 au prorata");
+  // Le nouvel arrivant débarque et reprend le chantier.
+  const nouveau = nouveauPnj({
+    prenom: "Nouveau", nom: "Venu", statut: "prive",
+    compte: 10000000, budgetAchat: 0, personnalite: ["honnête", "discret"],
+  });
+  m = accueillirArrivant(j1, { pnj: nouveau });
+  m = changerPayeurChantier(m, chantier.id, nouveau.id);
+  assert.ok(
+    m.journal.some((e) => e.texte.includes("change de commanditaire") && e.texte.includes("Nouveau Venu")),
+    "le changement de commanditaire est raconté",
+  );
+  const avant = monnaieEnCircuit(m);
+  // Jour 2 : mêmes 5 travaux — mais c'est le nouvel arrivant qui règle.
+  const j2 = passerJour(m);
+  const e2 = entrees(2, "chantier", j2.journal);
+  assert.ok(e2.some((e) => e.texte.includes("réglés par Nouveau Venu")), "le nouvel arrivant règle l'acompte du jour 2");
+  assert.ok(!e2.some((e) => e.texte.includes("réglés par la ville")), "la ville ne règle plus rien");
+  const nouveauApres = j2.pnjs.find((p) => p.id === nouveau.id)!;
+  assert.equal(nouveauApres.compte, 9995000, "exactement l'acompte du jour débité, au centime");
+  assert.equal(monnaieEnCircuit(j2), avant, "la monnaie ne bouge que du payeur au constructeur");
+});
+
+test("v1.34 : changer le payeur — chantier inconnu ou figurine partie, jamais de crash", () => {
+  const m = calme(createMondeDemonstration());
+  // Chantier inconnu : l'état revient tel quel.
+  const intact = changerPayeurChantier(m, "cha-fantome", null);
+  assert.equal(intact.chantiers!.length, m.chantiers!.length, "rien ne se passe");
+  assert.equal(intact.journal.length, m.journal.length, "rien n'est raconté");
+  // Figurine inconnue : la ville reprend la main, raconté.
+  const cible = nouveauBatiment({ nom: "Hangar", type: "commerce" });
+  const m2 = lancerChantierBatiment(m, cible, { travauxTotal: 50, coutCentimes: 50000 });
+  const idCh = m2.chantiers![0].id;
+  const repris = changerPayeurChantier(m2, idCh, "pnj-fantome");
+  assert.equal(repris.chantiers![0].payeurPnjId, null, "figurine inconnue : la ville reprend la note");
+  assert.ok(
+    repris.journal.some((e) => e.texte.includes("la ville règle désormais")),
+    "le repli sur la ville est raconté",
+  );
 });

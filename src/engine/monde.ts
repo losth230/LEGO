@@ -553,6 +553,38 @@ export function prioriserChantier(etat: Etat, id: string): Etat {
   return e;
 }
 
+/** Nom du payeur d'un chantier pour le journal (figurine partie : jamais de crash). */
+function nomPayeur(e: Etat, payeurPnjId: string | null): string {
+  if (payeurPnjId === null) return "la ville";
+  const p = e.pnjs.find((x) => x.id === payeurPnjId);
+  return p !== undefined ? p.prenom + " " + p.nom : "une figurine partie";
+}
+
+/**
+ * v1.34 : le maître du jeu change le commanditaire d'un chantier en cours
+ * (demande Thibaut « j'ai ajouté un nouvel arrivant, mais je ne pouvais pas
+ * lui faire payer le chantier ») : le payeur était fixé au lancement et
+ * ne bougeait plus. Les acomptes déjà réglés restent à l'ancien payeur,
+ * les suivants sont à la charge du nouveau — null = la ville reprend la
+ * main ; une figurine inconnue (état bricolé, départ de la ville) retombe
+ * sur la ville, jamais de crash.
+ */
+export function changerPayeurChantier(etat: Etat, id: string, payeurPnjId: string | null): Etat {
+  const e = structuredClone(etat);
+  const chantier = (e.chantiers ?? []).find((c) => c.id === id);
+  if (chantier === undefined) return e;
+  const ancien = nomPayeur(e, chantier.payeurPnjId);
+  const cible = payeurPnjId !== null ? e.pnjs.find((p) => p.id === payeurPnjId) : undefined;
+  chantier.payeurPnjId = cible !== undefined ? cible.id : null;
+  raconter(
+    e,
+    "🏗 Le chantier de " + nomCible(e, chantier) + " change de commanditaire : " +
+      nomPayeur(e, chantier.payeurPnjId) + " règle désormais les acomptes (" +
+      montantL(chantier.coutPaye) + " déjà réglés par " + ancien + ").",
+  );
+  return e;
+}
+
 // ---------- Mutateurs de gangs (phase 3.10 : l'éditeur crée le milieu) ----------
 
 /** Crée un gang en ville : territoire initial à choisir parmi les quartiers bâtis. */
