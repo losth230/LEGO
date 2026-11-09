@@ -26,6 +26,7 @@ import type {
   JournalEntree,
   MoyensArbitrage,
   Pnj,
+  Batiment,
   RoleVehicule,
   Vehicule,
 } from "./types.ts";
@@ -57,7 +58,6 @@ import {
   patronDuCommerce,
   panierNecessite,
   budgetLoisirs,
-  niveauDeVie,
   repartir,
   impotSur,
   posteDePolice,
