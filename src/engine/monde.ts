@@ -63,6 +63,9 @@ export function nouveauPnj(p: Partial<Pnj> & { prenom: string; nom: string }): P
       p.commercesId ?? ((p.statut ?? "prive") === "commercant" && p.batimentId ? [p.batimentId] : []),
     travailBatimentId: p.travailBatimentId ?? null,
     revenuIndicatif: revenu,
+    // v1.36 : la marge lissée naît du revenu déclaré — le premier soir de
+    // redistribution l'entraînera vers la marge réelle.
+    margeLissee: p.margeLissee ?? revenu,
     budgetAchat: p.budgetAchat ?? revenu,
     compte: p.compte ?? 400000,
     epargne: p.epargne ?? 0,
@@ -202,7 +205,7 @@ export function createMondeDefaut(): Etat {
     // v1.31 : schéma v15 (vocations multiples) — à maintenir synchronisé
     // avec SCHEMA_VERSION_ETAT (migrations.ts) ; un import serait circulaire.
     // v1.33 : schéma 16 (commercesId) ; v1.35 : schéma 17 (necessite).
-    schemaVersion: 17,
+    schemaVersion: 18,
     jour: 0,
     nomVille: "Bricke-en-Provence",
     budgetVille: 500000,

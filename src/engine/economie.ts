@@ -84,13 +84,33 @@ export const PART_PANIER_NECESSITE = 0.6;
 export const COEFF_NIVEAU_VIE_MAX = 2;
 /** Revenu de référence (centimes/jour) : le niveau de vie 1 = le budget d'achat médian INSEE (52,40 L). */
 const REVENU_REFERENCE = Math.round(ACHAT_REFERENCE_L * 100);
+/** Constante de lissage de la marge patronale (v1.36) : la moyenne met
+ * environ une semaine à rattraper un changement de régime de la boutique. */
+export const JOURS_LISSAGE_MARGE = 7;
 
-/** Niveau de vie d'une figurine : son revenu indicatif rapporté au revenu
- * de référence (1,0 = médiane), plafonné à ×2 — un habitant sans revenu
- * ne consomme aucun loisir, un revenu double en consomme deux fois plus,
- * jamais davantage (v1.35). */
+/** Lissage exponentiel de la marge du patron (v1.36) : chaque soir, la
+ * référence glisse d'un septième vers la marge brute réellement encaissée
+ * dans la journée (gain nul ce jour-là = la référence décroît). Entiers
+ * au centime près, déterministe. */
+export function lisserMarge(actuel: number, gainJour: number): number {
+  return actuel + Math.round((gainJour - actuel) / JOURS_LISSAGE_MARGE);
+}
+
+/** Niveau de vie d'une figurine, plafonné à ×2 (v1.35) : un habitant sans
+ * revenu ne consomme aucun loisir, un revenu double en consomme deux fois
+ * plus, jamais davantage. La base dépend du statut (v1.36, arbitrage
+ * Thibaut « marge réelle me semble bien ») : un PROPRIÉTAIRE de commerce
+ * vit de sa marge réelle lissée (`margeLissee`, amorcée sur le revenu
+ * déclaré puis entraînée chaque soir par les marges encaissées — une
+ * boutique morte appauvrit son patron, une boutique qui déborde l'enrichit
+ * jusqu'au plafond) ; toute autre figurine vit sur son revenu indicatif
+ * (solde, salaire contractuel, revenu narratif). */
 export function niveauDeVie(pnj: Pnj): number {
-  return Math.min(COEFF_NIVEAU_VIE_MAX, pnj.revenuIndicatif / REVENU_REFERENCE);
+  const base =
+    (pnj.commercesId?.length ?? 0) > 0
+      ? pnj.margeLissee ?? pnj.revenuIndicatif
+      : pnj.revenuIndicatif;
+  return Math.min(COEFF_NIVEAU_VIE_MAX, Math.max(0, base) / REVENU_REFERENCE);
 }
 
 /** Panier de première nécessité du jour (centimes) : la part fixe du budget

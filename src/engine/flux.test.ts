@@ -24,6 +24,7 @@ import {
   COEFF_NIVEAU_VIE_MAX,
   effectifMax,
   impotSur,
+  lisserMarge,
   monnaieEnCircuit,
   niveauDeVie,
   panierNecessite,
@@ -403,6 +404,90 @@ test("v1.35 : migration v16 -> v17 — la case première nécessité naît déco
   assert.equal(
     encore.batiments.map((b) => b.necessite).join(","),
     migre.batiments.map((b) => b.necessite).join(","),
+    "re-migrer ne change rien",
+  );
+});
+
+// ---------- v1.36 « Le patron vit de sa marge » : niveau de vie sur la marge réelle lissée ----------
+
+test("v1.36 : la marge lissée du patron suit ses gains réels, le niveau de vie avec (plafonné ×2)", () => {
+  const { monde, boulangerie, friterie } = panierEtSuperflu();
+  const patron = { ...monde.pnjs[0], budgetAchat: 14000, compte: 200000 };
+  const claire = nouveauPnj({
+    prenom: "Claire", nom: "Test", statut: "prive", revenuIndicatif: 5240,
+    budgetAchat: 100000, compte: 1000000, personnalite: ["honnête", "discret"],
+  });
+  const m: Etat = { ...monde, pnjs: [patron, claire] };
+  // Amorce v1.36 : aucun soir de redistribution n'a encore eu lieu — le
+  // patron vit sur son revenu déclaré (comportement v1.35 au premier jour).
+  assert.equal(niveauDeVie(patron), 6000 / 5240, "jour 0 : le déclaré fait foi");
+  const avant = monnaieEnCircuit(m);
+  const j1 = passerJour(m);
+  // Claire (panier 60 000, loisirs 40 000 × niveau de vie 1) achète.
+  assert.equal(j1.recettesCommerce![boulangerie.id], 60000, "la boulangerie encaisse le panier de Claire");
+  // Le patron possède les DEUX boutiques : il ne peut acheter nulle part,
+  // ses 14 000 de budget restent en poche — la friterie n'encaisse que
+  // les loisirs de Claire.
+  assert.equal(j1.recettesCommerce![friterie.id], 40000, "la friterie n'encaisse que les loisirs de Claire");
+  const patronApres = j1.pnjs.find((p) => p.id === patron.id)!;
+  // Soir du jour 1 : les deux boutiques (sans salarié) lui rapportent
+  // 100 000 de marge brute — la référence glisse d'un septième vers la
+  // réalité : lisserMarge(6 000, 100 000).
+  assert.equal(patronApres.margeLissee, lisserMarge(6000, 100000), "la marge lissée absorbe les gains des deux boutiques");
+  assert.equal(niveauDeVie(patronApres), COEFF_NIVEAU_VIE_MAX, "une boutique qui déborde porte son patron au plafond ×2");
+  assert.equal(budgetLoisirs(patronApres), 11200, "40 % × 14 000 × 2 : les loisirs du lendemain doublent");
+  assert.equal(monnaieEnCircuit(j1), avant, "la conservation ne bouge pas d'un centime");
+});
+
+test("v1.36 : une boutique morte appauvrit son patron — la marge lissée décroît vers zéro", () => {
+  const { monde } = panierEtSuperflu();
+  const patron = { ...monde.pnjs[0] };
+  const m: Etat = { ...monde, pnjs: [patron] };
+  // Personne n'achète (le patron ne peut pas acheter chez lui) : chaque
+  // soir, sa marge du jour vaut 0 — la référence glisse vers zéro.
+  let etat = m;
+  for (let i = 0; i < 20; i++) etat = passerJour(etat);
+  const patronApres = etat.pnjs.find((p) => p.id === patron.id)!;
+  assert.ok(patronApres.margeLissee! < 1000, "20 jours sans client : la marge lissée décroît (6000 -> " + patronApres.margeLissee + ")");
+  assert.ok(niveauDeVie(patronApres) < 0.2, "le niveau de vie suit la chute");
+  assert.ok(budgetLoisirs(patronApres) < 1400, "les loisirs du patron fondent, le panier ne bouge pas");
+});
+
+test("v1.36 : une figurine sans boutique vit toujours sur son revenu indicatif", () => {
+  const salarie = nouveauPnj({
+    prenom: "Alban", nom: "Test", statut: "prive", revenuIndicatif: 5775,
+    budgetAchat: 10000, compte: 100000, personnalite: ["honnête", "discret"],
+  });
+  // Même une marge lissée mensongère ne détourne pas un non-propriétaire.
+  const trafique = { ...salarie, margeLissee: 999999 };
+  assert.equal(niveauDeVie(trafique), 5775 / 5240, "le salarié vit de son salaire, pas d'une marge");
+  assert.equal(budgetLoisirs(trafique), Math.round(4000 * (5775 / 5240)), "ses loisirs restent calés sur son salaire");
+  assert.equal(panierNecessite(trafique), 6000, "le panier ne dépend pas du niveau de vie");
+});
+
+test("v1.36 : migration v17 -> v18 — la marge lissée naît du revenu indicatif, idempotente", () => {
+  const { monde } = panierEtSuperflu();
+  const v17 = {
+    ...monde,
+    schemaVersion: 17,
+    pnjs: monde.pnjs.map((p) => {
+      const sans = { ...p } as Record<string, unknown>;
+      delete sans.margeLissee;
+      return sans;
+    }),
+  };
+  const migre = migrerEtat(v17);
+  assert.equal(migre.schemaVersion, SCHEMA_VERSION_ETAT, "l'état monte au schéma 18");
+  assert.equal(migre.pnjs[0].margeLissee, 6000, "la marge lissée naît du revenu déclaré — le jour de migration se joue comme en v1.35");
+  // Valeur tordue : jamais inventée, retombée sur le revenu indicatif.
+  const tordu = migrerEtat({ ...v17, pnjs: v17.pnjs.map((p) => ({ ...p, margeLissee: "beaucoup" })) });
+  assert.equal(tordu.pnjs[0].margeLissee, 6000, "une marge illisible retombe sur le revenu déclaré");
+  const negatif = migrerEtat({ ...v17, pnjs: v17.pnjs.map((p) => ({ ...p, margeLissee: -5 })) });
+  assert.equal(negatif.pnjs[0].margeLissee, 6000, "une marge négative est jetée");
+  const encore = migrerEtat(migre);
+  assert.equal(
+    encore.pnjs.map((p) => p.margeLissee).join(","),
+    migre.pnjs.map((p) => p.margeLissee).join(","),
     "re-migrer ne change rien",
   );
 });

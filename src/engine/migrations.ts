@@ -9,7 +9,7 @@ import { VOCATIONS } from "./types.ts";
 import { createMondeDefaut, PAIRS_TRAITS } from "./monde.ts";
 import { COEFF_INTENSITE_DEFAUT, TAUX_IMPOT_DEFAUT_BP } from "./referentiel.ts";
 
-export const SCHEMA_VERSION_ETAT = 17;
+export const SCHEMA_VERSION_ETAT = 18;
 
 /**
  * Carte d'identité (migration v8, phase 3.9) : traits attribués en rotation
@@ -121,6 +121,17 @@ const GRADES_RETIRES: Record<string, string> = {
     })(),
     revenuIndicatif:
       typeof (p as Partial<Pnj>).revenuIndicatif === "number" ? (p as Partial<Pnj>).revenuIndicatif! : 0,
+    // Migration v17 -> v18 (v1.36, le patron vit de sa marge) : la marge
+    // lissée naît du revenu indicatif — le jour de migration se comporte
+    // exactement comme la v1.35, puis le premier soir de redistribution
+    // l'entraîne vers la marge réelle. Re-ingestion idempotente ; valeur
+    // tordue (absente, non nombre, négative) → revenu indicatif.
+    margeLissee: (() => {
+      const m = (p as Partial<Pnj>).margeLissee;
+      if (typeof m === "number" && Number.isFinite(m) && m >= 0) return Math.round(m);
+      const r = (p as Partial<Pnj>).revenuIndicatif;
+      return typeof r === "number" && Number.isFinite(r) && r >= 0 ? Math.round(r) : 0;
+    })(),
     budgetAchat:
       typeof (p as Partial<Pnj>).budgetAchat === "number" ? (p as Partial<Pnj>).budgetAchat! : 0,
     compte: typeof (p as Partial<Pnj>).compte === "number" ? (p as Partial<Pnj>).compte! : 0,

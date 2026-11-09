@@ -120,6 +120,12 @@ export interface Pnj {
   travailBatimentId?: string | null;
   /** Revenu indicatif quotidien en centimes — salaire contractuel des employés privés (modèle flux) et base du budget d'achat. */
   revenuIndicatif: number;
+  // v1.36 : moyenne lissée (sur ~7 jours) de la marge brute encaissée
+  // chaque jour par le patron, toutes boutiques cumulées (centimes/jour).
+  // C'est la base du niveau de vie d'un propriétaire de commerce — les
+  // autres figurines vivent sur leur revenuIndicatif. Amorcée sur le
+  // revenu indicatif déclaré, mise à jour chaque soir par le moteur.
+  margeLissee?: number;
   /** Budget d'achat quotidien en centimes (dépense dans les commerces). */
   budgetAchat: number;
   /** Compte courant en centimes. */

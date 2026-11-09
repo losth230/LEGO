@@ -58,6 +58,7 @@ import {
   patronDuCommerce,
   panierNecessite,
   budgetLoisirs,
+  lisserMarge,
   repartir,
   impotSur,
   posteDePolice,
@@ -80,6 +81,8 @@ export {
   boutiquesDuPatron,
   panierNecessite,
   budgetLoisirs,
+  lisserMarge,
+  JOURS_LISSAGE_MARGE,
   niveauDeVie,
   PART_PANIER_NECESSITE,
   COEFF_NIVEAU_VIE_MAX,
@@ -379,6 +382,9 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
   const entrees: JournalEntree[] = [];
   const taux = etat.params.tauxImpotBp;
   if (etat.recettesCommerce === undefined) etat.recettesCommerce = {};
+  // v1.36 : marge brute du jour par patron (toutes boutiques cumulées) —
+  // elle entraînera la marge lissée à la fin du flux du soir.
+  const gainsPatrons = new Map<string, number>();
   for (const bat of etat.batiments) {
     if (bat.type !== "commerce") continue;
     // v1.27 : un commerce en construction n'est pas ouvert — rien
@@ -449,6 +455,7 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
     // 3) Impôt à la source sur le gain du patron : la marge du jour (quand il
     //    n'y a pas d'employé, toute la recette encaissée est son gain).
     const gainPatron = Math.max(0, marge);
+    gainsPatrons.set(proprio.id, (gainsPatrons.get(proprio.id) ?? 0) + gainPatron);
     const impotPatron = Math.min(impotSur(gainPatron, taux), proprio.compte);
     if (impotPatron > 0) {
       proprio.compte -= impotPatron;
@@ -480,6 +487,15 @@ function etapeSalariesPrives(etat: Etat, totaux: Totaux): JournalEntree[] {
       texte += " Le percepteur retient " + fmt(impotCommerce) + " à la source.";
     }
     entrees.push({ jour: etat.jour, type: "flux", texte, montant: redistribute });
+  }
+  // v1.36 « le patron vit de sa marge » : chaque soir, la référence de
+  // niveau de vie de tout propriétaire de commerce glisse d'un septième
+  // vers sa marge brute du jour — gain nul (boutique fermée, en chantier
+  // ou sans client) : la référence décroît vers zéro. Les autres figurines
+  // ne touchent pas à leur niveau de vie (revenu indicatif).
+  for (const p of etat.pnjs) {
+    if ((p.commercesId?.length ?? 0) === 0) continue;
+    p.margeLissee = lisserMarge(p.margeLissee ?? p.revenuIndicatif, gainsPatrons.get(p.id) ?? 0);
   }
   return entrees;
 }
